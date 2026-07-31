@@ -1,0 +1,177 @@
+#  Copyright 2026 The sonhhxg0529 Authors. All Rights Reserved.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "septmuse"
+version = "0.1.0"
+description = "SeptMuse — agent 记忆系统 (三维正交架构: 内容类型 × 存储形态 × 横切关注点)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+  { name = "sonhhxg0529" },
+]
+keywords = ["agent", "memory", "llm", "mcp", "knowledge-graph", "fastapi", "sqlite"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Environment :: Console",
+  "Framework :: FastAPI",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+# 核心依赖: 零配置开箱即用 (pip install septmuse 即可跑, 零外部服务)
+dependencies = [
+  "fastapi>=0.110",
+  "sqlmodel>=0.0.16",
+  "structlog>=24.1",
+  "mcp>=1.0",
+  "anyio>=4.0",
+  "pydantic>=2.6",
+  "pydantic-settings>=2.2",
+  "pyyaml>=6.0",
+  "numpy>=1.26",
+  # 异步存储后端 (aiosqlite, AsyncMemory 使用)
+  "aiosqlite>=0.20",
+  # 默认向量后端 (sqlite-vec, 零外部服务)
+  "sqlite-vec>=0.1.0",
+  # 默认嵌入 (sentence-transformers, 零 API key)
+  "sentence-transformers>=3.0",
+]
+
+[project.optional-dependencies]
+# LLM providers
+openai = ["openai>=1.30"]
+anthropic = ["anthropic>=0.30"]
+ollama = ["ollama>=0.3"]
+dashscope = ["dashscope>=1.17"]
+# 云 LLM providers (litellm 统一代理 + 原生 SDK)
+litellm = ["litellm>=1.40"]
+groq = ["groq>=0.11"]
+gemini = ["google-generativeai>=0.7"]
+deepseek = ["openai>=1.30"]
+# LLM alias (默认 LLM provider, 借鉴 mem0 [llm] extra)
+llm = ["openai>=1.30"]
+# 生产后端
+postgres = ["psycopg[binary,pool]>=3.1", "psycopg2-binary>=2.9", "pgvector>=0.3"]
+graph = ["neo4j>=5.20"]
+# 可选存储后端 (extras, 按需安装)
+chroma = ["chromadb>=0.5.0"]
+qdrant = ["qdrant-client>=1.9.0"]
+neo4j = ["neo4j>=5.0.0"]
+bm25 = ["rank-bm25>=0.2.2"]
+all-backends = ["septmuse[chroma,qdrant,neo4j,bm25]"]
+# ONNX embedder (无 torch 依赖, 替代 sentence-transformers, ModelScope 下载)
+onnx = ["onnxruntime>=1.16", "tokenizers>=0.15", "modelscope>=1.10"]
+# 激活/参数化记忆 (自托管模型)
+activation = ["transformers>=4.40", "torch>=2.2"]
+# 参数化记忆 (LoRA adapter, 借鉴 HuggingFace PEFT)
+parametric = ["transformers>=4.40", "torch>=2.2", "peft>=0.11"]
+# Reranker (cross-encoder ONNX 推理)
+reranker = ["onnxruntime>=1.16"]
+# NER 实体抽取后端 (spacy, 替代默认 regex)
+ner = ["spacy>=3.7"]
+# HTTP server (CLI serve 命令需要)
+server = ["uvicorn>=0.29"]
+# 开发
+dev = [
+  "pytest>=8.0",
+  "pytest-asyncio>=0.23",
+  "pytest-cov>=5.0",
+  "ruff>=0.5",
+  "mypy>=1.10",
+  "httpx>=0.27",
+]
+all = ["septmuse[openai,anthropic,ollama,dashscope,postgres,graph,activation,parametric,server,dev,onnx]"]
+
+[project.scripts]
+septmuse = "septmuse.cli.main:main"
+
+[project.urls]
+Homepage = "https://github.com/sonhhxg0529/solarseptem-ai/tree/main/solarseptem-ai-platform/SeptMuse"
+Documentation = "https://github.com/sonhhxg0529/solarseptem-ai/tree/main/solarseptem-ai-platform/SeptMuse/docs"
+Repository = "https://github.com/sonhhxg0529/solarseptem-ai/tree/main/solarseptem-ai-platform/SeptMuse"
+"Bug Tracker" = "https://github.com/sonhhxg0529/solarseptem-ai/issues"
+Changelog = "https://github.com/sonhhxg0529/solarseptem-ai/tree/main/solarseptem-ai-platform/SeptMuse/blob/main/CHANGELOG.md"
+
+# ---------------------------------------------------------------------------
+# Hatchling 构建配置 (src/ layout)
+# ---------------------------------------------------------------------------
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/septmuse"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/septmuse", "docs", "examples", "README.md", "CHANGELOG.md", "CONTRIBUTING.md", "LICENSE", "pyproject.toml"]
+
+# ---------------------------------------------------------------------------
+# Ruff (lint + format, 对齐 mem0 规范: line-length 120)
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+src = ["src", "tests"]
+exclude = ["opensource", ".venv", "build", "dist"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B", "SIM", "RUF"]
+ignore = ["E501", "RUF001", "RUF002", "RUF003"]  # RUF001/002/003: 中文全角标点, 中文项目忽略
+
+[tool.ruff.lint.isort]
+known-first-party = ["septmuse"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+# ---------------------------------------------------------------------------
+# Pytest
+# ---------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --strict-config"
+asyncio_mode = "auto"
+markers = [
+  "unit: 单元测试",
+  "integration: 集成测试",
+  "e2e: 端到端测试",
+  "slow: 耗时测试",
+]
+
+# ---------------------------------------------------------------------------
+# Mypy
+# ---------------------------------------------------------------------------
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+files = ["src/septmuse"]
+exclude = ["opensource", "tests"]

@@ -1,0 +1,203 @@
+# Copyright 2026 The sonhhxg0529 Authors. All Rights Reserved.##  Licensed
+# under the Apache License, Version 2.0 (the "License");#  you may not use
+# this file except in compliance with the License.#  You may obtain a copy
+# of the License at##      http://www.apache.org/licenses/LICENSE-2.0##
+# Unless required by applicable law or agreed to in writing, software#
+# distributed under the License is distributed on an "AS IS" BASIS,#
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+# implied.#  See the License for the specific language governing
+# permissions and#  limitations under the License.
+"""septmuse ?????????:-
+``init``   : ????????- ``add``    : ????- ``search`` : ????- ``dump``
+: ????- ``serve``  : ?? HTTP/SSE MCP server- ``mcp``    : ?? stdio MCP
+server- ``version``: ???????:    septmuse init --user alice    septmuse
+add "??? Python" --user alice    septmuse search "????" --user alice
+septmuse dump --user alice    septmuse serve --port 8000
+--with-rest"""from __future__ import annotationsimport argparseimport
+jsonimport osimport sysfrom pathlib import Pathdef
+_resolve_db_path(db_path: str | None) -> str:    """?? SQLite ??: ?? >
+???? > ?? ~/.septmuse/septmuse.db?"""    if db_path:        return
+db_path    env = os.getenv("SEPTMUSE_DB_PATH")    if env:        return
+env    return str(Path.home() / ".septmuse" / "septmuse.db")def
+_make_memory(db_path: str | None):    """?? Memory ?? (?? HashEmbedder,
+?????)?"""    from septmuse import Memory, MemoryConfig    from
+septmuse.providers.embedders.hash import HashEmbedder    path =
+_resolve_db_path(db_path)    return
+Memory(config=MemoryConfig(db_path=path), embedder=HashEmbedder())def
+_build_parser() -> argparse.ArgumentParser:    """?? argparse ????"""
+parser = argparse.ArgumentParser(        prog="septmuse",
+description="SeptMuse ? agent ????",    )    sub =
+parser.add_subparsers(dest="cmd", required=True)
+sub.add_parser("init", help="????????")    p_init.add_argument("--user",
+default=os.getenv("SEPTMUSE_USER_ID", "default"), help="?? ID")
+p_init.add_argument("--db-path", default=None, help="SQLite ?? (??
+~/.septmuse/septmuse.db)")    p_init.set_defaults(func=_cmd_init)    #
+add (Task 3 ??)    p_add = sub.add_parser("add", help="????")
+p_add.add_argument("content", help="????")    p_add.add_argument(
+"--user", "--user-id", dest="user",
+default=os.getenv("SEPTMUSE_USER_ID", "default"), help="?? ID"    )
+p_add.add_argument(        "--type",        choices=["verbatim",
+"semantic", "episodic", "procedural"],        default="verbatim",
+help="????",    )    p_add.add_argument("--agent", default=None,
+help="agent ID")    p_add.add_argument("--session", default=None,
+help="?? ID (?? mem0 run_id)")    p_add.add_argument("--valid-at",
+default=None, help="????????? (ISO 8601)")
+p_add.add_argument("--db-path", default=None, help="SQLite ??")
+p_add.set_defaults(func=_cmd_add)
+p_inv = sub.add_parser("invalidate", help="??????????")
+p_inv.add_argument("memory_id", help="?? ID")
+p_inv.add_argument("--invalid-at", default=None, help="???? (ISO 8601)")
+p_inv.add_argument("--db-path", default=None, help="SQLite ??")
+p_inv.set_defaults(func=_cmd_invalidate)
+p_search = sub.add_parser("search", help="????")
+p_search.add_argument("query", help="????")    p_search.add_argument(
+"--user", "--user-id", dest="user",
+default=os.getenv("SEPTMUSE_USER_ID", "default"), help="?? ID"    )
+p_search.add_argument("--top-k", type=int, default=5, help="???")
+p_search.add_argument("--threshold", type=float, default=0.1,
+help="????")    p_search.add_argument("--reranker", default=None,
+help="reranker: noop/mmr/cross_encoder/llm")
+p_search.add_argument("--session", default=None, help="?? ID (?? mem0
+run_id, ?????)")    p_search.add_argument("--db-path", default=None,
+help="SQLite ??")    p_search.set_defaults(func=_cmd_search)
+(Task 5 ??)    p_dump = sub.add_parser("dump", help="????")
+p_dump.add_argument("--user", default=os.getenv("SEPTMUSE_USER_ID",
+"default"), help="?? ID")    p_dump.add_argument("--format",
+choices=["json", "markdown"], default="json", help="????")
+p_dump.add_argument("--output", default=None, help="?????? (?? stdout)")
+p_dump.add_argument("--db-path", default=None, help="SQLite ??")
+p_dump.set_defaults(func=_cmd_dump)
+sub.add_parser("update", help="????")
+p_update.add_argument("memory_id", help="?? ID")
+p_update.add_argument("content", help="???")
+p_update.add_argument("--user", default=os.getenv("SEPTMUSE_USER_ID",
+"default"), help="?? ID")    p_update.add_argument("--db-path",
+default=None, help="SQLite ??")
+p_update.set_defaults(func=_cmd_update)
+sub.add_parser("history", help="????????")
+p_history.add_argument("memory_id", help="?? ID")
+p_history.add_argument("--db-path", default=None, help="SQLite ??")
+p_history.set_defaults(func=_cmd_history)
+sub.add_parser("block", help="???? Block ??")    block_sub =
+p_block.add_subparsers(dest="block_cmd", required=True)    p_block_set =
+block_sub.add_parser("set", help="?? block value")
+p_block_set.add_argument("agent_id", help="agent ID")
+p_block_set.add_argument("label", help="block ??")
+p_block_set.add_argument("value", help="???")
+p_block_set.add_argument("--db-path", default=None, help="SQLite ??")
+p_block_set.set_defaults(func=_cmd_block_set)    p_block_list =
+block_sub.add_parser("list", help="?? block")
+p_block_list.add_argument("agent_id", help="agent ID")
+p_block_list.add_argument("--db-path", default=None, help="SQLite ??")
+p_block_list.set_defaults(func=_cmd_block_list)
+??)    p_entities = sub.add_parser("entities", help="????")
+p_entities.add_argument("query", help="????")
+p_entities.add_argument("--user-id", default="default", help="?? ID")
+p_entities.add_argument("--top-k", type=int, default=5, help="???")
+p_entities.add_argument("--db-path", default=None, help="SQLite ??")
+p_entities.set_defaults(func=_cmd_entities)
+p_entity_list = sub.add_parser("entity-list", help="????")
+p_entity_list.add_argument("--user-id", default="default", help="?? ID")
+p_entity_list.add_argument("--entity-type", default=None, help="??????")
+p_entity_list.add_argument("--limit", type=int, default=100, help="???")
+p_entity_list.add_argument("--db-path", default=None, help="SQLite ??")
+p_entity_list.set_defaults(func=_cmd_entity_list)
+p_serve = sub.add_parser("serve", help="?? HTTP/SSE MCP server")
+p_serve.add_argument("--host", default="127.0.0.1", help="????")
+p_serve.add_argument("--port", type=int, default=8000, help="??")
+p_serve.add_argument("--with-rest", action="store_true", help="???? REST
+API")    p_serve.add_argument("--db-path", default=None, help="SQLite
+??")    p_serve.set_defaults(func=_cmd_serve)    # mcp (??, ??)    p_mcp
+= sub.add_parser("mcp", help="?? stdio MCP server")
+p_mcp.set_defaults(func=_cmd_mcp)
+sub.add_parser("version", help="?????")
+p_ver.set_defaults(func=_cmd_version)    return parserdef
+_cmd_init(args: argparse.Namespace) -> int:    """?????????"""
+db_path = _resolve_db_path(args.db_path)    db = Path(db_path)
+db.parent.mkdir(parents=True, exist_ok=True)    m =
+_make_memory(args.db_path)    m.add(f"septmuse initialized for user
+{args.user}", user_id=args.user)    print(f"initialized: {db}")
+return 0def _cmd_add(args: argparse.Namespace) -> int:    """????
+(verbatim/semantic/episodic/procedural)?"""    m =
+_make_memory(args.db_path)    if args.type == "verbatim":        result
+= m.add(            args.content,            user_id=args.user,
+agent_id=args.agent,            session_id=args.session,
+infer=False,            valid_at=args.valid_at,        )        mid =
+result["results"][0]["id"] if result.get("results") else None
+print(json.dumps({"memory_id": mid, "type": "verbatim"},
+ensure_ascii=False))    elif args.type == "semantic":        parts =
+args.content.split(None, 2)        subject = parts[0] if len(parts) > 0
+else args.content        predicate = parts[1] if len(parts) > 1 else
+"is"        obj = parts[2] if len(parts) > 2 else ""        result =
+m.add_fact(subject, predicate, obj, user_id=args.user)
+print(json.dumps({"id": result["id"], "type": "semantic"},
+ensure_ascii=False))    elif args.type == "episodic":        result =
+m.add_episode(args.content, user_id=args.user)
+print(json.dumps({"id": result["id"], "type": "episodic"},
+ensure_ascii=False))    elif args.type == "procedural":        result =
+m.add_rule(args.content, user_id=args.user)
+print(json.dumps({"id": result["id"], "type": "procedural"},
+ensure_ascii=False))    return 0def _cmd_invalidate(args:
+argparse.Namespace) -> int:    """?????????? (?? invalid_at +
+expired_at, ?????)?"""    m = _make_memory(args.db_path)    result =
+m.invalidate(args.memory_id, invalid_at=args.invalid_at)
+print(json.dumps(result, ensure_ascii=False))    return 0def
+_cmd_search(args: argparse.Namespace) -> int:    """????, JSON ?????"""
+m = _make_memory(args.db_path)    results = m.search(        args.query,
+user_id=args.user,        session_id=args.session,
+top_k=args.top_k,        threshold=args.threshold,
+reranker=args.reranker,    )    print(json.dumps(results,
+ensure_ascii=False, indent=2))    return 0def _cmd_dump(args:
+argparse.Namespace) -> int:    """???? (json/markdown, stdout ???)?"""
+m = _make_memory(args.db_path)    data = m.get_all(user_id=args.user)
+if args.format == "markdown":        lines: list[str] = []        for
+item in data.get("results", []):            mid = item.get("id", "?")
+memory = item.get("memory", item.get("rule", item.get("content",
+str(item))))            lines.append(f"- **{mid}**: {memory}")
+output = "\n".join(lines) if lines else "(???)"    else:        output =
+json.dumps(data, ensure_ascii=False, indent=2)    if args.output:
+Path(args.output).write_text(output, encoding="utf-8")    else:
+print(output)    return 0def _cmd_update(args: argparse.Namespace) ->
+int:    """?????"""    m = _make_memory(args.db_path)    result =
+m.update(args.memory_id, args.content)    print(json.dumps(result,
+ensure_ascii=False))    return 0def _cmd_history(args:
+argparse.Namespace) -> int:    """?????????"""    m =
+_make_memory(args.db_path)    history = m.get_history(args.memory_id)
+print(json.dumps(history, ensure_ascii=False, default=str, indent=2))
+return 0def _cmd_block_set(args: argparse.Namespace) -> int:    """??
+block value?"""    m = _make_memory(args.db_path)    result =
+m.update_block(args.agent_id, args.label, args.value)
+print(json.dumps(result, ensure_ascii=False))    return 0def
+_cmd_block_list(args: argparse.Namespace) -> int:    """?? block?"""
+m = _make_memory(args.db_path)    blocks = m.get_blocks(args.agent_id)
+print(json.dumps(blocks, ensure_ascii=False, indent=2, default=str))
+return 0def _cmd_entities(args: argparse.Namespace) -> int:    """????
+(Task 8)?"""    m = _make_memory(args.db_path)    results =
+m.search_entities(args.query, user_id=args.user_id, top_k=args.top_k)
+for r in results:        print(f"  {r['entity_text']}
+({r['entity_type']}) -> {r['linked_memory_ids']}")    return 0def
+_cmd_entity_list(args: argparse.Namespace) -> int:    """???? (Task
+8)?"""    m = _make_memory(args.db_path)    results =
+m.list_entities(user_id=args.user_id, entity_type=args.entity_type,
+limit=args.limit)    for r in results:        print(f"
+{r['entity_text']} ({r['entity_type']}) -> {r['linked_memory_ids']}")
+return 0def _cmd_serve(args: argparse.Namespace) -> int:    """??
+HTTP/SSE MCP server (uvicorn + FastAPI)?"""    try:        import
+uvicorn    except ImportError:        print(            "septmuse serve:
+uvicorn ???????: pip install uvicorn",            file=sys.stderr,
+)        return 1    from fastapi import FastAPI    from
+septmuse.api.mcp.server import setup_mcp_server    app =
+FastAPI(title="SeptMuse MCP Server")    setup_mcp_server(app)    if
+args.with_rest:        from septmuse.api.rest import register_routes
+m = _make_memory(args.db_path)        register_routes(app, m)
+print(f"septmuse serve: http://{args.host}:{args.port}")
+uvicorn.run(app, host=args.host, port=args.port)    return 0def
+_cmd_mcp(args: argparse.Namespace) -> int:    """?? stdio MCP server?"""
+try:        from septmuse.api.mcp.server import run_stdio    except
+ImportError:        print("septmuse mcp: MCP server ?????",
+file=sys.stderr)        return 1    run_stdio()    return 0def
+_cmd_version(args: argparse.Namespace) -> int:    """??????"""    from
+septmuse import __version__    print(__version__)    return 0def main()
+-> int:    """septmuse CLI ????"""    parser = _build_parser()    args =
+parser.parse_args()    return args.func(args)if __name__ == "__main__":
+sys.exit(main())

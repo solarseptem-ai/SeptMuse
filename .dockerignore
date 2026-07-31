@@ -1,0 +1,37 @@
+# 构建产物
+dist/
+build/
+*.egg-info/
+__pycache__/
+*.pyc
+
+# 参考库源码 (不打包进镜像, 节省 ~500MB)
+opensource/
+
+# 开发环境
+.venv/
+venv/
+.idea/
+.vscode/
+.pytest_cache/
+.ruff_cache/
+
+# Git
+.git/
+.gitignore
+
+# 测试 (生产镜像不需要)
+tests/
+.pytest_cache/
+
+# 文档与脚本 (可选保留, 但镜像最小化时排除)
+docs/specs/
+docs/plans/
+scripts/
+alembic/
+
+# 临时文件
+*.log
+*.tmp
+.env
+.env.*

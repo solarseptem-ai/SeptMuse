@@ -1,0 +1,60 @@
+# SeptMuse Docker Compose — 一键启动记忆系统
+# 用法 (从项目根目录执行):
+#   docker compose -f docker/docker-compose.yml up                    # 默认: SQLite + HashEmbedder
+#   docker compose -f docker/docker-compose.yml --profile prod up     # 生产: + PostgreSQL/pgvector
+#   SEPTMUSE_API_KEY=sk-xxx docker compose -f docker/docker-compose.yml up  # 启用认证
+#
+# 接入:
+#   REST:  http://localhost:8000/docs
+#   MCP:   http://localhost:8000/mcp/http/cursor/alice
+#   SSE:   http://localhost:8000/mcp/sse/cursor/alice
+
+services:
+  septmuse:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: septmuse:latest
+    container_name: septmuse
+    ports:
+      - "8000:8000"
+    volumes:
+      - septmuse-data:/data
+    environment:
+      - SEPTMUSE_DB_PATH=/data/septmuse.db
+      - SEPTMUSE_EMBEDDER=hash
+      - SEPTMUSE_INFER=false
+      # 启用 API key 认证 (取消注释或从 .env 读):
+      # - SEPTMUSE_API_KEY=${SEPTMUSE_API_KEY:-}
+      # 启用 sentence-transformers 本地嵌入 (需联网下载模型, 镜像变大):
+      # - SEPTMUSE_EMBEDDER=st
+      # 启用 LLM 抽取 (需注入 LLM provider + API key):
+      # - SEPTMUSE_LLM=openai
+      # - SEPTMUSE_INFER=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  # 生产 profile: PostgreSQL + pgvector
+  # docker compose --profile prod up
+  postgres:
+    profiles: ["prod"]
+    image: pgvector/pgvector:pg16
+    container_name: septmuse-postgres
+    environment:
+      - POSTGRES_DB=septmuse
+      - POSTGRES_USER=septmuse
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-septmuse_dev}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  septmuse-data:
+  postgres-data:

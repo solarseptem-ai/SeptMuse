@@ -1,0 +1,37 @@
+{
+  "providers": {
+    "deepseek": {
+      "baseUrl": "https://www.finna.com.cn/",
+      "api": "openai-completions",
+      "apiKey": "$DEEPSEEK_API_KEY",
+      "models": [
+        {
+          "id": "deepseek-v4-pro",
+          "name": "DeepSeek V4 Pro",
+          "contextWindow": 1000000,
+          "maxTokens": 384000,
+          "input": ["text"],
+          "reasoning": true,
+          "thinkingLevelMap": { "minimal": null, "low": null, "medium": null, "high": "high", "xhigh": "max" },
+          "cost": {
+            "input": 1.74,
+            "output": 3.48,
+            "cacheRead": 0.145,
+            "cacheWrite": 0
+          },
+          "compat": {
+            "requiresReasoningContentOnAssistantMessages": true,
+            "thinkingFormat": "deepseek",
+            "reasoningEffortMap": {
+              "minimal": "high",
+              "low": "high",
+              "medium": "high",
+              "high": "high",
+              "xhigh": "max"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

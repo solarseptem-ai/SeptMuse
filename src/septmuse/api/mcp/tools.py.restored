@@ -1,0 +1,214 @@
+# Copyright 2026 The sonhhxg0529 Authors. All Rights Reserved.##  Licensed
+under the Apache License, Version 2.0 (the "License");#  you may not use
+this file except in compliance with the License.#  You may obtain a copy
+of the License at##      http://www.apache.org/licenses/LICENSE-2.0##
+# Unless required by applicable law or agreed to in writing, software#
+# distributed under the License is distributed on an "AS IS" BASIS,#
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+implied.#  See the License for the specific language governing
+permissions and#  limitations under the License."""MCP ??? ? @mcp.tool
+?? 9 ?????????? mem0 mcp_server.py ? @mcp.tool ??:- ?? 5 ?? (?? mem0):
+# add_memories / search_memory / list_memories / delete_memories /
+delete_all_memories- SeptMuse ?? 4 ?? (???? ?13.4, ??1 ? stub, ??????):
+# remember_episode / causal_query / rehearse / coverage_reportuser_id ??:
+??????, ???? contextvar (?? stdio/http)?: ?? `from __future__ import
+# annotations`, ? FastMCP func_metadata ??????? pydantic create_model,
+????????? PydanticUserError (non-annotated)????? mem0 mcp_server.py ????
+future annotations?"""import jsonfrom septmuse.api.mcp.context import
+user_id_varfrom septmuse.api.mcp.server import get_memory_safe, mcpfrom
+septmuse.observability import get_loggerlogger = get_logger(__name__)def
+_resolve_user_id(explicit: str):    """?? user_id: ??????, ??
+contextvar?"""    return explicit or user_id_var.get()#
+---------------------------------------------------------------------------#
+?? 5 ?? (?? mem0 mcp_server.py)#
+---------------------------------------------------------------------------@mcp.tool(description="?????????????/??????infer=False
+?????? (??), infer=True ? LLM ?????")async def add_memories(    content:
+str,    user_id: str = "",    session_id: str | None = None,    infer:
+bool = False,    valid_at: str | None = None,):    """???? (?? mem0
+add_memories, ??? content ? core_memory_append ??)?    session_id: ?? ID
+(?? mem0 run_id, ?????????)?    """    uid = _resolve_user_id(user_id)
+if not uid:        return "Error: user_id not provided (? user_id ????
+SEPTMUSE_USER_ID ????)"    mem = get_memory_safe()    if not mem:
+return "Error: Memory system is currently unavailable. Please try again
+later."    try:        response = mem.add(content, user_id=uid,
+session_id=session_id, metadata={"source": "mcp"}, valid_at=valid_at)
+return json.dumps(response, ensure_ascii=False, indent=2)    except
+Exception as e:        logger.exception("mcp_add_error")        return
+f"Error adding to memory: {e}"@mcp.tool(description="??????????????,
+???????")async def search_memory(    query: str,    user_id: str = "",
+session_id: str | None = None,    top_k: int = 5,    app_id: str = "",
+reranker: str | None = None,):    """???? (?? mem0 search_memory)?
+session_id: ?? ID (?? mem0 run_id, ????????)?    """    uid =
+_resolve_user_id(user_id)    if not uid:        return "Error: user_id
+not provided"    mem = get_memory_safe()    if not mem:        return
+"Error: Memory system is currently unavailable."    try:        results
+= mem.search(query, user_id=uid, session_id=session_id, top_k=top_k,
+reranker=reranker)        # P2: ?????? (?? mem0 MemoryAccessLog)
+from septmuse.concerns.governance.access_log import record_access
+for r in results:            record_access(                mem.store,
+r["id"],                app_id or None,                "search",
+metadata={"query": query, "score": r.get("score")},            )
+return json.dumps({"results": results}, ensure_ascii=False, indent=2)
+except Exception as e:        logger.exception("mcp_search_error")
+return f"Error searching memory:
+{e}"@mcp.tool(description="?????????")async def list_memories(user_id:
+str = ""):    """?????? (?? mem0 list_memories)?"""    uid =
+_resolve_user_id(user_id)    if not uid:        return "Error: user_id
+not provided"    mem = get_memory_safe()    if not mem:        return
+"Error: Memory system is currently unavailable."    try:        return
+json.dumps(mem.get_all(user_id=uid), ensure_ascii=False, indent=2)
+except Exception as e:        logger.exception("mcp_list_error")
+return f"Error getting memories: {e}"@mcp.tool(description="? ID ??????
+(???)?")async def delete_memories(memory_ids: list[str], user_id: str =
+""):    """? ID ?? (?? mem0 delete_memories)?"""    uid =
+_resolve_user_id(user_id)    if not uid:        return "Error: user_id
+not provided"    mem = get_memory_safe()    if not mem:        return
+"Error: Memory system is currently unavailable."    deleted = 0    for
+mid in memory_ids:        try:            mem.delete(mid)
+deleted += 1        except Exception as e:
+logger.warning("mcp_delete_failed", memory_id=mid, error=str(e))
+return f"Successfully deleted {deleted}/{len(memory_ids)}
+memories"@mcp.tool(description="?????????")async def
+delete_all_memories(user_id: str = ""):    """???? (?? mem0
+delete_all_memories)?"""    uid = _resolve_user_id(user_id)    if not
+uid:        return "Error: user_id not provided"    mem =
+get_memory_safe()    if not mem:        return "Error: Memory system is
+currently unavailable."    try:        allm = mem.get_all(user_id=uid)
+count = 0        for item in allm.get("results", []):
+mem.delete(item["id"])            count += 1        return
+f"Successfully deleted all {count} memories"    except Exception as e:
+logger.exception("mcp_delete_all_error")        return f"Error deleting
+all memories: {e}"#
+---------------------------------------------------------------------------#
+SeptMuse ?? 4 ?? (???? ?13.4, ??1 stub, ??????)#
+---------------------------------------------------------------------------@mcp.tool(description="???????????
+(??/??/??/??)??? LangMem Episode?")async def
+remember_episode(observation: str, thoughts: str, action: str, outcome:
+str, user_id: str = ""):    """?????? (???? ?3.2.1)?    ?: ???? outcome
+?? result, ? FastMCP ??????? pydantic model ?    `result` ??, ??? result
+????? (pydantic PydanticUserError)?    """    uid =
+_resolve_user_id(user_id)    if not uid:        return "Error: user_id
+not provided"    mem = get_memory_safe()    if not mem:        return
+"Error: Memory system is currently unavailable."    try:        result =
+mem.add_episode(            f"obs: {observation}; act: {action}; result:
+{outcome}",            user_id=uid,            event_type="reasoning",
+observation=observation,            thoughts=thoughts,
+action=action,            result=outcome,        )        return
+json.dumps(result, ensure_ascii=False, default=str)    except Exception
+as e:        return f"Error recording episode:
+{e}"@mcp.tool(description="???????: ???????,??????? (???? ?6.1)")async
+def causal_query(cause_event_id: str, hypothesized_effect: str, user_id:
+str = ""):    """???? (???? ?6.1)?"""    uid = _resolve_user_id(user_id)
+if not uid:        return "Error: user_id not provided"    mem =
+get_memory_safe()    if not mem:        return "Error: Memory system is
+currently unavailable."    try:        result =
+mem.counterfactual(cause_event_id, hypothesized_effect, user_id=uid)
+return json.dumps(result, ensure_ascii=False, default=str)    except
+Exception as e:        return f"Error in causal query:
+{e}"@mcp.tool(description="???????????????? (???? ?6.2)")async def
+rehearse(user_id: str = "", memory_id: str = ""):    """???? (????
+?6.2)?memory_id ??????????"""    uid = _resolve_user_id(user_id)    if
+not uid:        return "Error: user_id not provided"    mem =
+get_memory_safe()    if not mem:        return "Error: Memory system is
+currently unavailable."    try:        if memory_id:            result =
+mem.rehearse(memory_id, user_id=uid)            return
+json.dumps(result, ensure_ascii=False, default=str)        candidates =
+mem.find_rehearse_candidates(user_id=uid)        count = 0        for c
+in candidates:            mem.rehearse(c["memory_id"], user_id=uid)
+count += 1        return json.dumps({"rehearsed": count, "candidates":
+len(candidates)}, ensure_ascii=False, default=str)    except Exception
+as e:        return f"Error in rehearse:
+{e}"@mcp.tool(description="?????????: agent ?????/????? (????
+?6.3)")async def coverage_report(user_id: str = ""):    """???? (????
+?6.3)?"""    uid = _resolve_user_id(user_id)    if not uid:
+return "Error: user_id not provided"    mem = get_memory_safe()    if
+not mem:        return "Error: Memory system is currently unavailable."
+try:        result = mem.coverage_report(user_id=uid)        return
+json.dumps(result, ensure_ascii=False, default=str)    except Exception
+as e:        return f"Error generating coverage report: {e}"#
+---------------------------------------------------------------------------#
+SeptMuse ?? 6 ?? (update + block + history, ?? mem0 plugin 9 ??)#
+---------------------------------------------------------------------------@mcp.tool(description="??????????
+metadata?")async def update_memory(memory_id: str, content: str = "",
+user_id: str = "", metadata: str = ""):    """???? (?? mem0
+update_memory)?metadata ? JSON ??????"""    uid =
+_resolve_user_id(user_id)    if not uid:        return "Error: user_id
+not provided"    mem = get_memory_safe()    if not mem:        return
+"Error: Memory system is currently unavailable."    try:        meta =
+json.loads(metadata) if metadata else None        result =
+mem.update(memory_id, content or None, user_id=uid, metadata=meta)
+return json.dumps(result, ensure_ascii=False, default=str)    except
+Exception as e:        return f"Error updating memory:
+{e}"@mcp.tool(description="?????? Block ?? (?? Letta
+update_block_value)?")async def update_block(agent_id: str, label: str,
+value: str, user_id: str = ""):    """?? block value?"""    mem =
+get_memory_safe()    if not mem:        return "Error: Memory system is
+currently unavailable."    try:        result =
+mem.update_block(agent_id, label, value)        return
+json.dumps(result, ensure_ascii=False, default=str)    except Exception
+as e:        return f"Error updating block:
+{e}"@mcp.tool(description="????????? Block (?? Letta
+core_memory_append)?")async def core_memory_append(agent_id: str, label:
+str, content: str, user_id: str = ""):    """?? block ???"""    mem =
+get_memory_safe()    if not mem:        return "Error: Memory system is
+currently unavailable."    try:        result =
+mem.core_memory_append(agent_id, label, content)        return
+json.dumps(result, ensure_ascii=False, default=str)    except Exception
+as e:        return f"Error appending to block:
+{e}"@mcp.tool(description="?????? Block ?????? (?? Letta
+core_memory_replace)?")async def core_memory_replace(agent_id: str,
+label: str, old_content: str, new_content: str, user_id: str = ""):
+"""?? block ?????"""    mem = get_memory_safe()    if not mem:
+return "Error: Memory system is currently unavailable."    try:
+result = mem.core_memory_replace(agent_id, label, old_content,
+new_content)        return json.dumps(result, ensure_ascii=False,
+default=str)    except Exception as e:        return f"Error replacing
+block content: {e}"@mcp.tool(description="?? agent ????? Block
+???")async def get_blocks(agent_id: str, user_id: str = ""):    """??
+block?"""    mem = get_memory_safe()    if not mem:        return
+"Error: Memory system is currently unavailable."    try:        blocks =
+mem.get_blocks(agent_id)        return json.dumps(blocks,
+ensure_ascii=False, default=str)    except Exception as e:        return
+f"Error getting blocks: {e}"@mcp.tool(description="?????????
+(ADD/UPDATE/DELETE ??)?")async def get_memory_history(memory_id: str,
+user_id: str = ""):    """???????"""    mem = get_memory_safe()    if
+not mem:        return "Error: Memory system is currently unavailable."
+try:        history = mem.get_history(memory_id)        return
+json.dumps(history, ensure_ascii=False, default=str)    except Exception
+as e:        return f"Error getting history: {e}"#
+---------------------------------------------------------------------------#
+SeptMuse ?? 2 ?? (entity search/list, Task 8)#
+---------------------------------------------------------------------------@mcp.tool(description="????,
+?????? + ?? + linked_memory_ids?")async def search_entities(query: str,
+user_id: str = "", top_k: int = 5):    """???? (Task 8)?    Returns:
+# JSON ???:
+[{"id","entity_text","entity_type","linked_memory_ids","score"}]    """
+uid = _resolve_user_id(user_id)    if not uid:        return "Error:
+user_id not provided"    mem = get_memory_safe()    if not mem:
+return "Error: Memory system is currently unavailable."    try:
+results = mem.search_entities(query, user_id=uid, top_k=top_k)
+return json.dumps(results, ensure_ascii=False, default=str)    except
+Exception as e:        return f"Error searching entities:
+{e}"@mcp.tool(description="???????? (?? entity_type ??)?")async def
+list_entities(user_id: str = "", entity_type: str = "", limit: int =
+100):    """???? (Task 8)?    Returns:        JSON ???:
+[{"id","entity_text","entity_type","linked_memory_ids","created_at"}]
+"""    uid = _resolve_user_id(user_id)    if not uid:        return
+"Error: user_id not provided"    mem = get_memory_safe()    if not mem:
+return "Error: Memory system is currently unavailable."    try:
+et = entity_type or None        results = mem.list_entities(user_id=uid,
+entity_type=et, limit=limit)        return json.dumps(results,
+ensure_ascii=False, default=str)    except Exception as e:        return
+f"Error listing entities: {e}"#
+---------------------------------------------------------------------------#
+SeptMuse ?? 1 ?? (bitemporal invalidate, Task 3)#
+---------------------------------------------------------------------------@mcp.tool(description="??????????
+(?? invalid_at + expired_at, ?????)?")async def
+invalidate_memory(memory_id: str, invalid_at: str | None = None):
+"""?????? (?? graphiti resolve_edge_contradictions bitemporal)?"""
+mem = get_memory_safe()    if not mem:        return "Error: Memory
+system is currently unavailable."    try:        result =
+mem.invalidate(memory_id, invalid_at=invalid_at)        return
+json.dumps(result, ensure_ascii=False, default=str)    except Exception
+as e:        return f"Error invalidating memory:
+{e}"logger.info("mcp_tools_registered", count=18)

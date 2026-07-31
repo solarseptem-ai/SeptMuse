@@ -1,0 +1,40 @@
+# 参考源码（他人版权）
+opensource/
+
+# 构建产物
+dist/
+*.egg-info/
+*.egg
+__pycache__/
+*.pyc
+*.pyo
+
+# 缓存
+.pytest_cache/
+.ruff_cache/
+.codegraph/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 内部工具
+.sdd/
+run_opencode.bat
+test_smoke.bm25.db
+
+# 系统文件
+Thumbs.db
+.DS_Store
+
+# Ruff format 恢复文件
+*.restored
+*.restored2
+*.restored3
+
+# 虚拟环境
+venv/
+.venv/
+env/
