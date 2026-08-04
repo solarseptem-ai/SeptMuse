@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Ollama LLM provider (借鉴 mem0 llms/ollama.py 模式)。
+"""Ollama LLM provider。
 
 对齐 septmuse.llms.base.LLM ABC,
 调用 Ollama Chat API。
@@ -35,7 +35,7 @@ logger = get_logger(__name__)
 
 
 class OllamaLLM(LLM):
-    """Ollama Chat provider (借鉴 mem0 llms/ollama.py)。
+    """Ollama Chat provider。
 
     零配置: 默认 http://localhost:11434, 无需 API key。
     自定义: OllamaLLM(model="qwen2.5:7b", host="http://gpu-server:11434")。

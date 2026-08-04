@@ -1,0 +1,26 @@
+# SeptMuse Docker Compose — 本地开发覆盖文件
+# 用法: docker compose -f docker/docker-compose.yml -f docker/docker-compose.override.yml up
+#
+# 自动加载 (docker compose 默认会合并 docker-compose.override.yml), 无需显式指定 -f
+#
+# 覆盖内容:
+#   - 挂载源码目录 (代码修改容器内即时生效)
+#   - 放宽资源限制
+#   - 绑定调试端口
+
+services:
+  septmuse:
+    volumes:
+      # 挂载源码实现热重载 (覆盖镜像内 /app/src)
+      - ../src:/app/src:ro
+      # 挂载 septmuse.yaml 本地配置
+      - ./septmuse.yaml:/app/septmuse.yaml:ro
+    environment:
+      - SEPTMUSE_LOG_LEVEL=DEBUG
+    ports:
+      - "5678:5678"  # debugpy 调试端口
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G

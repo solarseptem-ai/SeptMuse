@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""重排器配置基类 (借鉴 mem0 configs/rerankers/base.py BaseRerankerConfig)。"""
+"""重排器配置基类。"""
 
 from __future__ import annotations
 

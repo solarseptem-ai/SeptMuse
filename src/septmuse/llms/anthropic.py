@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Anthropic LLM provider (借鉴 MemOS AnthropicLlmProvider 模式)。
+"""Anthropic LLM provider。
 
 对齐 septmuse.llms.base.LLM ABC,
 调用 Anthropic Messages API。
@@ -35,7 +35,7 @@ logger = get_logger(__name__)
 
 
 class AnthropicLLM(LLM):
-    """Anthropic Messages provider (借鉴 MemOS AnthropicLlmProvider)。
+    """Anthropic Messages provider。
 
     零配置: 从 ANTHROPIC_API_KEY 环境变量读取。
     自定义: AnthropicLLM(api_key="sk-ant-...", model="claude-3-5-haiku-latest")。

@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Memory facade — SeptMuse 零配置入口 (借鉴 mem0 Memory)。
+"""Memory facade — SeptMuse 零配置入口。
 
 pip install septmuse 后:
 
@@ -20,13 +20,13 @@ pip install septmuse 后:
     m.add("我喜欢 Python", user_id="alice")
     m.search("alice 喜欢什么", user_id="alice")
 
-核心 API (8 方法, 对齐 mem0):
+核心 API (8 方法):
 
     add / search / get / get_all / update / delete / delete_all / history
 
 差异化 (保留):
-    invalidate — 双时态失效 (mem0 只有 expiration_date)
-    cognify    — 知识图谱构建 (mem0 无)
+    invalidate — 双时态失效
+    cognify    — 知识图谱构建
     get_active_rules / rules_to_prompt / record_rule_outcome — 规则系统
 
 实验性功能 (working memory / causal / rehearsal / metacognition /
@@ -47,10 +47,9 @@ from septmuse.models.extract import FactExtractor
 from septmuse.models.fact import SemanticMemory
 from septmuse.models.procedural import ProceduralMemory
 from septmuse.storage.base import MemoryStore
-from septmuse.storage.graph.base import GraphStore
-from septmuse.storage.graph.sqlite import SQLiteGraphStore
-from septmuse.storage.sqlite.store import SQLiteMemoryStore
-from septmuse.storage.typed_store import TypedMemoryStore
+from septmuse.storage.graph_stores.base import GraphStore
+from septmuse.storage.graph_stores.sqlite import SQLiteGraphStore
+from septmuse.storage.relational_stores.typed_store import TypedMemoryStore
 
 logger = get_logger(__name__)
 
@@ -74,7 +73,7 @@ def _resolve_embedder(config: MemoryConfig) -> Embedder:
 
 
 def _normalize_messages(messages: Any) -> list[str]:
-    """归一化 messages 为 text 列表 (对齐 mem0 add 接受 str 或 List[Dict])。"""
+    """归一化 messages 为 text 列表 (接受 str 或 List[Dict])。"""
     if isinstance(messages, str):
         return [messages]
     texts: list[str] = []
@@ -89,7 +88,7 @@ def _normalize_messages(messages: Any) -> list[str]:
 
 
 class Memory:
-    """SeptMuse 记忆系统零配置 facade (借鉴 mem0 Memory)。
+    """SeptMuse 记忆系统零配置 facade。
 
     零配置: Memory() 用 SQLite + HashEmbedder。
     升级: Memory(config=MemoryConfig(db_path="...")) 自定义。
@@ -118,16 +117,31 @@ class Memory:
         )
 
         self.embedder: Embedder = embedder or _resolve_embedder(self.config)
-        self.store = store or SQLiteMemoryStore(db_path=self.config.db_path)
+        self.store = store or self._resolve_store()
+
+        # duck typing: ORMMemoryStore 有 engine 属性
+        store_engine = getattr(self.store, "engine", None)
 
         if graph_store is not None:
             self.graph_store: GraphStore | None = graph_store
-        elif isinstance(self.store, SQLiteMemoryStore):
-            self.graph_store = SQLiteGraphStore(self.store.conn, self.store._lock)
+        elif store_engine is not None:
+            # ORMMemoryStore 路径: SQLite dialect 从 engine 取 raw connection
+            if store_engine.dialect.name == "sqlite":
+                import threading
+
+                raw_conn = store_engine.raw_connection()
+                self.graph_store = SQLiteGraphStore(raw_conn, threading.Lock())
+            else:
+                # MySQL/PG 暂不支持原生 GraphStore (AGE/Neo4j 后续)
+                self.graph_store = graph_store
         else:
             self.graph_store = graph_store
 
-        self.typed_store = TypedMemoryStore(db_path=self.config.db_path)
+        # typed_store 共享 engine
+        if store_engine is not None:
+            self.typed_store = TypedMemoryStore(engine=store_engine)
+        else:
+            self.typed_store = TypedMemoryStore(db_path=self.config.db_path)
         self.semantic = SemanticMemory(self.typed_store, self.embedder)
         self.episodic = EpisodicMemory(self.typed_store)
         self.procedural = ProceduralMemory(self.typed_store)
@@ -149,23 +163,26 @@ class Memory:
         from septmuse.extraction.entity import _resolve_entity_extractor
 
         self.entity_extractor = entity_extractor or _resolve_entity_extractor(self.config)
-        self.entity_store = None
-        if isinstance(self.store, SQLiteMemoryStore):
-            from septmuse.storage.entity_store import EntityStore
 
-            self.entity_store = EntityStore(self.store.conn, self.store._lock, self.embedder)
+        # entity_store (ORMMemoryStore 路径)
+        self.entity_store = None
+        if store_engine is not None:
+            from septmuse.storage.relational_stores.entity_store import EntityStore
+
+            self.entity_store = EntityStore.from_engine(store_engine, self.embedder)
 
         try:
-            from septmuse.retrieval.reranker import _resolve_reranker
+            from septmuse.rerankers import create_reranker
+            from septmuse.rerankers.noop import NoopReranker
 
-            self._reranker = _resolve_reranker(
+            self._reranker = create_reranker(
                 self.config.reranker_backend,
                 embedder=self.embedder,
                 llm=self.llm,
             )
         except Exception as e:
             logger.warning("reranker_resolve_failed", error=str(e))
-            from septmuse.retrieval.reranker import NoopReranker
+            from septmuse.rerankers.noop import NoopReranker
 
             self._reranker = NoopReranker()
 
@@ -173,8 +190,14 @@ class Memory:
 
         self._dedup_window = DedupWindow()
 
+    def _resolve_store(self) -> MemoryStore:
+        """解析 store: 统一走 ORMMemoryStore (DatabaseService 自动回退 SQLite 零配置)。"""
+        from septmuse.storage.relational_stores.factory import RelationalStoreFactory
+
+        return RelationalStoreFactory.create(self.config)
+
     # ------------------------------------------------------------------
-    # 核心 API (对齐 mem0)
+    # 核心 API
     # ------------------------------------------------------------------
 
     def add(
@@ -197,13 +220,13 @@ class Memory:
         namespace: str = "default",
         rule: str | None = None,
     ) -> dict[str, Any]:
-        """添加记忆 (对齐 mem0 add, 统一 typed memory 入口)。
+        """添加记忆 (统一 typed memory 入口)。
 
         Args:
             messages: str 或 List[{"role","content"}]
             user_id: 用户 ID (必填, 跨 agent 共享键)
             agent_id: agent ID (可选)
-            session_id: 会话 ID (对齐 mem0 run_id; None=不限制)
+            session_id: 会话 ID (None=不限制)
             metadata: 元数据
             infer: True=LLM 抽取事实; False=原文存; None=用 config.infer
             memory_type: None=verbatim 记忆; "fact"/"episode"/"rule"=类型化记忆
@@ -275,19 +298,28 @@ class Memory:
 
         embeddings = self.embedder.embed_batch(texts)
 
+        # 批量插入 (对齐 mem0 V3 Phase 6, 单次 commit)
+        records = list(zip(texts, embeddings, strict=True))
+        ids = self.store.add_batch(
+            records,
+            user_id=user_id,
+            agent_id=agent_id,
+            session_id=session_id,
+            metadata=metadata,
+            valid_at=valid_at,
+        )
+
+        # 批量实体链接 (对齐 mem0 V3 Phase 7, 全局去重)
+        valid_pairs: list[tuple[str, str]] = [
+            (text, mid) for text, mid in zip(texts, ids, strict=True) if mid is not None
+        ]
+        if auto_extract_entities and self.entity_store is not None and self.entity_extractor is not None:
+            self._batch_extract_and_store_entities(valid_pairs, user_id=user_id, agent_id=agent_id)
+
         results: list[dict[str, Any]] = []
-        for text, emb in zip(texts, embeddings, strict=True):
-            mid = self.store.add(
-                text,
-                emb,
-                user_id=user_id,
-                agent_id=agent_id,
-                session_id=session_id,
-                metadata=metadata,
-                valid_at=valid_at,
-            )
-            if auto_extract_entities and self.entity_store is not None and self.entity_extractor is not None:
-                self._extract_and_store_entities(text, mid, user_id=user_id, agent_id=agent_id)
+        for text, mid in zip(texts, ids, strict=True):
+            if mid is None:
+                continue  # 批次内 hash 去重跳过
             results.append({"id": mid, "memory": text, "event": "ADD"})
 
         logger.info("memory_add_done", user_id=user_id, count=len(results), infer=should_infer)
@@ -306,6 +338,43 @@ class Memory:
         except Exception as e:
             logger.warning("auto_extract_entities_failed", error=str(e))
 
+    def _batch_extract_and_store_entities(
+        self, pairs: list[tuple[str, str]], *, user_id: str, agent_id: str | None = None
+    ) -> None:
+        """批量实体链接 (对齐 mem0 V3 Phase 7, 全局去重)。
+
+        全局去重: 同一实体 (归一化名) 在多条记忆中出现, 只 upsert 一次,
+        但 linked_memory_ids 会包含所有相关 memory_id。
+
+        Args:
+            pairs: [(text, memory_id), ...] 列表
+        """
+        if not pairs:
+            return
+        from septmuse.extraction.entity import Entity
+
+        try:
+            # 1. 全局去重: normalized_key → (entity_type, entity_text, set of memory_ids)
+            global_entities: dict[str, tuple[str, str, set[str]]] = {}
+            for text, memory_id in pairs:
+                entities = self.entity_extractor.extract(text)  # type: ignore[union-attr]
+                for entity in entities:
+                    key = entity.text.strip().lower()
+                    if key in global_entities:
+                        global_entities[key][2].add(memory_id)
+                    else:
+                        global_entities[key] = (entity.entity_type, entity.text, {memory_id})
+
+            # 2. 逐个 upsert (upsert 内部做精确+语义去重, 全局去重减少重复调用)
+            for entity_type, entity_text, memory_ids in global_entities.values():
+                entity = Entity(text=entity_text, entity_type=entity_type, start=0, end=0)
+                for mid in memory_ids:
+                    self.entity_store.upsert(  # type: ignore[union-attr]
+                        entity, mid, user_id=user_id, agent_id=agent_id
+                    )
+        except Exception as e:
+            logger.warning("batch_extract_entities_failed", error=str(e))
+
     def search(
         self,
         query: str,
@@ -319,20 +388,22 @@ class Memory:
         recipe: str | None = None,
         explain: bool = False,
         filters: dict[str, Any] | None = None,
+        search_filter: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        """检索记忆 (对齐 mem0 search, 默认 hybrid BM25+向量 RRF 融合)。
+        """检索记忆 (默认 hybrid BM25+向量 RRF 融合, 支持后处理重排)。
 
         Args:
             query: 查询文本
             user_id: 用户 ID (必填)
-            session_id: 会话 ID (None=不限, 对齐 mem0 run_id)
+            session_id: 会话 ID (None=不限)
             top_k: 返回数 (默认 config.top_k)
             threshold: 相似阈值 (默认 config.threshold)
             hybrid: True=BM25+向量 RRF 融合 (默认); False=纯向量
-            reranker: 重排器 ("noop"/"mmr"/"cross_encoder"/"llm", None=用 config)
+            reranker: 重排器 ("noop"/"mmr"/"cross_encoder"/"llm"/"cohere"/"batch_llm", None=用 config)
             recipe: 预置检索 recipe (覆盖 hybrid/reranker/explain)
             explain: True=返回 score_details
-            filters: mem0 风格 filters dict (仅纯向量模式生效, hybrid 分支由 HybridRetriever 接管)
+            filters: 字段过滤字典 (hybrid + 纯向量均生效)
+            search_filter: reranker boost 权重字典 (匹配 user_id/session_id/tags 的结果 score 加权)
 
         Returns:
             list[{"id","memory","score","metadata","created_at"}]
@@ -368,12 +439,21 @@ class Memory:
                 top_k=tk,
                 threshold=th,
                 explain=explain,
+                filters=filters,
             )
+            # reranker 应用 (try/except 降级容错: 失败回退原始结果)
             if reranker is not None and reranker != "noop":
-                from septmuse.retrieval.reranker import _resolve_reranker as _rr
+                from septmuse.rerankers import create_reranker
+                from septmuse.rerankers.strategies import RerankerStrategyFactory
 
-                reranker_instance = _rr(reranker, embedder=self.embedder, llm=self.llm)
-                hybrid_results = reranker_instance.rerank(query, hybrid_results, top_k=tk)
+                try:
+                    reranker_instance = create_reranker(reranker, embedder=self.embedder, llm=self.llm)
+                    strategy = RerankerStrategyFactory.create("full_memory")
+                    tracker, documents = strategy.prepare(hybrid_results)
+                    scored = reranker_instance.rerank(query, documents, top_k=tk)
+                    hybrid_results = strategy.reconstruct(scored, tracker, hybrid_results, tk, search_filter)
+                except Exception as e:
+                    logger.warning("reranker_failed_fallback", reranker=reranker, error=str(e))
             return [
                 {
                     "id": r.id,
@@ -387,6 +467,7 @@ class Memory:
                 for r in hybrid_results
             ]
 
+        # 纯向量分支
         emb = self.embedder.embed(query)
         results = self.store.search(
             emb,
@@ -396,28 +477,69 @@ class Memory:
             threshold=th,
             filters=filters,
         )
+
+        # 纯向量分支也应用 reranker (try/except 降级容错)
+        if reranker is not None and reranker != "noop" and results:
+            from septmuse.rerankers import create_reranker
+            from septmuse.rerankers.strategies import RerankerStrategyFactory
+            from septmuse.retrieval.hybrid import HybridResult
+
+            try:
+                reranker_instance = create_reranker(reranker, embedder=self.embedder, llm=self.llm)
+                strategy = RerankerStrategyFactory.create("full_memory")
+                # dict → HybridResult 转换
+                hybrid_results = [
+                    HybridResult(
+                        id=r["id"],
+                        memory=r["memory"],
+                        score=r["score"],
+                        vector_score=r.get("score", 0.0),
+                        bm25_score=0.0,
+                        entity_boost=0.0,
+                        metadata=r.get("metadata", {}),
+                        created_at=r.get("created_at"),
+                    )
+                    for r in results
+                ]
+                tracker, documents = strategy.prepare(hybrid_results)
+                scored = reranker_instance.rerank(query, documents, top_k=tk)
+                reranked = strategy.reconstruct(scored, tracker, hybrid_results, tk, search_filter)
+                # HybridResult → dict 转换
+                results = [
+                    {
+                        "id": r.id,
+                        "memory": r.memory,
+                        "score": r.score,
+                        "metadata": r.metadata,
+                        "created_at": r.created_at,
+                    }
+                    for r in reranked
+                ]
+            except Exception as e:
+                logger.warning("reranker_failed_fallback", reranker=reranker, error=str(e))
+
         logger.info("memory_search_done", user_id=user_id, query=query[:50], hits=len(results))
         return results
 
     def get_all(
         self, *, user_id: str, session_id: str | None = None, filters: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        """列出全部记忆 (对齐 mem0 get_all)。"""
+        """列出全部记忆。"""
         return {"results": self.store.get_all(user_id=user_id, session_id=session_id, filters=filters)}
 
     def get(self, memory_id: str) -> dict[str, Any] | None:
-        """取单条 (对齐 mem0 get)。"""
+        """取单条。"""
         return self.store.get(memory_id)
 
     def delete(self, memory_id: str) -> dict[str, str]:
-        """软删除 (对齐 mem0 delete, 自动清理实体引用)。"""
+        """软删除 (自动清理实体引用)。"""
         if self.entity_store is not None:
             self.entity_store.remove_memory_from_entities(memory_id)
         self.store.delete(memory_id)
         return {"status": "deleted", "memory_id": memory_id}
 
     def delete_all(self, *, user_id: str, session_id: str | None = None) -> dict[str, Any]:
-        """批量删除 (对齐 mem0 delete_all)。
+        """批量删除。
 
         删除该 user (可选 session_id) 的所有记忆 + 清理实体引用。
         """
@@ -443,7 +565,7 @@ class Memory:
         user_id: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """更新记忆 (对齐 mem0 update)。
+        """更新记忆。
 
         Args:
             memory_id: 记忆 ID
@@ -473,7 +595,7 @@ class Memory:
         return {"id": memory_id, "memory": new_content, "event": "UPDATE"}
 
     def get_history(self, memory_id: str) -> list[dict[str, Any]]:
-        """获取记忆变更历史 (对齐 mem0 history)。"""
+        """获取记忆变更历史。"""
         return self.store.get_history(memory_id)
 
     # ------------------------------------------------------------------
@@ -485,7 +607,7 @@ class Memory:
         return self.store.invalidate(memory_id, invalid_at=invalid_at)
 
     def cognify(self, text: str, *, user_id: str, agent_id: str | None = None) -> dict[str, Any]:
-        """构建知识图谱: 存记忆 → 抽三元组 → 存实体/关系 → 建记忆链接 (借鉴 cognee cognify)。"""
+        """构建知识图谱: 存记忆 → 抽三元组 → 存实体/关系 → 建记忆链接。"""
         from septmuse.extraction.cognify import CognifyPipeline
 
         pipeline = CognifyPipeline(
@@ -539,7 +661,7 @@ class Memory:
 
     def list_agents(self, user_id: str) -> list[str]:
         """列出该用户的所有 agent (跨 agent 共享)。"""
-        from septmuse.governance.user_id import SharedMemoryAccessor
+        from septmuse.governance.sharing import SharedMemoryAccessor
 
         return SharedMemoryAccessor(self.store).list_agents(user_id)
 

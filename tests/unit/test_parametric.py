@@ -34,8 +34,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from septmuse.storage.parametric import LoRAConfig, LoRAMemory
-from septmuse.storage.parametric.base import BaseParametricMemory
+from septmuse.storage.file_stores import LoRAConfig, LoRAMemory
+from septmuse.storage.file_stores.lora_base import BaseParametricMemory
 
 # ======================================================================
 # 环境检测 (用 skipif 控制粒度, 不让 module-level importorskip 跳过全文件)
@@ -315,7 +315,7 @@ class TestLoRAMemoryRealPEFT:
             mem.wrap(MagicMock(name="base_model"), LoRAConfig())
 
         # 先注册 v2 adapter 元数据 (绕过真实 load_adapter)
-        from septmuse.storage.parametric.lora import _AdapterState
+        from septmuse.storage.file_stores.lora import _AdapterState
 
         mem._adapters["v2"] = _AdapterState(name="v2", path="/fake/v2")
         mem.set_active("v2")
@@ -366,7 +366,7 @@ class TestLoRAMemoryDumpLoad:
         original = LoRAMemory()
         original._config = LoRAConfig(r=64, lora_alpha=128, target_modules=["q_proj"])
         # 手动注册 adapter 元数据 (不经 wrap, 测试纯序列化)
-        from septmuse.storage.parametric.lora import _AdapterState
+        from septmuse.storage.file_stores.lora import _AdapterState
 
         original._adapters = {
             "v1": _AdapterState(name="v1", path="/fake/v1"),
@@ -414,7 +414,7 @@ class TestLoRAMemoryDumpLoad:
 class TestLoRAMemoryStandalone:
     def test_can_import_without_peft_installed(self) -> None:
         """模块本身不依赖 peft/torch, 无 parametric extras 也能 import。"""
-        from septmuse.storage.parametric import LoRAConfig, LoRAMemory
+        from septmuse.storage.file_stores import LoRAConfig, LoRAMemory
 
         assert LoRAMemory is not None
         assert LoRAConfig is not None

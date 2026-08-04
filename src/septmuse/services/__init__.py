@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""SeptMuse 服务层 (借鉴 Langflow services/ 目录结构)。
+"""SeptMuse 服务层。
 
 目录结构:
     base.py        Service ABC (name + ready + get_schema + teardown)
@@ -24,7 +24,7 @@
     from septmuse.services import get_service, get_service_manager, ServiceType
     from septmuse.services.deps import get_memory_service  # 后续实现
 
-模式 (对齐 Langflow):
+模式:
     deps.py get_xxx_service()
       → get_service(ServiceType.XXX, XxxFactory())
         → ServiceManager.get()

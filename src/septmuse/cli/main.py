@@ -86,7 +86,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="记忆类型",
     )
     p_add.add_argument("--agent", default=None, help="agent ID")
-    p_add.add_argument("--session", default=None, help="会话 ID (对齐 mem0 run_id)")
+    p_add.add_argument("--session", default=None, help="会话 ID")
     p_add.add_argument("--valid-at", default=None, help="事实开始为真的时间 (ISO 8601)")
     p_add.add_argument("--db-path", default=None, help="SQLite 路径")
     p_add.set_defaults(func=_cmd_add)
@@ -107,6 +107,11 @@ def _build_parser() -> argparse.ArgumentParser:
     p_search.add_argument("--top-k", type=int, default=5, help="返回数")
     p_search.add_argument("--threshold", type=float, default=0.1, help="相似阈值")
     p_search.add_argument("--session-id", default=None, help="会话 ID（仅搜该会话的记忆）")
+    p_search.add_argument("--filters", default=None, help='字段过滤 JSON (如 \'{"agent_id":"a1"}\')')
+    p_search.add_argument(
+        "--reranker", choices=["noop", "mmr", "cross_encoder", "llm"], default=None, help="重排器"
+    )
+    p_search.add_argument("--explain", action="store_true", help="返回 score_details")
     p_search.add_argument("--db-path", default=None, help="SQLite 路径")
     p_search.set_defaults(func=_cmd_search)
 
@@ -178,6 +183,60 @@ def _build_parser() -> argparse.ArgumentParser:
     p_migrate.add_argument("--db-path", default=None, help="SQLite 路径 (默认 ~/.septmuse/septmuse.db)")
     p_migrate.set_defaults(func=_cmd_migrate)
 
+    # cognify — 构建知识图谱
+    p_cognify = sub.add_parser("cognify", help="构建知识图谱 (存记忆→抽三元组→存实体/关系→建链接)")
+    p_cognify.add_argument("text", help="输入文本")
+    p_cognify.add_argument("--user", default=os.getenv("SEPTMUSE_USER_ID", "default"), help="用户 ID")
+    p_cognify.add_argument("--db-path", default=None, help="SQLite 路径")
+    p_cognify.set_defaults(func=_cmd_cognify)
+
+    # search-graph — BFS 图遍历检索
+    p_sg = sub.add_parser("search-graph", help="BFS 图遍历检索")
+    p_sg.add_argument("memory_id", help="种子记忆 ID")
+    p_sg.add_argument("--max-depth", type=int, default=3, help="BFS 最大深度")
+    p_sg.add_argument("--user", default=os.getenv("SEPTMUSE_USER_ID", "default"), help="用户 ID")
+    p_sg.add_argument("--db-path", default=None, help="SQLite 路径")
+    p_sg.set_defaults(func=_cmd_search_graph)
+
+    # search-interval — 时态区间查询
+    p_si = sub.add_parser("search-interval", help="时间区间查询 ([start, end) 内为真的相关记忆)")
+    p_si.add_argument("--start", required=True, help="起始时间 (ISO 8601)")
+    p_si.add_argument("--end", required=True, help="结束时间 (ISO 8601)")
+    p_si.add_argument("query", help="查询文本")
+    p_si.add_argument("--user", default=os.getenv("SEPTMUSE_USER_ID", "default"), help="用户 ID")
+    p_si.add_argument("--db-path", default=None, help="SQLite 路径")
+    p_si.set_defaults(func=_cmd_search_interval)
+
+    # reflect — 会话蒸馏
+    p_reflect = sub.add_parser("reflect", help="会话蒸馏 (提取教训→procedural rules)")
+    p_reflect.add_argument("--user", default=os.getenv("SEPTMUSE_USER_ID", "default"), help="用户 ID")
+    p_reflect.add_argument("--limit", type=int, default=50, help="回顾记忆数")
+    p_reflect.add_argument("--db-path", default=None, help="SQLite 路径")
+    p_reflect.set_defaults(func=_cmd_reflect)
+
+    # entities — 搜索实体
+    p_entities = sub.add_parser("entities", help="搜索实体")
+    p_entities.add_argument("query", help="查询文本")
+    p_entities.add_argument("--user-id", dest="user_id", default=os.getenv("SEPTMUSE_USER_ID", "default"), help="用户 ID")
+    p_entities.add_argument("--top-k", type=int, default=5, help="返回数")
+    p_entities.add_argument("--db-path", default=None, help="SQLite 路径")
+    p_entities.set_defaults(func=_cmd_entities)
+
+    # entity-list — 列出实体
+    p_el = sub.add_parser("entity-list", help="列出用户全部实体")
+    p_el.add_argument("--user-id", dest="user_id", default=os.getenv("SEPTMUSE_USER_ID", "default"), help="用户 ID")
+    p_el.add_argument("--entity-type", dest="entity_type", default=None, help="实体类型过滤")
+    p_el.add_argument("--limit", type=int, default=100, help="返回数")
+    p_el.add_argument("--db-path", default=None, help="SQLite 路径")
+    p_el.set_defaults(func=_cmd_entity_list)
+
+    # access-logs — 访问日志
+    p_al = sub.add_parser("access-logs", help="查询记忆访问日志")
+    p_al.add_argument("memory_id", help="记忆 ID")
+    p_al.add_argument("--limit", type=int, default=100, help="返回数")
+    p_al.add_argument("--db-path", default=None, help="SQLite 路径")
+    p_al.set_defaults(func=_cmd_access_logs)
+
     return parser
 
 
@@ -235,14 +294,19 @@ def _cmd_invalidate(args: argparse.Namespace) -> int:
 def _cmd_search(args: argparse.Namespace) -> int:
     """检索记忆, JSON 数组输出。"""
     m = _make_memory(args.db_path)
+    filters = json.loads(args.filters) if args.filters else None
+    reranker = args.reranker or None
     results = m.search(
         args.query,
         user_id=args.user,
         session_id=args.session_id,
         top_k=args.top_k,
         threshold=args.threshold,
+        filters=filters,
+        reranker=reranker,
+        explain=args.explain,
     )
-    print(json.dumps(results, ensure_ascii=False, indent=2))
+    print(json.dumps(results, ensure_ascii=False, indent=2, default=str))
     return 0
 
 
@@ -384,15 +448,15 @@ def _cmd_config_show(args: argparse.Namespace) -> int:
 
 def _cmd_migrate(args: argparse.Namespace) -> int:
     """运行数据库迁移。"""
-    import sqlite3
+    from sqlalchemy import create_engine
 
     from septmuse.storage.migrations import MIGRATIONS
     from septmuse.storage.migrations.runner import MigrationRunner
 
     db_path = _resolve_db_path(args.db_path)
-    conn = sqlite3.connect(db_path)
+    engine = create_engine(f"sqlite:///{db_path}")
     try:
-        runner = MigrationRunner(conn, "sqlite")
+        runner = MigrationRunner(engine)
         applied = runner.run()
         if applied:
             print(f"已应用 {len(applied)} 个迁移:")
@@ -403,7 +467,67 @@ def _cmd_migrate(args: argparse.Namespace) -> int:
             print("所有迁移已应用，无需操作")
         print(f"schema_version: {len(MIGRATIONS)} migrations total")
     finally:
-        conn.close()
+        engine.dispose()
+    return 0
+
+
+def _cmd_cognify(args: argparse.Namespace) -> int:
+    """构建知识图谱 (存记忆→抽三元组→存实体/关系→建链接)。"""
+    m = _make_memory(args.db_path)
+    result = m.cognify(args.text, user_id=args.user)
+    print(json.dumps(result, ensure_ascii=False, default=str, indent=2))
+    return 0
+
+
+def _cmd_search_graph(args: argparse.Namespace) -> int:
+    """BFS 图遍历检索。"""
+    m = _make_memory(args.db_path)
+    results = m.search_graph(args.memory_id, max_depth=args.max_depth)
+    print(json.dumps(results, ensure_ascii=False, default=str, indent=2))
+    return 0
+
+
+def _cmd_search_interval(args: argparse.Namespace) -> int:
+    """时间区间查询 ([start, end) 内为真的相关记忆)。"""
+    m = _make_memory(args.db_path)
+    results = m.search_interval(args.start, args.end, args.query, user_id=args.user)
+    print(json.dumps(results, ensure_ascii=False, default=str, indent=2))
+    return 0
+
+
+def _cmd_reflect(args: argparse.Namespace) -> int:
+    """会话蒸馏 (提取教训→procedural rules)。"""
+    m = _make_memory(args.db_path)
+    result = m.reflect(user_id=args.user, limit=args.limit)
+    print(json.dumps(result, ensure_ascii=False, default=str, indent=2))
+    return 0
+
+
+def _cmd_entities(args: argparse.Namespace) -> int:
+    """搜索实体。"""
+    m = _make_memory(args.db_path)
+    results = m.search_entities(args.query, user_id=args.user_id, top_k=args.top_k)
+    print(json.dumps(results, ensure_ascii=False, default=str, indent=2))
+    return 0
+
+
+def _cmd_entity_list(args: argparse.Namespace) -> int:
+    """列出用户全部实体。"""
+    m = _make_memory(args.db_path)
+    results = m.list_entities(user_id=args.user_id, entity_type=args.entity_type, limit=args.limit)
+    print(json.dumps(results, ensure_ascii=False, default=str, indent=2))
+    return 0
+
+
+def _cmd_access_logs(args: argparse.Namespace) -> int:
+    """查询记忆访问日志。"""
+    m = _make_memory(args.db_path)
+    store = m.store
+    if not hasattr(store, "get_access_logs"):
+        print("[]")
+        return 0
+    results = store.get_access_logs(args.memory_id, limit=args.limit)
+    print(json.dumps(results, ensure_ascii=False, default=str, indent=2))
     return 0
 
 

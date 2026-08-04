@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""EmbedderService — 嵌入服务 (借鉴 Langflow StoreService 模式)。
+"""EmbedderService — 嵌入服务。
 
 包装 Embedder ABC, 提供:
 - 模型生命周期管理 + 延迟初始化

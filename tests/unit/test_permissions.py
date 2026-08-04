@@ -16,20 +16,16 @@
 from __future__ import annotations
 
 import pytest
+from sqlalchemy import create_engine, text
 
-from septmuse.governance.permissions import MemoryState, check_memory_access_permissions
-from septmuse.storage.sqlite.store import SQLiteMemoryStore
+from septmuse.governance.access import MemoryState, check_memory_access_permissions
+from septmuse.storage.relational_stores.orm_store import ORMMemoryStore
 
 
 @pytest.fixture()
 def store(tmp_path):
-    s = SQLiteMemoryStore(db_path=tmp_path / "test.db")
-    # Task 1 测试需要 state 列, 但 Task 3 才正式加迁移函数
-    # 这里手动 ALTER TABLE (Task 3 的 _migrate_add_state_columns 会处理重复)
-    cols = {row[1] for row in s.conn.execute("PRAGMA table_info(memories)")}
-    if "state" not in cols:
-        s.conn.execute("ALTER TABLE memories ADD COLUMN state TEXT DEFAULT 'active'")
-        s.conn.commit()
+    engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+    s = ORMMemoryStore(engine)
     yield s
     s.close()
 
@@ -38,8 +34,9 @@ def _add_and_set_state(store, memory_id, content, state=None):
     """辅助: add 记忆, 可选手动设 state。"""
     mid = store.add(content, [1.0, 0.0], user_id="alice") if memory_id is None else memory_id
     if state is not None:
-        store.conn.execute("UPDATE memories SET state = ? WHERE id = ?", (state, mid))
-        store.conn.commit()
+        with store.engine.connect() as conn:
+            conn.execute(text("UPDATE memories SET state = :state WHERE id = :mid"), {"state": state, "mid": mid})
+            conn.commit()
     return mid
 
 
@@ -91,11 +88,17 @@ def test_check_empty_app_id_returns_false(store):
     assert "empty" in reason
 
 
+@pytest.mark.skip(reason="ORMMemoryStore 的 state 列 NOT NULL + default 'active'，NULL 场景结构上不可能")
 def test_check_none_state_treated_as_active(store):
-    """旧数据 state 可能是 NULL — 应视为 active。"""
+    """旧数据 state 可能是 NULL — 应视为 active。
+
+    ORMMemoryStore 用 SQLModel Field(default='active') + NOT NULL 约束,
+    state 不可能为 NULL。保留测试以记录向后兼容意图。
+    """
     mid = store.add("old mem", [1.0, 0.0], user_id="alice")
-    store.conn.execute("UPDATE memories SET state = NULL WHERE id = ?", (mid,))
-    store.conn.commit()
+    with store.engine.connect() as conn:
+        conn.execute(text("UPDATE memories SET state = NULL WHERE id = :mid"), {"mid": mid})
+        conn.commit()
     allowed, _reason = check_memory_access_permissions(store, mid, None)
     assert allowed is True
 

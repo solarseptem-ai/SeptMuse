@@ -14,7 +14,7 @@ class BackendEntry:
     """单个后端的声明式描述。
 
     Attributes:
-        module: 完整 Python 模块路径 (如 "septmuse.storage.vector.sqlite_vec")。
+        module: 完整 Python 模块路径 (如 "septmuse.storage.vector_stores.sqlite_vec")。
         cls: 模块内的类名或函数名; 空串表示 "none" 后端 (resolve 返回 None)。
         config_cls: 对应 config 类的完整路径字符串; None 表示无 config (如 search_recipe)。
         deps: 外部依赖库名元组; 空元组 () 表示零依赖。
@@ -30,25 +30,25 @@ class BackendEntry:
 BACKEND_MANIFEST: dict[str, dict[str, BackendEntry]] = {
     "vector_store": {
         "sqlite": BackendEntry(
-            module="septmuse.storage.vector.sqlite_vec",
+            module="septmuse.storage.vector_stores.sqlite_vec",
             cls="SQLiteVectorStore",
             config_cls="septmuse.configs.vector_stores.sqlite.SQLiteVectorConfig",
             deps=(),
         ),
         "qdrant": BackendEntry(
-            module="septmuse.storage.vector.qdrant",
+            module="septmuse.storage.vector_stores.qdrant",
             cls="QdrantVectorStore",
             config_cls="septmuse.configs.vector_stores.qdrant.QdrantVectorConfig",
             deps=("qdrant_client",),
         ),
         "chroma": BackendEntry(
-            module="septmuse.storage.vector.chroma",
+            module="septmuse.storage.vector_stores.chroma",
             cls="ChromaVectorStore",
             config_cls="septmuse.configs.vector_stores.chroma.ChromaVectorConfig",
             deps=("chromadb",),
         ),
         "pgvector": BackendEntry(
-            module="septmuse.storage.vector.pgvector",
+            module="septmuse.storage.vector_stores.pgvector",
             cls="PGVectorStore",
             config_cls="septmuse.configs.vector_stores.pgvector.PgVectorConfig",
             deps=("psycopg",),
@@ -144,28 +144,40 @@ BACKEND_MANIFEST: dict[str, dict[str, BackendEntry]] = {
     },
     "reranker": {
         "noop": BackendEntry(
-            module="septmuse.retrieval.reranker",
+            module="septmuse.rerankers.noop",
             cls="NoopReranker",
             config_cls="septmuse.configs.rerankers.noop.NoopRerankerConfig",
             deps=(),
         ),
         "mmr": BackendEntry(
-            module="septmuse.retrieval.reranker",
+            module="septmuse.rerankers.mmr",
             cls="MMRReranker",
             config_cls="septmuse.configs.rerankers.mmr.MMRRerankerConfig",
             deps=(),
         ),
         "cross_encoder": BackendEntry(
-            module="septmuse.retrieval.reranker",
+            module="septmuse.rerankers.cross_encoder",
             cls="CrossEncoderReranker",
             config_cls="septmuse.configs.rerankers.cross_encoder.CrossEncoderRerankerConfig",
             deps=("onnxruntime",),
         ),
         "llm": BackendEntry(
-            module="septmuse.retrieval.reranker",
+            module="septmuse.rerankers.llm",
             cls="LLMReranker",
             config_cls="septmuse.configs.rerankers.llm.LLMRerankerConfig",
             deps=(),
+        ),
+        "batch_llm": BackendEntry(
+            module="septmuse.rerankers.batch_llm",
+            cls="BatchLLMReranker",
+            config_cls="septmuse.configs.rerankers.batch_llm.BatchLLMRerankerConfig",
+            deps=(),
+        ),
+        "cohere": BackendEntry(
+            module="septmuse.rerankers.cohere",
+            cls="CohereReranker",
+            config_cls="septmuse.configs.rerankers.cohere.CohereRerankerConfig",
+            deps=("cohere",),
         ),
     },
     "entity_extractor": {
@@ -190,13 +202,13 @@ BACKEND_MANIFEST: dict[str, dict[str, BackendEntry]] = {
     },
     "keyword_index": {
         "sqlite_bm25": BackendEntry(
-            module="septmuse.storage.keyword.sqlite_bm25",
+            module="septmuse.storage.keyword_stores.sqlite_bm25",
             cls="SQLiteBM25Index",
             config_cls="septmuse.configs.keyword_index.sqlite_bm25.SQLiteBM25Config",
             deps=(),
         ),
         "rank_bm25": BackendEntry(
-            module="septmuse.storage.keyword.rank_bm25",
+            module="septmuse.storage.keyword_stores.rank_bm25",
             cls="RankBM25Index",
             config_cls="septmuse.configs.keyword_index.rank_bm25.RankBM25Config",
             deps=("rank_bm25",),
@@ -210,19 +222,19 @@ BACKEND_MANIFEST: dict[str, dict[str, BackendEntry]] = {
     },
     "graph_store": {
         "sqlite": BackendEntry(
-            module="septmuse.storage.graph.sqlite",
+            module="septmuse.storage.graph_stores.sqlite",
             cls="SQLiteGraphStore",
             config_cls="septmuse.configs.graph_stores.sqlite.SQLiteGraphConfig",
             deps=(),
         ),
         "age": BackendEntry(
-            module="septmuse.storage.graph.age",
+            module="septmuse.storage.graph_stores.age",
             cls="AGEGraphStore",
             config_cls="septmuse.configs.graph_stores.age.AgeGraphConfig",
             deps=("psycopg",),
         ),
         "neo4j": BackendEntry(
-            module="septmuse.storage.graph.neo4j",
+            module="septmuse.storage.graph_stores.neo4j",
             cls="Neo4jGraphStore",
             config_cls="septmuse.configs.graph_stores.neo4j.Neo4jGraphConfig",
             deps=("neo4j",),

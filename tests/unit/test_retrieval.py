@@ -154,6 +154,29 @@ class TestHybridRetriever:
         results = retriever.search("secret", user_id="alice")
         assert all("alice" in r.memory.lower() or "bob" not in r.memory.lower() for r in results)
 
+    def test_filters_session_id(self, mem: ExperimentalMemory) -> None:
+        mem.add("alice likes python", user_id="alice", session_id="s1")
+        mem.add("alice likes java", user_id="alice", session_id="s2")
+        retriever = HybridRetriever(mem.store, mem.embedder)
+        results = retriever.search("alice", user_id="alice", filters={"session_id": "s1"})
+        ids = {r.id for r in results}
+        s1_mems = {m["id"] for m in mem.store.get_all(user_id="alice", filters={"session_id": "s1"})}
+        assert ids == s1_mems
+        assert all("python" in r.memory.lower() for r in results)
+
+    def test_filters_no_match(self, mem: ExperimentalMemory) -> None:
+        mem.add("alice likes python", user_id="alice", session_id="s1")
+        retriever = HybridRetriever(mem.store, mem.embedder)
+        results = retriever.search("alice", user_id="alice", filters={"session_id": "nonexistent"})
+        assert results == []
+
+    def test_filters_none_returns_all(self, mem: ExperimentalMemory) -> None:
+        mem.add("alice likes python", user_id="alice", session_id="s1")
+        mem.add("alice likes java", user_id="alice", session_id="s2")
+        retriever = HybridRetriever(mem.store, mem.embedder)
+        results = retriever.search("alice", user_id="alice", filters=None)
+        assert len(results) >= 2
+
 
 # ======================================================================
 # ProgressiveRetriever

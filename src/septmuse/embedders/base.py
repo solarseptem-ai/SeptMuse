@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""嵌入模型抽象基类 (借鉴 mem0 embeddings/base.py EmbedderBase 模式)。
+"""嵌入模型抽象基类。
 
 所有 embedder 实现此接口, 用于把文本转为向量供相似检索。
 """

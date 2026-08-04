@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import pytest
 
-from septmuse.storage.keyword.base import KeywordIndexBase
-from septmuse.storage.keyword.sqlite_bm25 import SQLiteBM25Index
+from septmuse.storage.keyword_stores.base import KeywordIndexBase
+from septmuse.storage.keyword_stores.sqlite_bm25 import SQLiteBM25Index
 
 
 def test_abc_cannot_instantiate():

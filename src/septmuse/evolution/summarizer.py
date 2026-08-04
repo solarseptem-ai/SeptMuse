@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""消息压缩 Summarizer (借鉴 letta Summarizer)。
+"""消息压缩 Summarizer。
 
 两种模式:
 1. STATIC_BUFFER: 固定缓冲区, 超限驱逐旧消息 + LLM 递归摘要
@@ -35,7 +35,7 @@ from typing import Any
 from septmuse.core.logging import get_logger
 from septmuse.llms.base import LLM
 from septmuse.storage.base import MemoryStore
-from septmuse.storage.typed_store import TypedMemoryStore
+from septmuse.storage.relational_stores.typed_store import TypedMemoryStore
 
 logger = get_logger(__name__)
 
@@ -43,7 +43,7 @@ SUMMARY_PROMPT = "Summarize the following memories concisely, preserving key fac
 
 
 class Summarizer:
-    """消息压缩 Summarizer (借鉴 letta Summarizer)。
+    """消息压缩 Summarizer。
 
     用法:
         summarizer = Summarizer(store, typed_store, llm)

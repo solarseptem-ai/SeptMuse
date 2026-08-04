@@ -1,4 +1,4 @@
-"""BFS 图遍历检索 (借鉴 graphiti bfs_search.py)。
+"""BFS 图遍历检索。
 
 从种子节点出发 BFS 遍历 GraphStore (memory_links 表),
 按 max_depth 限制深度, 结果与向量/BM25 检索 RRF 融合。
@@ -15,7 +15,7 @@ from typing import Any
 
 from septmuse.core.logging import get_logger
 from septmuse.storage.base import MemoryStore
-from septmuse.storage.graph.base import GraphStore
+from septmuse.storage.graph_stores.base import GraphStore
 
 logger = get_logger(__name__)
 
@@ -24,7 +24,7 @@ RRF_K = 60
 
 
 class GraphSearcher:
-    """BFS 图遍历检索器 (借鉴 graphiti bfs_search)。
+    """BFS 图遍历检索器。
 
     用法:
         searcher = GraphSearcher(graph_store, store)

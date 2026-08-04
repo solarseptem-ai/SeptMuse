@@ -11,15 +11,12 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""渐进式三层检索 — ReMe chunk→file→link 三层模式适配 SeptMuse。
+"""渐进式三层检索 — recall→locate→expand 模式适配 SeptMuse。
 
-借鉴 ReMe 渐进三层 (源码实证 reme/steps/index/):
+三层检索:
 - Layer 1 recall: chunk 召回 (向量检索 verbatim + typed memories)
 - Layer 2 locate: 定位来源 (标记 memory_type + 溯源 metadata)
 - Layer 3 expand: 链接邻居 (同 user_id + tags 关联 + 时序邻近)
-
-ReMe 实际三层是 chunk→file location→link neighbors, 非设计的 meta→vector→history。
-本模块适配为 SeptMuse 的 recall→locate→expand 三层。
 
 详见 docs/specs/agent-memory-architecture.md §5.2 检索策略。
 """
@@ -32,7 +29,7 @@ from typing import Any
 from septmuse.core.logging import get_logger
 from septmuse.embedders.base import Embedder
 from septmuse.storage.base import MemoryStore
-from septmuse.storage.typed_store import TypedMemoryStore
+from septmuse.storage.relational_stores.typed_store import TypedMemoryStore
 
 logger = get_logger(__name__)
 
@@ -54,7 +51,7 @@ class ProgressiveResult:
 
 
 class ProgressiveRetriever:
-    """渐进式三层检索 (对齐 ReMe recall→locate→expand 模式)。
+    """渐进式三层检索 (recall→locate→expand 模式)。
 
     用法:
         retriever = ProgressiveRetriever(store, typed_store, embedder)
@@ -120,7 +117,7 @@ class ProgressiveRetriever:
         """Layer 1+2: 向量召回 + 标记来源类型。"""
         results: list[ProgressiveResult] = []
 
-        # verbatim memories (SQLiteMemoryStore)
+        # verbatim memories (ORMMemoryStore)
         emb = self.embedder.embed(query)
         for r in self.store.search(emb, user_id=user_id, top_k=top_k, threshold=threshold):
             results.append(
@@ -162,7 +159,7 @@ class ProgressiveRetriever:
         """Layer 3: 链接邻居 — 按 tags 关联 + 时序邻近扩展。
 
         简化版 (无图结构): 从 recalled 的 tags metadata 找同标签记忆,
-        或从同 user_id 取时序邻近记忆 (ReMe link expansion 模式适配)。
+        或从同 user_id 取时序邻近记忆。
         """
         if not recalled:
             return []

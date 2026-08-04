@@ -1,0 +1,35 @@
+# 统一换行符: 文本文件自动转换, 特定文件强制 LF
+* text=auto
+
+# Shell 脚本必须 LF (Linux 容器内执行)
+*.sh text eol=lf
+
+# Docker 文件必须 LF
+Dockerfile text eol=lf
+.dockerignore text eol=lf
+
+# Python 文件
+*.py text eol=lf
+*.pyi text eol=lf
+
+# 配置文件
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+Makefile text eol=lf
+
+# 文档
+*.md text eol=lf
+*.rst text eol=lf
+
+# 图片 / 二进制
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.pdf binary
+*.whl binary
+*.gz binary

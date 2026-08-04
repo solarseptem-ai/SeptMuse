@@ -11,9 +11,8 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""记忆抽取提示模板 (精简版, 对齐 mem0 FACT_RETRIEVAL_PROMPT 模式)。
+"""记忆抽取提示模板 (精简版)。
 
-源码参考 mem0/configs/prompts.py FACT_RETRIEVAL_PROMPT:
 - 角色: Personal Information Organizer
 - 抽取 7 类信息 (偏好/个人细节/计划/活动/健康/职业/杂项)
 - 输出 JSON {"facts": [...]}
@@ -21,12 +20,47 @@
 
 SeptMuse 精简: 保留核心指令 + JSON 格式约束, 去 few-shot 示例 (省 token)。
 
-P3-Task 2: 新增 ADDITIVE_EXTRACTION_PROMPT (含 9 个 few-shot, 对齐 mem0 V3)。
+P3-Task 2: 新增 ADDITIVE_EXTRACTION_PROMPT (含 9 个 few-shot)。
 """
 
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
+
+
+def build_extraction_user_prompt(
+    text: str, existing_memories: list[dict[str, Any]] | None = None
+) -> str:
+    """构建抽取 user prompt，注入已有记忆避免重复抽取 (对齐 mem0 V3 Phase 1)。
+
+    Args:
+        text: 新消息文本
+        existing_memories: 已有记忆列表 [{"id": "...", "memory": "..."}]
+            None 或空列表时不注入已有记忆段落 (纯抽取模式)。
+
+    Returns:
+        user prompt 字符串
+    """
+    sections: list[str] = []
+    if existing_memories:
+        mem_lines: list[str] = []
+        for i, m in enumerate(existing_memories[:10], 1):
+            mid = m.get("id", "?")
+            mem_text = m.get("memory", "")
+            mem_lines.append(f"{i}. [{mid}] {mem_text}")
+        sections.append("## Existing Memories\n" + "\n".join(mem_lines))
+
+    sections.append(f"## New Messages\n{text}")
+
+    if existing_memories:
+        sections.append(
+            "## Instruction\n"
+            "Only extract NEW facts not already covered by the existing memories above. "
+            "If a fact is already known, do not re-extract it."
+        )
+
+    return "\n\n".join(sections)
 
 FACT_EXTRACTION_PROMPT = f"""You are a Personal Information Organizer, specialized in extracting facts and preferences from conversations.
 

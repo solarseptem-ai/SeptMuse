@@ -37,7 +37,7 @@ from sqlmodel import Field, SQLModel
 from septmuse.core.logging import get_logger
 
 if TYPE_CHECKING:
-    from septmuse.storage.typed_store import TypedMemoryStore
+    from septmuse.storage.relational_stores.typed_store import TypedMemoryStore
 
 
 def _utcnow() -> datetime:

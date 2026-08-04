@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""向量存储配置基类 (借鉴 mem0 configs/vector_stores/base.py)。"""
+"""向量存储配置基类。"""
 
 from __future__ import annotations
 

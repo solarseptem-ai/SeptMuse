@@ -11,18 +11,13 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""PostToolUse hook — 编码 agent 零侵入记忆捕获 (架构文档 §5.1, 借鉴 Agent Memory)。
-
-借鉴 (源码实证):
-- ReMe plugins/claude_code/hooks/hooks.json: Stop 事件 hook (双 fork 后台调用 MCP)
-- ReMe plugins/claude_code/hooks/auto_memory.py: stdin 读 payload → MCP auto_memory_cc
-- mem0: 无 hook (显式 add)
+"""PostToolUse hook — 编码 agent 零侵入记忆捕获 (架构文档 §5.1)。
 
 SeptMuse 设计:
 - PostToolUseHook: 接收 tool 调用结果, 提取文本, 过 CapturePipeline 存储
-- capture_send: MCP transport 层的便捷方法 (对齐 mem0 capture_send)
+- capture_send: MCP transport 层的便捷方法
 
-注: ReMe 只有 Stop hook, 无 PostToolUse; 本模块实现 PostToolUse 设计 (架构文档 §5.1)。
+本模块实现 PostToolUse 设计 (架构文档 §5.1)。
 
 详见 docs/specs/agent-memory-architecture.md §5.1 捕获方式。
 """
@@ -41,9 +36,9 @@ logger = get_logger(__name__)
 
 @dataclass
 class ToolCallEvent:
-    """PostToolUse 事件 (对齐 Claude Code hooks PostToolUse schema)。
+    """PostToolUse 事件。
 
-    字段对齐 Claude Code hook payload:
+    字段:
     - tool_name: 工具名 (如 "Bash", "Read", "Edit")
     - tool_input: 工具输入参数
     - tool_output: 工具输出 (文本)
@@ -59,8 +54,7 @@ class ToolCallEvent:
 class PostToolUseHook:
     """PostToolUse 钩子 — 编码 agent 零侵入记忆捕获。
 
-    借鉴 Agent Memory PostToolUse (架构文档 §5.1) + ReMe Stop hook 模式。
-    每次 tool 调用后自动捕获输出到记忆系统。
+    每次 tool 调用后自动捕获输出到记忆系统 (架构文档 §5.1)。
 
     用法:
         hook = PostToolUseHook(pipeline)
@@ -122,7 +116,7 @@ class PostToolUseHook:
         agent_id: str | None = None,
         tool_name: str = "manual",
     ) -> PipelineResult:
-        """便捷方法: 手动捕获文本 (对齐 mem0 capture_send 模式)。
+        """便捷方法: 手动捕获文本。
 
         不经过 ToolCallEvent, 直接进 pipeline。
         """

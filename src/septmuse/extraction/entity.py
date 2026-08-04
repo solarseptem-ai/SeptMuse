@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""实体抽取器 (架构文档 §5.1, 借鉴 mem0 entity_extraction.py)。
+"""实体抽取器 (架构文档 §5.1)。
 
 默认 RegexEntityExtractor (纯 Python regex + 词表, 零配置)。
 spacy: pip install septmuse[ner], spaCy NER + noun_chunks。
@@ -36,8 +36,8 @@ class Entity:
 
     text: str
     entity_type: str  # PROPER / QUOTED / TOPIC / IDENTIFIER
-    start: int
-    end: int
+    start: int = 0
+    end: int = 0
 
 
 class EntityExtractor(ABC):
@@ -49,7 +49,7 @@ class EntityExtractor(ABC):
         ...
 
 
-# 泛化词黑名单 (借鉴 mem0 _GENERIC_HEADS / _NON_SPECIFIC_ADJ / _GENERIC_CAPS)
+# 泛化词黑名单 (英文 + 中文虚词/代词, 用于实体文本过滤)
 _GENERIC_WORDS = frozenset(
     [
         # English
@@ -207,14 +207,14 @@ _IDENTIFIER_SNAKE_RE = re.compile(r"\b([a-z]+_[a-z_]+)\b")
 
 
 def _normalize_entity_text(text: str) -> str:
-    """归一化实体文本用于匹配 (借鉴 mem0 _normalize_entity_text)。"""
+    """归一化实体文本用于匹配 (strip + lower + 空白合并)。"""
     return " ".join(text.strip().lower().split())
 
 
 class RegexEntityExtractor(EntityExtractor):
     """纯 Python regex + 词表后端 (默认, 零配置)。
 
-    4 类实体: PROPER / QUOTED / TOPIC / IDENTIFIER (借鉴 mem0)。
+    4 类实体: PROPER / QUOTED / TOPIC / IDENTIFIER。
     ~120 泛化词黑名单 + span 去重冲突解决。
     """
 
@@ -286,7 +286,7 @@ class RegexEntityExtractor(EntityExtractor):
 
     @staticmethod
     def _resolve_candidates(candidates: list[Entity]) -> list[Entity]:
-        """span 去重冲突解决 (借鉴 mem0 _resolve_candidates)。
+        """span 去重冲突解决。
 
         1. 按 start 排序
         2. 同一 (text, entity_type) 只保留第一个

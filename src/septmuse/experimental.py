@@ -36,7 +36,7 @@ class ExperimentalMemory(Memory):
     """
 
     # ------------------------------------------------------------------
-    # 工作记忆 Block (对齐 Letta Block)
+    # 工作记忆 Block
     # ------------------------------------------------------------------
 
     def get_working_memory(self, agent_id: str) -> WorkingMemory:
@@ -50,21 +50,21 @@ class ExperimentalMemory(Memory):
         return [b.model_dump() for b in wm.blocks]
 
     def update_block(self, agent_id: str, label: str, value: str) -> dict[str, Any]:
-        """更新 block value (对齐 Letta update_block_value)。"""
+        """更新 block value。"""
         wm = self.get_working_memory(agent_id)
         wm.update_block_value(label, value)
         block = wm.get_block(label)
         return {"id": block.id, "label": block.label, "value": block.value, "event": "UPDATE"}
 
     def core_memory_append(self, agent_id: str, label: str, content: str) -> dict[str, Any]:
-        """追加 block 内容 (对齐 Letta core_memory_append)。"""
+        """追加 block 内容。"""
         wm = self.get_working_memory(agent_id)
         wm.core_memory_append(label, content)
         block = wm.get_block(label)
         return {"id": block.id, "label": block.label, "value": block.value, "event": "APPEND"}
 
     def core_memory_replace(self, agent_id: str, label: str, old_content: str, new_content: str) -> dict[str, Any]:
-        """替换 block 内容片段 (对齐 Letta core_memory_replace)。"""
+        """替换 block 内容片段。"""
         wm = self.get_working_memory(agent_id)
         wm.core_memory_replace(label, old_content, new_content)
         block = wm.get_block(label)
@@ -86,7 +86,7 @@ class ExperimentalMemory(Memory):
         provenance: str = "user",
         tags: list[str] | None = None,
     ) -> dict[str, Any]:
-        """添加语义事实三元组 (对齐 LangMem Triple)。"""
+        """添加语义事实三元组。"""
         fact = self.semantic.add_fact(
             subject,
             predicate,
@@ -122,7 +122,7 @@ class ExperimentalMemory(Memory):
         action: str | None = None,
         result: str | None = None,
     ) -> dict[str, Any]:
-        """添加情节事件 (对齐 Zep Episode + LangMem Episode)。"""
+        """添加情节事件。"""
         from septmuse.models.episodic import EpisodeType
 
         et = {"fact": EpisodeType.FACT, "reasoning": EpisodeType.REASONING, "raw_log": EpisodeType.RAW_LOG}.get(
@@ -146,14 +146,14 @@ class ExperimentalMemory(Memory):
         return {"id": event.id, "content": content, "event": "UPDATE"}
 
     def get_timeline(self, *, user_id: str, event_type: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
-        """情节时序查询 (Zep reference_time 模式)。"""
+        """情节时序查询。"""
         events = self.episodic.get_timeline(user_id=user_id, event_type=event_type, limit=limit)
         return [self.episodic.episode_to_dict(e) for e in events]
 
     def add_rule(
         self, rule: str, *, user_id: str, namespace: str = "default", source_tracing: str | None = None
     ) -> dict[str, Any]:
-        """添加程序规则 (对齐 Cass Playbook)。"""
+        """添加程序规则。"""
         r = self.procedural.add_rule(rule, user_id=user_id, namespace=namespace, source_tracing=source_tracing)
         return {"id": r.id, "rule": r.rule, "event": "ADD"}
 
@@ -218,7 +218,7 @@ class ExperimentalMemory(Memory):
     def search_progressive(
         self, query: str, *, user_id: str, top_k: int = 5, threshold: float = 0.1
     ) -> list[dict[str, Any]]:
-        """渐进三层检索 recall→locate→expand (借鉴 ReMe)。"""
+        """渐进三层检索 recall→locate→expand。"""
         from septmuse.retrieval.progressive import ProgressiveRetriever
 
         retriever = ProgressiveRetriever(self.store, self.typed_store, self.embedder)
@@ -246,14 +246,14 @@ class ExperimentalMemory(Memory):
         ]
 
     def apply_token_budget(self, texts: list[str], scores: list[float] | None = None, budget: int = 2000) -> list[str]:
-        """token 预算裁剪 (借鉴 Hermes/Agent Memory)。"""
-        from septmuse.governance.token_budget import TokenBudget
+        """token 预算裁剪。"""
+        from septmuse.retrieval.token_budget import TokenBudget
 
         return TokenBudget(budget=budget).fit_texts(texts, scores)
 
     def redact(self, text: str) -> str:
-        """隐私脱敏 (借鉴 Agent Memory)。"""
-        from septmuse.governance.privacy import PrivacyFilter
+        """隐私脱敏。"""
+        from septmuse.capture.sanitize import PrivacyFilter
 
         return PrivacyFilter().redact(text)
 
@@ -262,7 +262,7 @@ class ExperimentalMemory(Memory):
     # ------------------------------------------------------------------
 
     def link_on_add(self, memory_id: str, text: str, *, user_id: str) -> list[dict[str, Any]]:
-        """Zettelkasten 自动建链接 (借鉴 cognee cognify)。"""
+        """Zettelkasten 自动建链接。"""
         assert self.graph_store is not None, "graph_store required for zettel (SQLite default; AGE optional)"
         from septmuse.evolution.zettel import ZettelLinker
 
@@ -283,7 +283,7 @@ class ExperimentalMemory(Memory):
         return linker.get_related_memories(memory_id)
 
     def reflect(self, *, user_id: str, limit: int = 20) -> dict[str, Any]:
-        """Session 反思: 提取教训→procedural rules (借鉴 cognee distill)。"""
+        """Session 反思: 提取教训→procedural rules。"""
         from septmuse.evolution.reflect import SessionReflector
 
         reflector = SessionReflector(self.typed_store, llm=self.llm)
@@ -291,7 +291,7 @@ class ExperimentalMemory(Memory):
         return {"proposed": result.lessons_proposed, "accepted": result.lessons_accepted, "rule_ids": result.rule_ids}
 
     def dream(self, *, user_id: str) -> dict[str, Any]:
-        """Dream 整合: 空闲期批量建链接 (借鉴 ReMe Dream)。"""
+        """Dream 整合: 空闲期批量建链接。"""
         assert self.graph_store is not None, "graph_store required for dream (SQLite default; AGE optional)"
         from septmuse.evolution.dream import DreamIntegrator
 
@@ -305,7 +305,7 @@ class ExperimentalMemory(Memory):
 
     def is_cross_agent(self, user_id: str) -> bool:
         """检查该用户记忆是否跨 agent 共享。"""
-        from septmuse.governance.user_id import SharedMemoryAccessor
+        from septmuse.governance.sharing import SharedMemoryAccessor
 
         return SharedMemoryAccessor(self.store).is_cross_agent(user_id)
 
@@ -323,7 +323,7 @@ class ExperimentalMemory(Memory):
         top_k: int = 5,
         threshold: float = 0.1,
     ) -> list[dict[str, Any]]:
-        """时态查询: 查询某时刻为真的相关记忆 (借鉴 graphiti search_at)。"""
+        """时态查询: 查询某时刻为真的相关记忆。"""
         valid_memories = self.store.get_temporal_valid(reference_time, user_id=user_id, session_id=session_id)
         if not valid_memories:
             return []
@@ -353,7 +353,7 @@ class ExperimentalMemory(Memory):
         top_k: int = 5,
         threshold: float = 0.1,
     ) -> list[dict[str, Any]]:
-        """时间区间查询: 返回 [start, end) 内为真的相关记忆 (借鉴 cognee temporal_retriever)。"""
+        """时间区间查询: 返回 [start, end) 内为真的相关记忆。"""
         valid_memories = self.store.get_temporal_interval(start, end, user_id=user_id, session_id=session_id)
         if not valid_memories:
             return []
@@ -386,7 +386,7 @@ class ExperimentalMemory(Memory):
     # ------------------------------------------------------------------
 
     def compress(self, *, user_id: str, mode: str = "static", buffer_size: int = 20) -> dict[str, Any]:
-        """压缩消息 (借鉴 letta Summarizer)。"""
+        """压缩消息。"""
         from septmuse.evolution.summarizer import Summarizer
 
         summarizer = Summarizer(self.store, self.typed_store, self.llm)
@@ -397,14 +397,14 @@ class ExperimentalMemory(Memory):
     # ------------------------------------------------------------------
 
     def resolve_conflicts(self, *, user_id: str) -> dict[str, Any]:
-        """解决矛盾事实: 新事实覆盖旧事实 (借鉴 graphiti edge_operations)。"""
+        """解决矛盾事实: 新事实覆盖旧事实。"""
         from septmuse.evolution.conflict import ConflictResolver
 
         resolver = ConflictResolver(self.typed_store, self.store, self.llm)
         return resolver.resolve_conflicts(user_id=user_id)
 
     def deduplicate_entities(self, *, user_id: str) -> dict[str, Any]:
-        """实体去重三段式 (借鉴 graphiti node_operations)。"""
+        """实体去重三段式。"""
         from septmuse.evolution.conflict import ConflictResolver
 
         resolver = ConflictResolver(self.typed_store, self.store, self.llm)
@@ -431,7 +431,7 @@ class ExperimentalMemory(Memory):
     def search_graph(
         self, seed_memory_id: str, *, max_depth: int = 2, relation: str | None = None
     ) -> list[dict[str, Any]]:
-        """BFS 图遍历检索 (借鉴 graphiti bfs_search)。"""
+        """BFS 图遍历检索。"""
         assert self.graph_store is not None, "graph_store required for graph search (SQLite default; AGE optional)"
         from septmuse.retrieval.graph_search import GraphSearcher
 

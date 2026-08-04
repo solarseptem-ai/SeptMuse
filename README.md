@@ -121,6 +121,85 @@ septmuse mcp   # stdio transport，15 工具
 # 或 septmuse serve → MCP 自动挂载到 /mcp/sse 和 /mcp/http
 ```
 
+## Docker 部署
+
+### 快速开始
+
+```bash
+# 1. 克隆项目
+git clone https://github.com/sonhhxg0529/solarseptem-ai.git
+cd solarseptem-ai-platform/SeptMuse
+
+# 2. 零配置启动 (SQLite)
+make docker-up
+# 或: docker compose -f docker/docker-compose.yml up -d --build
+
+# 3. 验证
+curl http://localhost:8000/health
+# 访问 Swagger: http://localhost:8000/docs
+```
+
+### 三种数据库模式
+
+| 模式 | 命令 | 向量存储 | 适用场景 |
+|------|------|----------|---------|
+| SQLite | `make docker-up` | sqlite-vec | 开发 / 单机部署 |
+| PostgreSQL | `make docker-up-pg` | pgvector | 生产 / 高并发 |
+| MySQL | `make docker-up-mysql` | SQLite (回退) | 已有 MySQL 基础设施 |
+
+### PostgreSQL 部署
+
+```bash
+make docker-up-pg
+# 或: docker compose -f docker/docker-compose.yml -f docker/docker-compose.pg.yml up -d --build
+```
+
+PostgreSQL 连接信息：
+- 主机: `localhost:5432`
+- 数据库: `septmuse`
+- 用户: `septmuse`
+- 密码: `septmuse0417`
+
+### MySQL 部署
+
+```bash
+make docker-up-mysql
+# 或: docker compose -f docker/docker-compose.yml -f docker/docker-compose.mysql.yml up -d --build
+```
+
+> 注意：MySQL 无原生向量支持，向量存储回退到容器内的 SQLite。关系数据（记忆、历史、审计日志）走 MySQL。
+
+### 本地开发
+
+```bash
+# docker-compose.override.yml 自动加载，挂载源码 + 开启 DEBUG
+docker compose -f docker/docker-compose.yml up -d --build
+```
+
+### 环境变量
+
+通过 `.env` 文件或 docker-compose 环境变量配置：
+
+```bash
+# API 认证
+SEPTMUSE_API_KEY=sk-your-secret-key
+
+# LLM 推理
+SEPTMUSE_INFER=true
+SEPTMUSE_LLM=openai
+OPENAI_API_KEY=sk-your-openai-key
+
+# 嵌入模型
+SEPTMUSE_EMBEDDER=onnx   # hash / onnx / onnx-zh / auto / st
+```
+
+### 从 GitHub Container Registry 拉取
+
+```bash
+docker pull ghcr.io/sonhhxg0529/solarseptem-ai:latest
+docker run -p 8000:8000 -v septmuse-data:/data ghcr.io/sonhhxg0529/solarseptem-ai:latest
+```
+
 ## 核心竞争力
 
 ### 1. 零配置离线可用
@@ -290,12 +369,12 @@ memory = Memory(config=config)
 $env:PYTHONPATH = "src"
 python -m pytest tests/unit/ tests/e2e/ -q
 
-# 全量：1076 passed + 36 skipped + 23 failed（预存在）
+# 全量：1116 passed + 36 skipped + 14 failed（预存在，需外部 API key）
 ```
 
 | 层级 | 测试数 | 覆盖 |
 |------|--------|------|
-| unit | 1058+ | store / facade / REST / CLI / MCP / 权限 / 迁移 / async / LLM provider / 混合检索 |
+| unit | 1084+ | store / facade / REST / CLI / MCP / 权限 / 迁移 / async / LLM provider / 混合检索 |
 | e2e | 32 | 跨会话偏好召回 + 用户隔离 + 认知分层 + 跨 agent 共享 |
 | skipped | 36 | PGVector / AGE / Neo4j / ONNX / spaCy / torch（需 extras） |
 

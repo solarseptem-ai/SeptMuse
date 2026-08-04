@@ -14,7 +14,7 @@
 """语义记忆操作 — 三元组 CRUD + 抽取流水线占位。
 
 阶段2: 提供 SemanticStore 包装 TypedMemoryStore 的语义事实 CRUD。
-LLM 抽取流水线 (cognify, 借鉴 Cognee) 见 extract.py (阶段2 后续)。
+LLM 抽取流水线 (cognify) 见 extract.py (阶段2 后续)。
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from typing import Any
 from septmuse.core.logging import get_logger
 from septmuse.embedders.base import Embedder
 from septmuse.models.semantic import SemanticFact
-from septmuse.storage.typed_store import TypedMemoryStore
+from septmuse.storage.relational_stores.typed_store import TypedMemoryStore
 
 logger = get_logger(__name__)
 
@@ -76,7 +76,7 @@ class SemanticMemory:
         """语义检索事实 (向量 + 置信度加权, SeptMuse 增量)。"""
         emb = self.embedder.embed(query)
         results = self.store.search_facts(emb, user_id=user_id, top_k=top_k, threshold=threshold)
-        # SeptMuse 增量: 置信度加权排序 (Cass source_tracing + 本设计 confidence)
+        # SeptMuse 增量: 置信度加权排序
         for r in results:
             r["final_score"] = r["score"] * r.get("confidence", 1.0)
         results.sort(key=lambda x: x["final_score"], reverse=True)

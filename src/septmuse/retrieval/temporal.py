@@ -1,4 +1,4 @@
-"""时态区间查询 + LLM 自然语言时间抽取 (借鉴 graphiti search_filters + cognee temporal_retriever)。
+"""时态区间查询 + LLM 自然语言时间抽取。
 
 功能:
 - search_interval(start, end, query, user_id): 查询时间区间内为真的事实
@@ -36,7 +36,7 @@ Input: "Alice的工作经历" → {{"start": null, "end": null}}
 
 
 class TemporalRetriever:
-    """时态区间查询 + LLM 自然语言时间抽取 (借鉴 cognee temporal_retriever)。
+    """时态区间查询 + LLM 自然语言时间抽取。
 
     用法:
         retriever = TemporalRetriever(store, embedder, llm)

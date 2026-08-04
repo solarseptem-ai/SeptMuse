@@ -20,7 +20,7 @@ from septmuse.llms.base import LLM
 from septmuse.llms.mock import MockLLM
 from septmuse.models.extract import FactExtractor, normalize_facts
 from septmuse.prompts.extract import ADDITIVE_EXTRACTION_PROMPT, FACT_EXTRACTION_PROMPT
-from septmuse.storage.typed_store import TypedMemoryStore
+from septmuse.storage.relational_stores.typed_store import TypedMemoryStore
 
 
 class StubLLM(LLM):
@@ -102,9 +102,12 @@ class TestFactExtractorAdditive:
 class TestExtractAndStore:
     def test_extract_and_store_returns_linked_memory_ids(self, typed_store, embedder, tmp_db):
         """验收: extract_and_store 输出 linked_memory_ids。"""
-        from septmuse.storage.sqlite.store import SQLiteMemoryStore
+        from sqlmodel import create_engine
 
-        verbatim_store = SQLiteMemoryStore(db_path=tmp_db)
+        from septmuse.storage.relational_stores.orm_store import ORMMemoryStore
+
+        engine = create_engine(f"sqlite:///{tmp_db}")
+        verbatim_store = ORMMemoryStore(engine)
         llm = StubLLM(["Likes Python", "Works at Google"])
         extractor = FactExtractor(llm, embedder, typed_store, verbatim_store=verbatim_store)
 

@@ -1,4 +1,4 @@
-"""预置检索 Recipes (借鉴 graphiti search_config_recipes.py)。
+"""预置检索 Recipes。
 
 7 种预置配置, m.search(query, recipe="HYBRID_RRF_CROSS_ENCODER") 一键切换。
 
@@ -23,7 +23,7 @@ logger = get_logger(__name__)
 
 @dataclass(frozen=True)
 class SearchRecipe:
-    """预置检索配置 (借鉴 graphiti SearchConfigRecipe)。"""
+    """预置检索配置。"""
 
     name: str
     hybrid: bool = True

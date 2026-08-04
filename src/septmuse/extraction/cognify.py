@@ -1,4 +1,4 @@
-"""cognify 知识图谱构建流水线 (借鉴 cognee cognify + graphiti extract_nodes_and_edges)。
+"""cognify 知识图谱构建流水线。
 
 Pipeline: text → extract_triplets → upsert_entities → store_relations → link_memories
 
@@ -32,8 +32,8 @@ from septmuse.extraction.entity import Entity, EntityExtractor
 from septmuse.extraction.triplet import Triplet, TripletExtractor
 from septmuse.llms.base import LLM
 from septmuse.storage.base import MemoryStore
-from septmuse.storage.entity_store import EntityStore
-from septmuse.storage.graph.base import GraphStore
+from septmuse.storage.graph_stores.base import GraphStore
+from septmuse.storage.relational_stores.entity_store import EntityStore
 
 logger = get_logger(__name__)
 
@@ -43,7 +43,7 @@ def _utcnow_iso() -> str:
 
 
 class CognifyPipeline:
-    """cognify 知识图谱构建流水线 (借鉴 cognee cognify + graphiti)。
+    """cognify 知识图谱构建流水线。
 
     依赖注入所有组件, 便于测试。
     """
@@ -64,8 +64,11 @@ class CognifyPipeline:
         self.triplet_extractor = TripletExtractor(llm=llm, entity_extractor=entity_extractor)
 
         if entity_store is not None:
-            self._conn = entity_store._conn
-            self._lock = entity_store._lock
+            # ORM 路径: 从 engine 取 raw connection
+            import threading
+
+            self._conn = entity_store._engine.raw_connection()
+            self._lock = threading.Lock()
             self._init_relations_table()
 
     def _init_relations_table(self) -> None:

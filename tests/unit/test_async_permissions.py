@@ -1,6 +1,6 @@
 """async 权限检查函数测试。"""
 
-from septmuse.governance.async_permissions import async_check_memory_access_permissions
+from septmuse.governance.access import async_check_memory_access_permissions
 from septmuse.storage.async_base import AsyncMemoryStore
 
 

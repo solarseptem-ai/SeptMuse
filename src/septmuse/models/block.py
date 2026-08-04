@@ -13,15 +13,15 @@
 #  limitations under the License.
 """工作记忆 Block 数据模型 + 操作。
 
-数据模型 (借鉴 letta/schemas/block.py):
+数据模型:
 - value: 块内容 (LLM context 内可见)
-- limit: 字符上限 (治理: 防 context 溢出, 借鉴 Hermes char_limit)
+- limit: 字符上限 (治理: 防 context 溢出)
 - label: 段标签 (如 "human" / "persona")
 - read_only: agent 是否只读
 - tags: 关联标签
-- sanitize_value_null_bytes: 移除 null 字节防 PG 错误 (对齐 letta field_validator)
+- sanitize_value_null_bytes: 移除 null 字节防 PG 错误
 
-操作 (借鉴 letta/schemas/memory.py BasicBlockMemory):
+操作:
 - get_block(label): 遍历找 label, 找不到 raise KeyError
 - update_block_value(label, value): 遍历找 label 改 value, 找不到 raise ValueError
 - set_block(block): 同 label 替换或 append
@@ -49,7 +49,7 @@ from sqlmodel import Field, SQLModel
 
 from septmuse.core.logging import get_logger
 
-# 默认块字符上限 (借鉴 letta CORE_MEMORY_BLOCK_CHAR_LIMIT + Hermes memory_char_limit)
+# 默认块字符上限
 DEFAULT_BLOCK_CHAR_LIMIT = 2000
 
 
@@ -66,7 +66,7 @@ def _new_block_id() -> str:
 class Block(SQLModel, table=True):
     """工作记忆块 — context window 内的保留区, agent 可自编辑。
 
-    对齐 letta Block: value/limit/label/read_only/tags/description。
+    字段: value/limit/label/read_only/tags/description。
     SeptMuse 增量: agent_id (跨 agent 共享键), created_at/updated_at (时序)。
     """
 
@@ -80,7 +80,7 @@ class Block(SQLModel, table=True):
     read_only: bool = Field(default=False, description="agent 是否只读")
     description: str | None = Field(default=None, description="块描述")
 
-    # tags 用 JSON 列存储 list[str] (对齐 letta tags)
+    # tags 用 JSON 列存储 list[str]
     tags: list[str] = Field(default=[], sa_column=Column(JSON))
 
     created_at: datetime = Field(default_factory=_utcnow, description="创建时间 UTC")
@@ -89,7 +89,7 @@ class Block(SQLModel, table=True):
     @field_validator("value", mode="before")
     @classmethod
     def sanitize_value_null_bytes(cls, v: Any) -> Any:
-        """移除 null 字节, 防止 PostgreSQL 编码错误 (对齐 letta)。"""
+        """移除 null 字节, 防止 PostgreSQL 编码错误。"""
         if isinstance(v, str):
             return v.replace("\x00", "")
         return v
@@ -100,7 +100,7 @@ class Block(SQLModel, table=True):
 
 
 def default_blocks(agent_id: str) -> list[Block]:
-    """生成默认块集: human + persona (对齐 letta DEFAULT_BLOCKS)。
+    """生成默认块集: human + persona。
 
     直接构造 Block(label=...) 而非子类, 避免 SQLModel 单表继承复杂度。
     """
@@ -116,7 +116,7 @@ logger = get_logger(__name__)
 class WorkingMemory:
     """工作记忆 — 持有 Block 列表, 提供 agent 自编辑工具 + XML 编译。
 
-    对齐 letta BasicBlockMemory, 简化为直接持有 blocks (无 agent_state 间接层)。
+    简化为直接持有 blocks (无 agent_state 间接层)。
     """
 
     def __init__(
@@ -138,11 +138,11 @@ class WorkingMemory:
         logger.debug("working_memory_init", agent_id=agent_id, block_count=len(self.blocks))
 
     def list_block_labels(self) -> list[str]:
-        """返回所有块标签 (对齐 letta list_block_labels)。"""
+        """返回所有块标签。"""
         return [b.label for b in self.blocks]
 
     def get_block(self, label: str) -> Block:
-        """按 label 取块 (对齐 letta get_block)。
+        """按 label 取块。
 
         Raises:
             KeyError: label 不存在时
@@ -155,11 +155,11 @@ class WorkingMemory:
         raise KeyError(f"Block field {label} does not exist (available = {', '.join(keys)})")
 
     def get_blocks(self) -> list[Block]:
-        """返回全部块 (对齐 letta get_blocks)。"""
+        """返回全部块。"""
         return self.blocks
 
     def set_block(self, block: Block) -> None:
-        """设置块: 同 label 替换, 否则 append (对齐 letta set_block)。"""
+        """设置块: 同 label 替换, 否则 append。"""
         for i, b in enumerate(self.blocks):
             if b.label == block.label:
                 self.blocks[i] = block
@@ -171,7 +171,7 @@ class WorkingMemory:
             self.store.save_block(block)
 
     def update_block_value(self, label: str, value: str) -> None:
-        """更新块 value (对齐 letta update_block_value)。
+        """更新块 value。
 
         Raises:
             ValueError: value 非 str 或 label 不存在
@@ -188,7 +188,7 @@ class WorkingMemory:
         raise ValueError(f"Block with label {label} does not exist")
 
     def core_memory_append(self, label: str, content: str) -> None:
-        """追加到块内容 (对齐 letta core_memory_append)。
+        """追加到块内容。
 
         new_value = current_value + "\\n" + content
         超限记日志 (驱逐逻辑见 eviction.py)。
@@ -200,7 +200,7 @@ class WorkingMemory:
         logger.info("core_memory_append", label=label, added_len=len(str(content)))
 
     def core_memory_replace(self, label: str, old_content: str, new_content: str) -> None:
-        """替换块内容 (对齐 letta core_memory_replace)。
+        """替换块内容。
 
         old_content 必须在 current_value 中 (精确匹配), 否则 raise ValueError。
         new_content 为空串时表示删除该片段。

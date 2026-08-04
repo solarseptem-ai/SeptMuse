@@ -27,7 +27,7 @@ def neo4j_store():
     if not os.getenv("SEPTMUSE_TEST_NEO4J_URI"):
         pytest.skip("Set SEPTMUSE_TEST_NEO4J_URI to run Neo4j integration tests")
     pytest.importorskip("neo4j")
-    from septmuse.storage.graph.neo4j import Neo4jGraphStore
+    from septmuse.storage.graph_stores.neo4j import Neo4jGraphStore
 
     store = Neo4jGraphStore(
         uri=os.getenv("SEPTMUSE_TEST_NEO4J_URI"),

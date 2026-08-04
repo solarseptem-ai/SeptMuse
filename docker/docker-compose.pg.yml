@@ -1,0 +1,45 @@
+# SeptMuse Docker Compose — PostgreSQL 覆盖文件
+# 用法: docker compose -f docker/docker-compose.yml -f docker/docker-compose.pg.yml up
+#
+# 凭证: septmuse / septmuse0417
+
+services:
+  septmuse:
+    environment:
+      - SEPTMUSE_DB_URL=postgresql://septmuse:septmuse0417@postgres:5432/septmuse
+      - SEPTMUSE_VECTOR_BACKEND=pgvector
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: septmuse-postgres
+    environment:
+      - POSTGRES_DB=septmuse
+      - POSTGRES_USER=septmuse
+      - POSTGRES_PASSWORD=septmuse0417
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - septmuse-net
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U septmuse -d septmuse"]
+      interval: 5s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+
+volumes:
+  postgres-data:

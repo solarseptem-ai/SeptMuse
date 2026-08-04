@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — V2 记忆架构 (ABC 分层 + V2Memory 编排入口 + 10 子组件)
+
+- **记忆 ABC 分层** (`memory/base.py`)：MemoryABC (根抽象, 类型标记) + ShortTermMemory (compile_to_prompt/get_limit/evict_overflow) + LongTermMemory (invalidate/get_history/get_all)。ABC 只做类型标记 + 各层特有方法, 不强制统一 add/search (原因: 参数签名不同; 影响: memory/)。
+- **V2Memory 编排入口** (`memory/memory_v2.py`)：remember/recall/improve/forget 4 编排方法。组合 Memory 实例 (不继承), 持有 10 子组件。零 LLM 降级: 无 SEPTMUSE_LLM 时 remember 只存 raw_log, improve 跳过 reflect (原因: 零配置可用; 影响: memory/)。
+- **平面 A 4 子组件**：memory/working_memory.py (WorkingMemory 继承 ShortTermMemory, 委托 WorkingMemoryStore) + memory/semantic.py (SemanticMemory 继承 LongTermMemory) + memory/episodic.py (EpisodicMemory 继承 LongTermMemory) + memory/procedural.py (ProceduralMemory 继承 LongTermMemory)。数据模型共享 models/, 操作类全新定义 (原因: ABC 注册 + 不依赖 models/ 操作类; 影响: memory/)。
+- **平面 C 6 子组件**：memory/capture.py (CapturePipeline 薄包装) + memory/retrieval.py (HybridRetriever + TokenBudget 薄包装) + memory/meta.py (MetacognitionLayer 聚合 L0+L1+L2) + memory/evolution.py (EvolutionEngine 聚合 Dream+reflect+冲突) + memory/causal.py (CausalGraph 薄包装 CausalRetriever) + memory/forgetting.py (ForgettingManager 薄包装 ForgettingRetriever) (原因: V2Memory 从 memory/ import, 不直接 import 各功能目录; 影响: memory/)。
+- **工作记忆独立后端** (`storage/working_memory_stores/`)：WorkingMemoryStore ABC + SQLiteWorkingMemoryStore (共享 engine, 独立实现) + factory。Block CRUD 独立于 typed_store (原因: 决策 3 彻底分库; 影响: storage/)。
+- **Redis 工作记忆后端** (`storage/working_memory_stores/redis_store.py`)：RedisWorkingMemoryStore 实现 WorkingMemoryStore ABC, Redis hash 存储 (key=`septmuse:wm:{agent_id}`, field=label, value=JSON Block)。延迟 import redis, factory 未装/未配时自动 fallback 到 SQLite (原因: 可选生产后端; 影响: storage/working_memory_stores/)。
+- **remember 编排**：捕获去重+脱敏 → 情节 raw_log (恒做) → 语义事实 (仅 LLM 时) → 工作 block (可选)。不直接产程序规则 (原因: 程序规则留给 improve 蒸馏; 影响: V2Memory)。
+- **recall 编排**：L0 路由 → 三信号检索 (over-fetch) → 遗忘曲线加权 → token 预算裁剪 → L2 策略自调 (仅 L1 报告存在时, 决策 6) → block+规则注入 (原因: 元认知驱动检索; 影响: V2Memory)。
+- **improve 编排**：Dream 链接生长 → reflect 蒸馏 (仅 LLM 时) → 冲突解决 → L1 报告持久化为 SemanticFact(tags=["meta","coverage"]) (原因: 离线元认知; 影响: V2Memory)。
+- **forget 编排**：先 invalidate (标记不再为真, 保留双时态历史) 再 delete (软删除) + 实体清理 + 图边清理 (决策 5, 原因: 彻底遗忘但保留历史轨迹; 影响: V2Memory)。
+- **L1 报告 fallback** (决策 6)：首次使用时 improve 还没跑过, recall 跳过 L2 策略自调, 正常检索; improve 跑过后 L1 报告存在, recall 才用 L2 策略 (原因: L1 是离线生成, recall 不被阻塞; 影响: V2Memory)。
+- 新增 `tests/unit/test_v2_memory.py` (18 用例: 创建/remember/recall/improve/forget/零LLM降级) + `tests/unit/test_memory_abc.py` (11 用例: ABC 契约 + 子组件注册 + isinstance), 全量 1259 passed / 37 skipped / 13 failed (API key)。
+
 ### Added
 - Reranker 框架: NoopReranker/MMRReranker/CrossEncoderReranker/LLMReranker (原因: 补齐检索质量短板; 影响: 检索模块)
 - Entity boost 三信号融合: 向量+BM25+entity boost (原因: 对齐 mem0 三信号; 影响: HybridRetriever)

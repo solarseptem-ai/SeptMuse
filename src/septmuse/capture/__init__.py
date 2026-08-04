@@ -13,3 +13,9 @@
 #  limitations under the License.
 
 """src.septmuse.capture package."""
+
+from septmuse.capture.sanitize import PrivacyFilter
+
+__all__ = [
+    "PrivacyFilter",
+]

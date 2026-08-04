@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import pytest
 
-from septmuse.storage.file.markdown import (
+from septmuse.storage.file_stores.markdown import (
     FileMemoryStore,
     extract_wikilinks,
     parse_front_matter,

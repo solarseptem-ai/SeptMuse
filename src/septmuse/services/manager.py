@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""服务管理器 (借鉴 Langflow services/manager.py ServiceManager)。
+"""服务管理器。
 
 注册工厂 → 懒创建 → 单例缓存。deps.py 通过 get_service_manager() 获取全局单例,
 再 get(ServiceType.XXX) 取具体服务。
@@ -33,7 +33,7 @@ logger = get_logger(__name__)
 
 
 class ServiceManager:
-    """服务管理器——注册工厂 + 懒创建 + 单例缓存 (Langflow 模式)。
+    """服务管理器——注册工厂 + 懒创建 + 单例缓存。
 
     - register_factory: 注册 ServiceType → ServiceFactory 映射
     - get: 首次调用 factory.create() 并缓存, 后续直接返回缓存
@@ -67,7 +67,7 @@ class ServiceManager:
 
         Args:
             service_type: 服务类型枚举。
-            default: 如果该类型工厂未注册, 用此默认工厂创建 (Langflow deps.py 模式)。
+            default: 如果该类型工厂未注册, 用此默认工厂创建。
 
         Raises:
             ValueError: 既无注册工厂也无 default。
@@ -89,7 +89,7 @@ class ServiceManager:
 
     @property
     def services(self) -> dict[ServiceType, Service]:
-        """已创建的服务缓存 (Langflow is_settings_service_initialized 用)。"""
+        """已创建的服务缓存。"""
         return self._services
 
     def is_initialized(self, service_type: ServiceType) -> bool:
@@ -111,7 +111,7 @@ _global_manager: ServiceManager | None = None
 
 
 def get_service_manager() -> ServiceManager:
-    """获取全局 ServiceManager 单例 (借鉴 Langflow get_service_manager)。"""
+    """获取全局 ServiceManager 单例。"""
     global _global_manager
     if _global_manager is None:
         _global_manager = ServiceManager()

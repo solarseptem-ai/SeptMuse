@@ -11,16 +11,16 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""程序记忆数据模型 + 操作 — Playbook 规则退化 (借鉴 Cass ACE Playbook)。
+"""程序记忆数据模型 + 操作 — Playbook 规则退化 (架构文档 §3.2.3)。
 
-数据模型 (架构文档 §3.2.3):
+数据模型:
 - helpful_count / harmful_count: 规则带来正/负面结果次数
 - source_tracing: 溯源到具体 episodic session
 - deprecated: 规则退化标记 (被证伪则废弃)
 - confidence = helpful / (helpful + harmful)
 
-操作 (Cass Playbook 模式):
-- record_outcome: helpful/harmful 计数 (Cass 追踪)
+操作:
+- record_outcome: helpful/harmful 计数
 - 退化: harmful > helpful 且 >=3 次则 deprecated
 - should_inject: 废弃规则不注入 context
 """
@@ -38,7 +38,7 @@ from sqlmodel import Field, SQLModel
 from septmuse.core.logging import get_logger
 
 if TYPE_CHECKING:
-    from septmuse.storage.typed_store import TypedMemoryStore
+    from septmuse.storage.relational_stores.typed_store import TypedMemoryStore
 
 
 def _utcnow() -> datetime:
@@ -50,9 +50,8 @@ def _new_id() -> str:
 
 
 class ProceduralRule(SQLModel, table=True):
-    """程序规则 — 带退化的 how-to/skill (架构文档 §3.2.3, 借鉴 Cass Playbook)。
+    """程序规则 — 带退化的 how-to/skill (架构文档 §3.2.3)。
 
-    与 Cass Playbook 对齐:
     - helpful/harmful 计数: 规则被验证正/负面
     - source_tracing: 溯源到 episodic session
     - deprecated: harmful > helpful 时标记废弃, 不再注入 context
@@ -67,12 +66,12 @@ class ProceduralRule(SQLModel, table=True):
     namespace: str = Field(default="default", index=True, description="命名空间")
     user_id: str = Field(index=True, description="用户 ID")
 
-    # Cass Playbook 核心字段
+    # 核心字段
     helpful_count: int = Field(default=0, description="带来正面结果次数")
     harmful_count: int = Field(default=0, description="带来负面结果次数")
     source_tracing: str | None = Field(
         default=None,
-        description="溯源到 episodic session (Cass source_tracing)",
+        description="溯源到 episodic session",
     )
     deprecated: bool = Field(default=False, description="规则退化标记")
 
@@ -88,7 +87,7 @@ class ProceduralRule(SQLModel, table=True):
 
     @property
     def confidence(self) -> float:
-        """置信度 = helpful / (helpful + harmful) (Cass 模式)。
+        """置信度 = helpful / (helpful + harmful)。
 
         无记录时默认 0.5 (中性)。
         """
@@ -98,7 +97,7 @@ class ProceduralRule(SQLModel, table=True):
         return self.helpful_count / total
 
     def record_outcome(self, helpful: bool) -> None:
-        """记录一次应用结果 (Cass helpful/harmful 追踪)。
+        """记录一次应用结果。
 
         Args:
             helpful: True=正面(helpful_count+1), False=负面(harmful_count+1)
@@ -107,13 +106,13 @@ class ProceduralRule(SQLModel, table=True):
             self.helpful_count += 1
         else:
             self.harmful_count += 1
-        # Cass 退化: harmful 超过 helpful 则标记废弃
+        # 退化: harmful 超过 helpful 则标记废弃
         if self.harmful_count > self.helpful_count and self.harmful_count >= 3:
             self.deprecated = True
         self.touch()
 
     def should_inject(self) -> bool:
-        """是否应注入 context (Cass 退化: 废弃规则不注入)。"""
+        """是否应注入 context (废弃规则不注入)。"""
         return not self.deprecated and not self.is_deleted
 
 
@@ -121,7 +120,7 @@ logger = get_logger(__name__)
 
 
 class ProceduralMemory:
-    """程序记忆操作 (架构文档 §3.2.3, 借鉴 Cass Playbook)。"""
+    """程序记忆操作 (架构文档 §3.2.3)。"""
 
     def __init__(self, store: TypedMemoryStore) -> None:
         self.store = store
@@ -135,7 +134,7 @@ class ProceduralMemory:
         source_tracing: str | None = None,
         tags: list[str] | None = None,
     ) -> ProceduralRule:
-        """添加规则 (Cass Playbook 模式)。"""
+        """添加规则。"""
         return self.store.add_rule(
             rule,
             user_id=user_id,
@@ -145,7 +144,7 @@ class ProceduralMemory:
         )
 
     def record_outcome(self, rule_id: str, helpful: bool) -> ProceduralRule | None:
-        """记录规则应用结果 (Cass helpful/harmful 追踪 + 自动退化)。"""
+        """记录规则应用结果 (helpful/harmful 计数 + 自动退化)。"""
         r = self.store.record_rule_outcome(rule_id, helpful)
         if r:
             logger.info(
@@ -159,7 +158,7 @@ class ProceduralMemory:
         return r
 
     def get_active_rules(self, *, user_id: str, namespace: str = "default") -> list[ProceduralRule]:
-        """获取应注入的规则 (Cass 退化: 废弃规则不返回)。"""
+        """获取应注入的规则 (废弃规则不返回)。"""
         return self.store.get_active_rules(user_id=user_id, namespace=namespace)
 
     def get_all_rules(self, *, user_id: str, include_deprecated: bool = False) -> list[ProceduralRule]:

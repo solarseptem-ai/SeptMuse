@@ -85,7 +85,7 @@ class _StubStore(MemoryStore):
     def add(self, content, embedding, *, user_id, agent_id=None, metadata=None):
         return "stub"
 
-    def search(self, query_embedding, *, user_id, top_k=5, threshold=0.1):
+    def search(self, query_embedding, *, user_id, session_id=None, top_k=5, threshold=0.1, filters=None):
         return [{"id": "m1", "memory": "a", "score": 0.9, "metadata": {}, "created_at": "t"}]
 
     def get_all(self, *, user_id):

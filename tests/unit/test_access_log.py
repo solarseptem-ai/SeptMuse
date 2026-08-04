@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from septmuse.governance.access_log import record_access
+from septmuse.governance.audit import record_access
 
 
 class _MockStore:

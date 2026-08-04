@@ -18,7 +18,7 @@ from __future__ import annotations
 import sqlite3
 import threading
 
-from septmuse.storage.graph.sqlite import SQLiteGraphStore
+from septmuse.storage.graph_stores.sqlite import SQLiteGraphStore
 
 
 def _make_store(tmp_path):

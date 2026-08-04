@@ -28,7 +28,7 @@ from typing import Any
 
 from septmuse.core.logging import get_logger
 from septmuse.models.strength import MemoryStrength
-from septmuse.storage.typed_store import TypedMemoryStore
+from septmuse.storage.relational_stores.typed_store import TypedMemoryStore
 
 logger = get_logger(__name__)
 

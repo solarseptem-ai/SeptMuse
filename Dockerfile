@@ -20,10 +20,17 @@ COPY pyproject.toml README.md LICENSE ./
 COPY src/ ./src/
 COPY examples/ ./examples/
 
-# 安装: 核心 + server extra (uvicorn)
-# HashEmbedder 默认, 无需 sentence-transformers 模型下载, 镜像小
+# 安装: 核心 + server + 数据库驱动 (postgres + mysql)
+# HashEmbedder 默认, 无需 sentence-transformers 模型下载
+# 同时安装 pg/mysql 驱动, 运行时通过 SEPTMUSE_DB_URL 切换后端
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir ".[server]"
+    && pip install --no-cache-dir ".[server,postgres,mysql]"
+
+# ── 非 root 用户 (安全最佳实践) ──────────────────────────────────────────
+RUN groupadd -r septmuse -g 1000 \
+    && useradd -r -g septmuse -u 1000 -m -d /home/septmuse septmuse \
+    && mkdir -p /data /home/septmuse/.septmuse \
+    && chown -R septmuse:septmuse /app /data /home/septmuse
 
 # 数据卷: SQLite 数据库持久化
 VOLUME ["/data"]
@@ -34,6 +41,10 @@ ENV SEPTMUSE_DB_PATH=/data/septmuse.db \
     SEPTMUSE_INFER=false \
     PYTHONUNBUFFERED=1
 
+# 启动入口: 等待 DB 就绪后启动服务
+COPY docker/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)" || exit 1
@@ -41,5 +52,9 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 # 暴露 REST + MCP 端口
 EXPOSE 8000
 
-# 启动: MCP server (SSE + HTTP) + REST API
+# 切换到非 root 用户
+USER septmuse
+
+# 启动: 等待 DB → 启动服务
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["septmuse", "serve", "--host", "0.0.0.0", "--port", "8000", "--with-rest"]

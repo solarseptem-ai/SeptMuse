@@ -11,15 +11,12 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""混合检索 — BM25 关键词 + 向量语义 RRF 融合 (架构文档 §5.2, 借鉴 mem0 + ReMe)。
+"""混合检索 — BM25 关键词 + 向量语义 RRF 融合 (架构文档 §5.2)。
 
-借鉴:
-- mem0 scoring.py: BM25 归一化 + 加性融合 (本模块用 RRF 替代, 更简单稳健)
-- ReMe search.py _rrf_merge: RRF (Reciprocal Rank Fusion) 融合向量+关键词
-  fused_score = vector_weight/(k+vector_rank) + keyword_weight/(k+keyword_rank)
+BM25 归一化 + RRF (Reciprocal Rank Fusion) 融合向量+关键词:
+fused_score = vector_weight/(k+vector_rank) + keyword_weight/(k+keyword_rank)
 
-BM25 实现: 纯 Python 无外部依赖 (对齐 mem0 utils/scoring.py 自实现 BM25)。
-k1=1.5, b=0.75 (标准 BM25 参数)。
+BM25 实现: 纯 Python 无外部依赖, k1=1.5, b=0.75 (标准 BM25 参数)。
 
 详见 docs/specs/agent-memory-architecture.md §5.2 检索策略。
 """
@@ -37,11 +34,11 @@ from septmuse.storage.base import MemoryStore
 
 if TYPE_CHECKING:
     from septmuse.extraction.entity import EntityExtractor
-    from septmuse.storage.entity_store import EntityStore
+    from septmuse.storage.relational_stores.entity_store import EntityStore
 
 logger = get_logger(__name__)
 
-# RRF 常数 k=60 (对齐 ReMe search.py _rrf_merge)
+# RRF 常数 k=60 (标准参数)
 RRF_K = 60
 
 # BM25 标准参数
@@ -50,8 +47,35 @@ BM25_B = 0.75
 
 
 def _tokenize(text: str) -> list[str]:
-    """简单分词 (小写化 + 非字母数字分割, 对齐 mem0 BM25 预处理)。"""
-    return [w for w in re.findall(r"[a-z0-9]+", text.lower()) if w]
+    """简单分词 (小写化 + 非字母数字分割)。"""
+    return [w for w in re.findall(r"[a-z0-9]+|[^\s\W]", text.lower()) if w]
+
+
+# 简单英文后缀列表 (短 → 长, 先匹配短后缀: likes→like 而非 lik)
+_SUFFIXES = ("s", "es", "ed", "ing", "ies", "ied")
+
+
+def _lemmatize_word(word: str) -> str:
+    """简单词形还原: 英文去后缀, 中文保持不变 (对齐 mem0 lemmatize_for_bm25)。"""
+    if any("\u4e00" <= c <= "\u9fff" for c in word):
+        return word
+    if len(word) > 3:
+        for suffix in _SUFFIXES:
+            if word.endswith(suffix) and len(word) - len(suffix) >= 3:
+                return word[: -len(suffix)]
+    return word
+
+
+def lemmatize_for_bm25(text: str) -> str:
+    """BM25 词形还原预处理 (英文去后缀, 中文不变)。
+
+    >>> lemmatize_for_bm25("I love running and coding")
+    'i love run and code'
+    >>> lemmatize_for_bm25("我喜欢编程")
+    '我 喜 欢 编 程'
+    """
+    tokens = _tokenize(text)
+    return " ".join(_lemmatize_word(t) for t in tokens)
 
 
 class BM25Scorer:
@@ -73,8 +97,8 @@ class BM25Scorer:
         self._n: int = 0
 
     def index(self, documents: list[str]) -> None:
-        """建立 BM25 索引。"""
-        self._docs = [_tokenize(doc) for doc in documents]
+        """建立 BM25 索引 (含词形还原)。"""
+        self._docs = [[_lemmatize_word(w) for w in _tokenize(doc)] for doc in documents]
         self._n = len(self._docs)
         self._doc_len = [len(doc) for doc in self._docs]
         self._avgdl = sum(self._doc_len) / self._n if self._n > 0 else 0.0
@@ -88,8 +112,8 @@ class BM25Scorer:
         logger.debug("bm25_indexed", docs=self._n, avgdl=self._avgdl, vocab=len(self._doc_freq))
 
     def score(self, query: str) -> list[float]:
-        """对每篇文档计算 BM25 分数。"""
-        query_terms = _tokenize(query)
+        """对每篇文档计算 BM25 分数 (含词形还原)。"""
+        query_terms = [_lemmatize_word(w) for w in _tokenize(query)]
         if not query_terms or self._n == 0:
             return [0.0] * self._n
 
@@ -124,7 +148,7 @@ class HybridResult:
 
 
 class HybridRetriever:
-    """混合检索器 (BM25 + 向量 RRF 融合, 对齐 ReMe _rrf_merge)。
+    """混合检索器 (BM25 + 向量 RRF 融合)。
 
     用法:
         retriever = HybridRetriever(store, embedder)
@@ -161,24 +185,35 @@ class HybridRetriever:
         top_k: int = 5,
         threshold: float = 0.1,
         explain: bool = False,
+        filters: dict[str, Any] | None = None,
     ) -> list[HybridResult]:
-        """BM25 + 向量 RRF 融合检索 (对齐 ReMe _rrf_merge)。
+        """BM25 + 向量 RRF 融合检索。
 
-        session_id: 仅搜该会话的记忆 (None=不限, 对齐 mem0 run_id)。
+        session_id: 仅搜该会话的记忆 (None=不限)。
+        filters: 字段过滤字典 (如 {"session_id":"s1"}), None=不过滤。
+
+        优化: over-fetch (internal_limit = max(top_k*4, 60)) 替代全量 get_all,
+        BM25 仅在向量召回的候选池上索引, 避免大记忆库全量加载。
         """
-        # 1. 获取全部候选 (over-fetch)
-        all_memories = self.store.get_all(user_id=user_id, session_id=session_id)
-        if not all_memories:
+        # 1. 向量检索 over-fetch (Layer 1: 语义召回, 限制候选池大小)
+        internal_limit = max(top_k * 4, 60)
+        emb = self.embedder.embed(query)
+        vector_results = self.store.search(
+            emb,
+            user_id=user_id,
+            session_id=session_id,
+            top_k=internal_limit,
+            threshold=threshold,
+            filters=filters,
+        )
+        if not vector_results:
             return []
 
-        documents = [m["memory"] for m in all_memories]
-        ids = [m["id"] for m in all_memories]
-        metadatas = [m.get("metadata", {}) for m in all_memories]
-        created_ats = [m.get("created_at") for m in all_memories]
-
-        # 2. 向量检索 (Layer 1: 语义召回)
-        emb = self.embedder.embed(query)
-        vector_results = self.store.search(emb, user_id=user_id, top_k=len(all_memories), threshold=threshold)
+        # 2. 从向量结果构建候选集 (不再全量 get_all)
+        documents = [r["memory"] for r in vector_results]
+        ids = [r["id"] for r in vector_results]
+        metadatas = [r.get("metadata", {}) for r in vector_results]
+        created_ats = [r.get("created_at") for r in vector_results]
         vector_rank: dict[str, int] = {}
         vector_scores: dict[str, float] = {}
         for rank, r in enumerate(vector_results):
@@ -194,7 +229,7 @@ class HybridRetriever:
         for rank, i in enumerate(bm25_ranked):
             keyword_rank[ids[i]] = rank
 
-        # 3.5 Entity boost (第三信号, 借鉴 mem0 _search_vector_store scoring)
+        # 3.5 Entity boost (第三信号)
         entity_boosts: dict[str, float] = {}
         if self.entity_extractor is not None and self.entity_store is not None:
             try:
@@ -210,7 +245,7 @@ class HybridRetriever:
             except Exception as e:
                 logger.warning("entity_boost_failed", error=str(e))
 
-        # 4. RRF 融合 (对齐 ReMe _rrf_merge) + entity boost (第三信号加性融合)
+        # 4. RRF 融合 + entity boost (第三信号加性融合)
         results: list[HybridResult] = []
         for i, mid in enumerate(ids):
             v_rank = vector_rank.get(mid)
@@ -249,7 +284,7 @@ class HybridRetriever:
         logger.info(
             "hybrid_search_done",
             user_id=user_id,
-            candidates=len(all_memories),
+            candidates=len(vector_results),
             vector_hits=len(vector_results),
             bm25_hits=sum(1 for s in bm25_scores if s > 0),
             returned=len(results[:top_k]),

@@ -19,8 +19,8 @@ import sqlite3
 
 import pytest
 
-from septmuse.storage.vector.base import VectorEntry, VectorSearchResult, VectorStoreBase
-from septmuse.storage.vector.sqlite_vec import SQLiteVectorStore
+from septmuse.storage.vector_stores.base import VectorEntry, VectorSearchResult, VectorStoreBase
+from septmuse.storage.vector_stores.sqlite_vec import SQLiteVectorStore
 
 
 def test_abc_cannot_instantiate():

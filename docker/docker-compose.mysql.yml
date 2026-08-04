@@ -1,0 +1,51 @@
+# SeptMuse Docker Compose — MySQL 覆盖文件
+# 用法: docker compose -f docker/docker-compose.yml -f docker/docker-compose.mysql.yml up
+#
+# 注意: MySQL 无原生向量支持, 向量存储回退 SQLite
+# 凭证: septmuse / septmuse0417
+
+services:
+  septmuse:
+    environment:
+      - SEPTMUSE_DB_URL=mysql+pymysql://septmuse:septmuse0417@mysql:3306/septmuse
+      - SEPTMUSE_VECTOR_BACKEND=sqlite
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  mysql:
+    image: mysql:8.4
+    container_name: septmuse-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=septmuse0417
+      - MYSQL_DATABASE=septmuse
+      - MYSQL_USER=septmuse
+      - MYSQL_PASSWORD=septmuse0417
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - septmuse-net
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u septmuse -pseptmuse0417"]
+      interval: 5s
+      timeout: 5s
+      start_period: 30s
+      retries: 10
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-authentication-plugin=mysql_native_password
+
+volumes:
+  mysql-data:

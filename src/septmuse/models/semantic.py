@@ -13,7 +13,7 @@
 #  limitations under the License.
 """语义记忆数据模型 — 三元组事实 + 身份子类。
 
-借鉴 LangMem Triple(subject/predicate/object/context) + namespace 多租户。
+三元组结构 (subject/predicate/object/context) + namespace 多租户。
 SeptMuse 增量 (架构文档 §3.2.2): confidence + provenance (创新: 区分事实/推断)。
 
 详见 docs/specs/agent-memory-architecture.md §3.2.2。
@@ -41,8 +41,8 @@ def _new_id() -> str:
 class SemanticFact(SQLModel, table=True):
     """语义事实 — 三元组 + 置信度 + 溯源 (架构文档 §3.2.2)。
 
-    对齐 LangMem Triple: subject/predicate/object/context。
-    对齐 LangMem namespace: (org_id, user_id) 多租户。
+    三元组: subject/predicate/object/context。
+    多租户: (org_id, user_id)。
     SeptMuse 创新: confidence + provenance (区分用户陈述/推断/工具结果/观察)。
     """
 
@@ -54,7 +54,7 @@ class SemanticFact(SQLModel, table=True):
     object: str = Field(index=True, description="三元组宾语")
     context: str | None = Field(default=None, description="上下文限定")
 
-    # 多租户 (借鉴 LangMem namespace 模板)
+    # 多租户 (namespace 模板)
     org_id: str = Field(default="default", index=True, description="组织 ID")
     user_id: str = Field(index=True, description="用户 ID (跨 agent 共享键)")
 
@@ -79,7 +79,7 @@ class SemanticFact(SQLModel, table=True):
         self.updated_at = _utcnow()
 
     def as_triple(self) -> dict[str, Any]:
-        """返回三元组 dict (对齐 LangMem Triple schema)。"""
+        """返回三元组 dict。"""
         return {
             "subject": self.subject,
             "predicate": self.predicate,

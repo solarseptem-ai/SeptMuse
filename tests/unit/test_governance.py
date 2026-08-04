@@ -24,15 +24,15 @@ from __future__ import annotations
 
 import pytest
 
+from septmuse.capture.sanitize import PrivacyFilter
+from septmuse.evolution.degradation import DegradationPolicy, DegradationRecord
 from septmuse.governance.approval import (
     DedupWindow,
     WriteValidator,
     compute_hash,
     validate_entity_id,
 )
-from septmuse.governance.degradation import DegradationPolicy, DegradationRecord
-from septmuse.governance.privacy import PrivacyFilter
-from septmuse.governance.token_budget import (
+from septmuse.retrieval.token_budget import (
     DEFAULT_TOKEN_BUDGET,
     BudgetItem,
     TokenBudget,

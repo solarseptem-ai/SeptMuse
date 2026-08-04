@@ -11,9 +11,10 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""septmuse.evolution — 记忆演化 (conflict/zettel/reflect/dream/summarizer)。"""
+"""septmuse.evolution — 记忆演化 (conflict/zettel/reflect/dream/summarizer/degradation)。"""
 
 from septmuse.evolution.conflict import ConflictResolver
+from septmuse.evolution.degradation import DegradationPolicy, DegradationRecord
 from septmuse.evolution.dream import DreamIntegrator, DreamResult
 from septmuse.evolution.reflect import LessonProposal, ReflectionResult, SessionReflector
 from septmuse.evolution.summarizer import Summarizer
@@ -21,6 +22,8 @@ from septmuse.evolution.zettel import MemoryLink, ZettelLinker
 
 __all__ = [
     "ConflictResolver",
+    "DegradationPolicy",
+    "DegradationRecord",
     "DreamIntegrator",
     "DreamResult",
     "LessonProposal",

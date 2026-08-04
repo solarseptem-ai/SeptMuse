@@ -11,16 +11,15 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Dream 整合 — 空闲期批量建立记忆间链接 (借鉴 ReMe Dream 4-phase)。
+"""Dream 整合 — 空闲期批量建立记忆间链接。
 
-借鉴 (源码实证):
-- ReMe Dream 4-phase:
-  1. DreamExtractStep: 扫描 daily notes, 提取 units/topics
-  2. DreamIntegrateStep: 对每个 unit, node_search 找关联, write/edit 织入 wikilink
+四阶段设计:
+  1. Extract: 扫描 daily notes, 提取 units/topics
+  2. Integrate: 对每个 unit, node_search 找关联, write/edit 织入 wikilink
      (IntegrateOutcome: CREATE/CORROBORATE/REFINE/CORRECT)
-  3. DreamTopicsStep: 写 interests.yaml
-  4. DreamFinishStep: 持久化 catalog
-- ReMe DreamBucketEnum: procedure/personal/wiki
+  3. Topics: 写 interests.yaml
+  4. Finish: 持久化 catalog
+Bucket 类型: procedure/personal/wiki
 
 SeptMuse 简化:
 - 不用 LLM agent + 工具调用, 用 embedding 相似度批量建链接
@@ -39,7 +38,7 @@ from septmuse.core.logging import get_logger
 from septmuse.embedders.base import Embedder
 from septmuse.evolution.zettel import ZettelLinker
 from septmuse.storage.base import MemoryStore
-from septmuse.storage.graph.base import GraphStore
+from septmuse.storage.graph_stores.base import GraphStore
 
 logger = get_logger(__name__)
 
@@ -58,7 +57,7 @@ class DreamResult:
 
 
 class DreamIntegrator:
-    """Dream 整合器 (对齐 ReMe Dream: extract → integrate 2-phase 简化版)。
+    """Dream 整合器 (extract → integrate 2-phase 简化版)。
 
     空闲期批量处理所有记忆, 为每条记忆找语义关联并建立链接。
 
@@ -82,7 +81,7 @@ class DreamIntegrator:
         self.linker = ZettelLinker(store, graph_store, embedder, threshold=threshold)
 
     def dream(self, *, user_id: str) -> DreamResult:
-        """执行 Dream 整合 (对齐 ReMe Dream extract → integrate)。
+        """执行 Dream 整合 (extract → integrate 2-phase)。
 
         Phase 1 extract: 取全部记忆, 重新嵌入
         Phase 2 integrate: 对每条记忆, 找语义关联, 建链接 (复用 ZettelLinker)

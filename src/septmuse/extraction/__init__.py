@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""实体抽取模块 (架构文档 §5.1, 借鉴 mem0 entity_extraction.py)。"""
+"""实体抽取模块 (架构文档 §5.1)。"""
 
 from septmuse.extraction.entity import (
     Entity,

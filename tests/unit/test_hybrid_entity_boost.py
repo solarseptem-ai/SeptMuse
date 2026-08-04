@@ -50,7 +50,7 @@ class _MockStore:
     def __init__(self, memories: list[dict] | None = None):
         self._memories = memories or []
 
-    def get_all(self, *, user_id: str, session_id: str | None = None) -> list[dict]:
+    def get_all(self, *, user_id: str, session_id: str | None = None, filters: dict | None = None) -> list[dict]:
         return self._memories
 
     def search(
@@ -61,6 +61,7 @@ class _MockStore:
         session_id: str | None = None,
         top_k: int = 5,
         threshold: float = 0.1,
+        filters: dict | None = None,
     ):
         return [
             {"id": m["id"], "memory": m["memory"], "score": 0.5, "metadata": {}, "created_at": "2026-01-01"}

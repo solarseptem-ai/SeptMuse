@@ -11,7 +11,7 @@ pytestmark = pytest.mark.integration
 @pytest.fixture()
 def rank_bm25_store(tmp_path):
     pytest.importorskip("rank_bm25")
-    from septmuse.storage.keyword.rank_bm25 import RankBM25Index
+    from septmuse.storage.keyword_stores.rank_bm25 import RankBM25Index
 
     store = RankBM25Index(db_path=tmp_path / "rank_bm25.db")
     yield store

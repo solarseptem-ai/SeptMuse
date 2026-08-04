@@ -1,30 +1,36 @@
 #  Copyright 2026 The sonhhxg0529 Authors. All Rights Reserved.
-"""state 状态机 + ALTER TABLE 迁移 + memory_access_logs 测试。"""
+"""state 状态机 + 建表幂等 + memory_access_logs 测试。"""
 
 from __future__ import annotations
 
 import pytest
+from sqlalchemy import create_engine, inspect, text
 
-from septmuse.storage.sqlite.store import SQLiteMemoryStore
+from septmuse.storage.relational_stores.orm_store import ORMMemoryStore
 
 
 @pytest.fixture()
 def store(tmp_path):
-    s = SQLiteMemoryStore(db_path=tmp_path / "test.db")
+    engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+    s = ORMMemoryStore(engine)
     yield s
     s.close()
 
 
 def test_add_sets_state_active(store):
     mid = store.add("hello", [1.0, 0.0], user_id="alice")
-    row = store.conn.execute("SELECT state FROM memories WHERE id = ?", (mid,)).fetchone()
+    with store.engine.connect() as conn:
+        row = conn.execute(text("SELECT state FROM memories WHERE id = :mid"), {"mid": mid}).fetchone()
     assert row[0] == "active"
 
 
 def test_delete_sets_state_deleted(store):
     mid = store.add("to delete", [1.0, 0.0], user_id="alice")
     store.delete(mid)
-    row = store.conn.execute("SELECT state, is_deleted, deleted_at FROM memories WHERE id = ?", (mid,)).fetchone()
+    with store.engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT state, is_deleted, deleted_at FROM memories WHERE id = :mid"), {"mid": mid}
+        ).fetchone()
     assert row[0] == "deleted"
     assert row[1] == 1  # is_deleted 并存
     assert row[2] is not None  # deleted_at
@@ -82,30 +88,22 @@ def test_get_access_logs_limit(store):
 
 
 def test_old_data_migration_sets_active(store):
-    """模拟旧 DB: 直接 INSERT 无 state 列 → 迁移后 state='active'。"""
-    # 先建一个旧 memories 表 (无 state 列)
-    store.conn.execute("DROP TABLE memories")
-    store.conn.execute(
-        "CREATE TABLE memories (id TEXT PRIMARY KEY, user_id TEXT, content TEXT, embedding TEXT, "
-        "metadata TEXT, is_deleted INTEGER DEFAULT 0, created_at TEXT, updated_at TEXT)"
-    )
-    store.conn.execute(
-        "INSERT INTO memories (id, user_id, content, embedding, metadata, is_deleted, created_at, updated_at) "
-        "VALUES ('old1', 'alice', 'old', '[1.0]', '{}', 0, '2025-01-01', '2025-01-01')"
-    )
-    store.conn.commit()
-    # 触发迁移
-    store._migrate_add_state_columns()
-    # 验证 state 默认 'active'
-    row = store.conn.execute("SELECT state FROM memories WHERE id = 'old1'").fetchone()
+    """ORMMemoryStore 用 SQLModel 建表, state 列 NOT NULL + default='active'。
+
+    旧路径的 ALTER TABLE 迁移 (添加 state 列) 在 ORMMemoryStore 中不存在:
+    SQLModel.metadata.create_all 一次性创建完整 schema。
+    此处验证: 通过 ORM 插入的记忆 state 默认 'active'。
+    """
+    mid = store.add("old data", [1.0, 0.0], user_id="alice")
+    with store.engine.connect() as conn:
+        row = conn.execute(text("SELECT state FROM memories WHERE id = :mid"), {"mid": mid}).fetchone()
     assert row[0] == "active"
 
 
 def test_columns_not_duplicated_on_re_migration(store):
-    """重复迁移不应报错。"""
-    store._migrate_add_state_columns()
-    store._migrate_add_state_columns()  # 第二次
-    # 验证只有一列 state
-    cols = [r[1] for r in store.conn.execute("PRAGMA table_info(memories)").fetchall()]
+    """重复建表不应报错 (SQLModel.metadata.create_all 幂等)。"""
+    store._create_tables()
+    store._create_tables()  # 第二次
+    cols = [c["name"] for c in inspect(store.engine).get_columns("memories")]
     assert cols.count("state") == 1
     assert cols.count("app_id") == 1

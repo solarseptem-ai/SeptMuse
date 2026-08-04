@@ -1,4 +1,4 @@
-"""三元组 LLM 联合抽取 (借鉴 graphiti extract_nodes_and_edges)。
+"""三元组 LLM 联合抽取。
 
 单次 LLM 调用同时抽实体 + 关系边 (三元组), 优于分离抽取。
 孤儿节点丢弃 (每实体至少有一条连接边, 否则丢弃)。
@@ -134,7 +134,7 @@ def _extract_fallback(text: str, entity_extractor: Any) -> list[Triplet]:
 
 
 class TripletExtractor:
-    """三元组 LLM 联合抽取器 (借鉴 graphiti extract_nodes_and_edges)。
+    """三元组 LLM 联合抽取器。
 
     依赖注入 LLM + EntityExtractor, 便于测试 (注入 MockLLM)。
     """
@@ -186,7 +186,7 @@ def extract_triplets(
     llm: LLM | None = None,
     entity_extractor: Any | None = None,
 ) -> list[Triplet]:
-    """便捷函数: 抽取三元组 (对齐路线图验收标准)。
+    """便捷函数: 抽取三元组。
 
     >>> extract_triplets("Alice works at Google")
     [Triplet(subject="Alice", predicate="works_at", object="Google")]

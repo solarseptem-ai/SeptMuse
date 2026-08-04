@@ -13,7 +13,6 @@
 #  limitations under the License.
 """MCP transports — Streamable HTTP + SSE 挂载到 FastAPI。
 
-源码参考 mem0 mcp_server.py:
 - SseServerTransport("/mcp/messages/") + @router.get SSE endpoint
 - StreamableHTTPServerTransport(mcp_session_id=None, is_json_response_enabled=True) stateless
 - capture_send 拦截 ASGI 响应避免 FastAPI double-response
@@ -38,7 +37,7 @@ logger = get_logger(__name__)
 
 
 def _mount_sse(app: FastAPI, mcp_server) -> APIRouter:
-    """挂载 SSE transport (源码参考 mem0 mcp_server.py SSE 部分)。"""
+    """挂载 SSE transport。"""
     sse = SseServerTransport("/mcp/sse/messages/")
     router = APIRouter(prefix="/mcp")
 
@@ -82,7 +81,7 @@ def _mount_sse(app: FastAPI, mcp_server) -> APIRouter:
 
 
 def _mount_http(app: FastAPI, mcp_server) -> APIRouter:
-    """挂载 Streamable HTTP transport (源码参考 mem0 mcp_server.py streamable_http 部分)。
+    """挂载 Streamable HTTP transport。
 
     使用 MCP spec 2025-03-26+ 的 Streamable HTTP, stateless 模式。
     """

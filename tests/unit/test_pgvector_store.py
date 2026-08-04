@@ -29,7 +29,7 @@ from septmuse.storage.base import MemoryStore
 
 # PGVectorStore 需要 psycopg2 (当前环境已安装 psycopg2 2.9.11)
 # psycopg3 未安装, 走 psycopg2 回退路径
-from septmuse.storage.vector.pgvector import (
+from septmuse.storage.vector_stores.pgvector import (
     PGVectorStore,
     _to_pgvector_str,
     _with_sslmode,
@@ -96,7 +96,7 @@ def mock_pool(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     所以必须 mock 模块内的名称, 而非原始类。
     """
     mock = MagicMock()
-    monkeypatch.setattr("septmuse.storage.vector.pgvector.ConnectionPool", MagicMock(return_value=mock))
+    monkeypatch.setattr("septmuse.storage.vector_stores.pgvector.ConnectionPool", MagicMock(return_value=mock))
     return mock
 
 
@@ -123,7 +123,7 @@ class TestPGVectorStoreInit:
 
     def test_sslmode_injection(self, monkeypatch: pytest.MonkeyPatch) -> None:
         mock_constructor = MagicMock()
-        monkeypatch.setattr("septmuse.storage.vector.pgvector.ConnectionPool", mock_constructor)
+        monkeypatch.setattr("septmuse.storage.vector_stores.pgvector.ConnectionPool", mock_constructor)
         PGVectorStore(
             connection_string="postgresql://t:t@h:5432/d",
             sslmode="require",

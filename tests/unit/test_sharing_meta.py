@@ -26,7 +26,7 @@ import pytest
 from septmuse import MemoryConfig
 from septmuse.embedders.hash import HashEmbedder
 from septmuse.experimental import ExperimentalMemory
-from septmuse.governance.user_id import MemoryScope, SharedMemoryAccessor
+from septmuse.governance.sharing import MemoryScope, SharedMemoryAccessor
 from septmuse.meta.router import MetaRouter, RouteResult
 
 

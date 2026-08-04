@@ -13,16 +13,13 @@
 #  limitations under the License.
 """捕获流水线 — SHA256 去重 → 隐私脱敏 → (压缩) → 双索引。
 
-借鉴 (架构文档 §5.1 捕获方式):
-- Agent Memory PostToolUse hook 流水线: SHA-256 去重(5min 窗) → 隐私过滤 → 存 raw → LLM 压缩 → 向量化 → 双索引
-- mem0 hash 去重: Phase 4-5 existing_hashes + seen_hashes 双重去重
-- ReMe Stop hook: 后台异步捕获 session
+架构文档 §5.1 捕获方式: SHA-256 去重(5min 窗) → 隐私过滤 → 存 raw → LLM 压缩 → 向量化 → 双索引
 
 阶段3 简化:
 - 去重: DedupWindow (governance/approval.py)
 - 脱敏: PrivacyFilter (governance/privacy.py)
 - 压缩: 暂不 LLM 压缩, 原文存 (后续可接 LLM 摘要)
-- 双索引: verbatim SQLiteMemoryStore + (可选) LLM cognify 抽取到 typed_store
+- 双索引: verbatim ORMMemoryStore + (可选) LLM cognify 抽取到 typed_store
 
 详见 docs/specs/agent-memory-architecture.md §5.1 捕获方式。
 """
@@ -32,13 +29,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from septmuse.capture.sanitize import PrivacyFilter
 from septmuse.core.logging import get_logger
 from septmuse.embedders.base import Embedder
 from septmuse.governance.approval import DedupWindow, WriteValidator
-from septmuse.governance.privacy import PrivacyFilter
 from septmuse.llms.base import LLM
 from septmuse.storage.base import MemoryStore
-from septmuse.storage.typed_store import TypedMemoryStore
+from septmuse.storage.relational_stores.typed_store import TypedMemoryStore
 
 logger = get_logger(__name__)
 
@@ -58,7 +55,7 @@ class PipelineResult:
 
 
 class CapturePipeline:
-    """捕获流水线 (架构文档 §5.1, 借鉴 Agent Memory PostToolUse 流水线)。
+    """捕获流水线 (架构文档 §5.1)。
 
     流程: SHA256 去重 → 隐私脱敏 → (压缩) → 嵌入 → 双索引存储。
 
@@ -97,9 +94,9 @@ class CapturePipeline:
     ) -> PipelineResult:
         """执行捕获流水线。
 
-        session_id: 会话 ID (对齐 mem0 run_id; None=不限)。
-        Step 1: SHA256 去重 (DedupWindow, 对齐 Agent Memory 5min 窗)
-        Step 2: 隐私脱敏 (PrivacyFilter, 对齐 Agent Memory 隐私过滤)
+        session_id: 会话 ID (None=不限)。
+        Step 1: SHA256 去重 (DedupWindow, 5min 窗)
+        Step 2: 隐私脱敏 (PrivacyFilter)
         Step 3: (压缩 — 暂不实现, 原文存)
         Step 4: 嵌入 (Embedder)
         Step 5: 双索引 (verbatim store + 可选 typed store cognify)
@@ -109,7 +106,7 @@ class CapturePipeline:
             result.errors.append("empty text")
             return result
 
-        # Step 1: SHA256 去重 (对齐 Agent Memory + mem0 hash dedup)
+        # Step 1: SHA256 去重
         validation = self.validator.validate(text, user_id=user_id, agent_id=agent_id)
         if not validation.allowed:
             result.deduped = validation.dedup
@@ -120,7 +117,7 @@ class CapturePipeline:
         # 校验通过后, 确定 effective_user_id (至少一个 ID 非空)
         effective_user_id = user_id if user_id else agent_id or "default"
 
-        # Step 2: 隐私脱敏 (对齐 Agent Memory 隐私过滤)
+        # Step 2: 隐私脱敏
         cleaned = self.privacy.redact(text)
         if cleaned != text:
             result.redacted = True
@@ -134,7 +131,7 @@ class CapturePipeline:
         # Step 4: 嵌入
         emb = self.embedder.embed(result.stored_text)
 
-        # Step 5a: verbatim 存储 (SQLiteMemoryStore)
+        # Step 5a: verbatim 存储 (ORMMemoryStore)
         mid = self.store.add(
             result.stored_text,
             emb,

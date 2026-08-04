@@ -30,7 +30,7 @@ from septmuse.core.logging import get_logger
 from septmuse.llms.base import LLM
 from septmuse.models.causal import CausalEdge
 from septmuse.prompts.causal_extract import COUNTERFACTUAL_PROMPT, build_counterfactual_message
-from septmuse.storage.typed_store import TypedMemoryStore
+from septmuse.storage.relational_stores.typed_store import TypedMemoryStore
 
 logger = get_logger(__name__)
 

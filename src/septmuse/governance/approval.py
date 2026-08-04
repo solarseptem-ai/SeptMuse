@@ -11,15 +11,15 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""写校验 + hash 去重 — 记忆写入前拦截 (架构文档 §5.3, 借鉴 mem0 写校验)。
+"""写校验 + hash 去重 — 记忆写入前拦截 (架构文档 §5.3)。
 
-对齐 mem0 (main.py):
-- _validate_and_trim_entity_id: ID 必须是非空 str, trim, 拒绝内部空格
-- _build_filters_and_metadata: 至少一个 session ID (VALIDATION_001)
-- md5 hash 去重: Phase 4-5 对 existing_hashes + seen_hashes 双重去重
+写校验:
+- entity ID 必须是非空 str, trim, 拒绝内部空格
+- 至少一个 session ID (user_id 或 agent_id)
+- hash 去重: existing_hashes + seen_hashes 双重去重
 
 SeptMuse 简化:
-- SHA-256 hash (比 mem0 md5 更安全, 对齐 Agent Memory SHA-256 去重)
+- SHA-256 hash (比 md5 更安全)
 - 内存窗口去重 (DedupWindow, 默认 5min 时间窗)
 - ValidationResult 返回 allowed/reason/dedup
 
@@ -36,23 +36,23 @@ from septmuse.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-# 去重窗口默认 5min (对齐 Agent Memory 5min 去重窗口)
+# 去重窗口默认 5min
 DEFAULT_DEDUP_WINDOW_SECONDS = 300
 
 
 def compute_hash(text: str) -> str:
-    """SHA-256 hash (对齐 Agent Memory SHA-256 去重, 比 mem0 md5 更安全)。"""
+    """SHA-256 hash (比 md5 更安全)。"""
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def validate_entity_id(value: str | int | None, name: str = "user_id") -> str | None:
-    """校验 + trim entity ID (对齐 mem0 _validate_and_trim_entity_id)。
+    """校验 + trim entity ID。
 
     - None → None (可选字段)
     - 非空 str → trim 后返回
     - 空串/纯空格 → None
     - int → str(int) (兼容)
-    - 含内部空格 → raise ValueError (对齐 mem0)
+    - 含内部空格 → raise ValueError
     """
     if value is None:
         return None
@@ -79,7 +79,7 @@ class ValidationResult:
 
 
 class DedupWindow:
-    """时间窗去重 (对齐 Agent Memory 5min 窗口 + mem0 seen_hashes)。
+    """时间窗去重 (5min 窗口 + 内存 seen_hashes)。
 
     用法:
         window = DedupWindow(window_seconds=300)
@@ -99,7 +99,7 @@ class DedupWindow:
 
         Args:
             text: 文本
-            scope: 作用域 (如 user_id), 相同文本在不同 scope 下不重复 (对齐 mem0 per-user 去重)
+            scope: 作用域 (如 user_id), 相同文本在不同 scope 下不重复 (per-user 去重)
         """
         key = f"{scope}:{text}" if scope else text
         h = compute_hash(key)
@@ -123,7 +123,7 @@ class DedupWindow:
 
 
 class WriteValidator:
-    """写校验器 (对齐 mem0 参数校验 + hash 去重)。
+    """写校验器 (参数校验 + hash 去重)。
 
     用法:
         validator = WriteValidator()
@@ -144,13 +144,13 @@ class WriteValidator:
         user_id: str | None = None,
         agent_id: str | None = None,
     ) -> ValidationResult:
-        """写入前校验 (对齐 mem0 add 参数校验 + hash 去重)。
+        """写入前校验 (参数校验 + hash 去重)。
 
         校验:
-        1. text 非空 (对齐 mem0 VALIDATION_003)
-        2. user_id 或 agent_id 至少一个 (对齐 mem0 VALIDATION_001)
-        3. entity ID 格式 (对齐 mem0 _validate_and_trim_entity_id)
-        4. hash 去重 (对齐 mem0 Phase 4-5 + Agent Memory 5min 窗)
+        1. text 非空
+        2. user_id 或 agent_id 至少一个
+        3. entity ID 格式校验
+        4. hash 去重 (5min 时间窗, per-user scope)
         """
         # 1. text 非空
         if not text or not text.strip():
@@ -162,7 +162,7 @@ class WriteValidator:
         if uid is None and aid is None:
             return ValidationResult(allowed=False, reason="at least one of user_id/agent_id required")
 
-        # 3. hash 去重 (对齐 mem0 Phase 4-5 + Agent Memory 5min 窗, per-user scope)
+        # 3. hash 去重 (5min 时间窗, per-user scope)
         scope = uid or aid or "default"
         h = compute_hash(text.strip())
         if self.dedup.is_duplicate(text.strip(), scope=scope):

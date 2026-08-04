@@ -19,19 +19,21 @@ import json
 import sys
 
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, text
 
 from septmuse import MemoryConfig
 from septmuse.api.rest import create_app
 from septmuse.embedders.hash import HashEmbedder
 from septmuse.experimental import ExperimentalMemory
 from septmuse.models.block import Block, WorkingMemory
-from septmuse.storage.sqlite.store import SQLiteMemoryStore
-from septmuse.storage.typed_store import TypedMemoryStore
+from septmuse.storage.relational_stores.orm_store import ORMMemoryStore
+from septmuse.storage.relational_stores.typed_store import TypedMemoryStore
 
 
 class TestStoreUpdate:
     def test_update_content(self, tmp_path):
-        store = SQLiteMemoryStore(db_path=str(tmp_path / "test.db"))
+        engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+        store = ORMMemoryStore(engine)
         mid = store.add("旧内容", [1.0, 0.0, 0.0], user_id="alice")
         ok = store.update(mid, "新内容", [0.0, 1.0, 0.0])
         assert ok is True
@@ -40,13 +42,15 @@ class TestStoreUpdate:
         store.close()
 
     def test_update_not_found(self, tmp_path):
-        store = SQLiteMemoryStore(db_path=str(tmp_path / "test.db"))
+        engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+        store = ORMMemoryStore(engine)
         ok = store.update("nonexistent", "x", [1.0])
         assert ok is False
         store.close()
 
     def test_update_deleted_returns_false(self, tmp_path):
-        store = SQLiteMemoryStore(db_path=str(tmp_path / "test.db"))
+        engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+        store = ORMMemoryStore(engine)
         mid = store.add("内容", [1.0], user_id="alice")
         store.delete(mid)
         ok = store.update(mid, "新", [0.0])
@@ -54,15 +58,18 @@ class TestStoreUpdate:
         store.close()
 
     def test_update_history_recorded(self, tmp_path):
-        store = SQLiteMemoryStore(db_path=str(tmp_path / "test.db"))
+        engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+        store = ORMMemoryStore(engine)
         mid = store.add("旧内容", [1.0], user_id="alice")
         store.update(mid, "新内容", [0.0])
-        with store._lock:
-            cur = store.conn.execute(
-                "SELECT event, old_memory, new_memory FROM history WHERE memory_id=? AND event='UPDATE'",
-                (mid,),
-            )
-            rows = cur.fetchall()
+        with engine.connect() as conn:
+            rows = conn.execute(
+                text(
+                    "SELECT event, old_memory, new_memory FROM history "
+                    "WHERE memory_id=:mid AND event='UPDATE'"
+                ),
+                {"mid": mid},
+            ).fetchall()
         assert len(rows) == 1
         assert rows[0][0] == "UPDATE"
         assert rows[0][1] == "旧内容"
@@ -70,7 +77,8 @@ class TestStoreUpdate:
         store.close()
 
     def test_update_metadata_only(self, tmp_path):
-        store = SQLiteMemoryStore(db_path=str(tmp_path / "test.db"))
+        engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+        store = ORMMemoryStore(engine)
         mid = store.add("内容", [1.0], user_id="alice", metadata={"k": "v1"})
         ok = store.update(mid, "内容", [1.0], metadata={"k": "v2"})
         assert ok is True

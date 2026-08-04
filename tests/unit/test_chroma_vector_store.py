@@ -30,7 +30,7 @@ pytestmark = pytest.mark.integration
 @pytest.fixture()
 def chroma_store(tmp_path: Path) -> Iterator:
     pytest.importorskip("chromadb")
-    from septmuse.storage.vector.chroma import ChromaVectorStore
+    from septmuse.storage.vector_stores.chroma import ChromaVectorStore
 
     store = ChromaVectorStore(persist_path=str(tmp_path / "chroma"))
     yield store

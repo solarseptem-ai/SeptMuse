@@ -15,113 +15,144 @@
 
 from __future__ import annotations
 
+from sqlalchemy import create_engine, inspect, text
+
 from septmuse.configs.defaults import MemoryConfig
 from septmuse.experimental import ExperimentalMemory
-from septmuse.storage.sqlite.store import SQLiteMemoryStore
+from septmuse.storage.relational_stores.orm_store import ORMMemoryStore
 
 
 class TestTemporalMigration:
     def test_new_db_has_temporal_columns(self, tmp_path):
-        store = SQLiteMemoryStore(db_path=str(tmp_path / "test.db"))
-        cols = {row[1] for row in store.conn.execute("PRAGMA table_info(memories)")}
+        engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+        store = ORMMemoryStore(engine)
+        cols = {c["name"] for c in inspect(engine).get_columns("memories")}
         assert "valid_at" in cols
         assert "invalid_at" in cols
         assert "expired_at" in cols
         store.close()
 
     def test_idempotent_migration(self, tmp_path):
-        store = SQLiteMemoryStore(db_path=str(tmp_path / "test.db"))
-        store._migrate_add_temporal_columns()
-        store._migrate_add_temporal_columns()
-        cols = {row[1] for row in store.conn.execute("PRAGMA table_info(memories)")}
+        engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+        store = ORMMemoryStore(engine)
+        store._create_tables()
+        store._create_tables()
+        cols = {c["name"] for c in inspect(engine).get_columns("memories")}
         assert "valid_at" in cols
         store.close()
 
 
 class TestAddWithValidAt:
     def test_add_with_valid_at(self, tmp_path):
-        store = SQLiteMemoryStore(db_path=str(tmp_path / "test.db"))
+        engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+        store = ORMMemoryStore(engine)
         mid = store.add("Alice works at Google", [1.0, 0.0], user_id="u1", valid_at="2024-01-01")
-        row = store.conn.execute("SELECT valid_at, invalid_at, expired_at FROM memories WHERE id=?", (mid,)).fetchone()
+        with engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT valid_at, invalid_at, expired_at FROM memories WHERE id=:mid"), {"mid": mid}
+            ).fetchone()
         assert row[0] == "2024-01-01"
         assert row[1] is None
         assert row[2] is None
         store.close()
 
     def test_add_without_valid_at(self, tmp_path):
-        store = SQLiteMemoryStore(db_path=str(tmp_path / "test.db"))
+        engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+        store = ORMMemoryStore(engine)
         mid = store.add("hello world", [1.0, 0.0], user_id="u1")
-        row = store.conn.execute("SELECT valid_at FROM memories WHERE id=?", (mid,)).fetchone()
+        with engine.connect() as conn:
+            row = conn.execute(text("SELECT valid_at FROM memories WHERE id=:mid"), {"mid": mid}).fetchone()
         assert row[0] is None
         store.close()
 
 
 class TestGetTemporalValid:
     def test_returns_memories_valid_at_reference_time(self, tmp_path):
-        store = SQLiteMemoryStore(db_path=str(tmp_path / "test.db"))
+        engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+        store = ORMMemoryStore(engine)
         store.add("Alice at Google", [1.0, 0.0], user_id="u1", valid_at="2024-01-01")
         store.add("Alice at Apple", [1.0, 0.0], user_id="u1", valid_at="2025-01-01")
         results = store.get_temporal_valid("2024-06-01", user_id="u1")
         assert len(results) == 1
         assert "Google" in results[0]["memory"]
+        store.close()
 
     def test_returns_null_valid_at(self, tmp_path):
-        store = SQLiteMemoryStore(db_path=str(tmp_path / "test.db"))
+        engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+        store = ORMMemoryStore(engine)
         store.add("no time constraint", [1.0, 0.0], user_id="u1")
         results = store.get_temporal_valid("2024-06-01", user_id="u1")
         assert len(results) == 1
+        store.close()
 
     def test_excludes_invalidated(self, tmp_path):
-        store = SQLiteMemoryStore(db_path=str(tmp_path / "test.db"))
+        engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+        store = ORMMemoryStore(engine)
         mid = store.add("old fact", [1.0, 0.0], user_id="u1", valid_at="2024-01-01")
         store.invalidate(mid, invalid_at="2024-06-01")
         results = store.get_temporal_valid("2024-07-01", user_id="u1")
         assert len(results) == 0
+        store.close()
 
     def test_includes_still_valid(self, tmp_path):
-        store = SQLiteMemoryStore(db_path=str(tmp_path / "test.db"))
+        engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+        store = ORMMemoryStore(engine)
         mid = store.add("current fact", [1.0, 0.0], user_id="u1", valid_at="2024-01-01")
         store.invalidate(mid, invalid_at="2025-01-01")
         results = store.get_temporal_valid("2024-06-01", user_id="u1")
         assert len(results) == 1
+        store.close()
 
     def test_excludes_future_valid_at(self, tmp_path):
-        store = SQLiteMemoryStore(db_path=str(tmp_path / "test.db"))
+        engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+        store = ORMMemoryStore(engine)
         store.add("future fact", [1.0, 0.0], user_id="u1", valid_at="2025-01-01")
         results = store.get_temporal_valid("2024-06-01", user_id="u1")
         assert len(results) == 0
+        store.close()
 
 
 class TestInvalidate:
     def test_invalidate_sets_columns(self, tmp_path):
-        store = SQLiteMemoryStore(db_path=str(tmp_path / "test.db"))
+        engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+        store = ORMMemoryStore(engine)
         mid = store.add("Alice at Google", [1.0, 0.0], user_id="u1", valid_at="2024-01-01")
         result = store.invalidate(mid, invalid_at="2025-01-01")
         assert result["event"] == "INVALIDATE"
         assert result["invalid_at"] == "2025-01-01"
-        row = store.conn.execute("SELECT invalid_at, expired_at FROM memories WHERE id=?", (mid,)).fetchone()
+        with engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT invalid_at, expired_at FROM memories WHERE id=:mid"), {"mid": mid}
+            ).fetchone()
         assert row[0] == "2025-01-01"
         assert row[1] is not None
+        store.close()
 
     def test_invalidate_default_time(self, tmp_path):
-        store = SQLiteMemoryStore(db_path=str(tmp_path / "test.db"))
+        engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+        store = ORMMemoryStore(engine)
         mid = store.add("test", [1.0, 0.0], user_id="u1")
         result = store.invalidate(mid)
         assert result["invalid_at"] is not None
         assert result["expired_at"] is not None
+        store.close()
 
     def test_invalidate_not_found(self, tmp_path):
-        store = SQLiteMemoryStore(db_path=str(tmp_path / "test.db"))
+        engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+        store = ORMMemoryStore(engine)
         result = store.invalidate("nonexistent-id")
         assert result["event"] == "NOT_FOUND"
+        store.close()
 
     def test_invalidate_does_not_delete(self, tmp_path):
-        store = SQLiteMemoryStore(db_path=str(tmp_path / "test.db"))
+        engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+        store = ORMMemoryStore(engine)
         mid = store.add("test", [1.0, 0.0], user_id="u1")
         store.invalidate(mid)
         m = store.get(mid)
         assert m is not None
         assert m["id"] == mid
+        store.close()
 
 
 class TestMemoryAddValidAt:

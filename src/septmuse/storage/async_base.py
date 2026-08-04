@@ -44,13 +44,22 @@ class AsyncMemoryStore(ABC):
         session_id: str | None = None,
         top_k: int = 5,
         threshold: float = 0.1,
+        filters: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        """向量检索，返回 [{"id", "memory", "score", ...}]。"""
+        """向量检索，返回 [{"id", "memory", "score", ...}]。
+
+        filters: mem0 风格字段过滤字典, None=不过滤 (子类按需实现)。
+        """
         ...
 
     @abstractmethod
-    async def get_all(self, *, user_id: str, session_id: str | None = None) -> list[dict[str, Any]]:
-        """列出该用户全部未删除记忆。"""
+    async def get_all(
+        self, *, user_id: str, session_id: str | None = None, filters: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
+        """列出该用户全部未删除记忆。
+
+        filters: mem0 风格字段过滤字典, None=不过滤 (子类按需实现)。
+        """
         ...
 
     @abstractmethod

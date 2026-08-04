@@ -11,13 +11,12 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Zettelkasten 链接生长 — add 时自动找语义关系建链接 (借鉴 cognee cognify)。
+"""Zettelkasten 链接生长 — add 时自动找语义关系建链接。
 
-借鉴 (源码实证):
-- cognee cognify → expand_with_nodes_and_edges: 对每个新节点, 用 ontology/embedding
-  找语义相关已有节点, 创建 Edge(relationship_type=..., source, target)
-- cognee retrieve_existing_edges: 查 has_edges 防重复建边
-- cognee expand_with_nodes_and_edges: existing_edges_map 去重
+机制:
+- 对每个新节点, 用 embedding 余弦相似度找语义相关已有节点, 创建边
+- 查询已有边防重复建边
+- existing_edges_map 去重
 
 SeptMuse 简化:
 - 不用 ontology resolver, 用 embedding 余弦相似度找关联
@@ -36,7 +35,7 @@ from typing import Any
 from septmuse.core.logging import get_logger
 from septmuse.embedders.base import Embedder
 from septmuse.storage.base import MemoryStore
-from septmuse.storage.graph.base import GraphStore
+from septmuse.storage.graph_stores.base import GraphStore
 
 logger = get_logger(__name__)
 
@@ -46,7 +45,7 @@ DEFAULT_MAX_LINKS = 5
 
 @dataclass
 class MemoryLink:
-    """记忆间链接 (对齐 cognee Edge)。"""
+    """记忆间链接。"""
 
     id: str
     source_id: str
@@ -56,7 +55,7 @@ class MemoryLink:
 
 
 class ZettelLinker:
-    """Zettelkasten 链接生长器 (对齐 coggee cognify expand_with_nodes_and_edges)。
+    """Zettelkasten 链接生长器。
 
     每次 add 后自动找语义相似的已有记忆, 创建双向链接。
     用 GraphStore (SQLiteGraphStore / AGEGraphStore) 存储链接, 不修改 memories 表。
@@ -90,7 +89,7 @@ class ZettelLinker:
         user_id: str,
         relation: str = "related_to",
     ) -> list[MemoryLink]:
-        """add 后自动找链接 (对齐 cognee expand_with_nodes_and_edges)。
+        """add 后自动找链接。
 
         1. 向量检索相似记忆 (store.search)
         2. 过滤自身 + 已有链接 (retrieve_existing_edges 去重)

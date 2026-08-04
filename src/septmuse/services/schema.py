@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""服务类型枚举 (借鉴 Langflow services/schema.py ServiceType)。
+"""服务类型枚举。
 
 SeptMuse 核心服务类型——每个对应一个 Service + ServiceFactory + deps.py get 函数。
 后续实现时, 在 services/<name>/ 下建 factory.py + service.py, deps.py 暴露 get 函数。

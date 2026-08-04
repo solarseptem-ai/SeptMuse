@@ -30,9 +30,10 @@ from septmuse.storage.migrations import (  # noqa: E402 — MigrationStep 须先
     m003_session_id,
     m004_temporal,
     m005_access_logs,
+    m006_archived_at,
 )
 
-_MODULES = [m001_initial_schema, m002_state_columns, m003_session_id, m004_temporal, m005_access_logs]
+_MODULES = [m001_initial_schema, m002_state_columns, m003_session_id, m004_temporal, m005_access_logs, m006_archived_at]
 
 MIGRATIONS: list[Migration] = [
     Migration(version=m.VERSION, description=m.DESCRIPTION, steps=m.steps)

@@ -77,13 +77,15 @@ deepseek = ["openai>=1.30"]
 llm = ["openai>=1.30"]
 # 生产后端
 postgres = ["psycopg[binary,pool]>=3.1", "psycopg2-binary>=2.9", "pgvector>=0.3"]
+mysql = ["aiomysql>=0.2", "pymysql>=1.1"]
 graph = ["neo4j>=5.20"]
 # 可选存储后端 (extras, 按需安装)
 chroma = ["chromadb>=0.5.0"]
 qdrant = ["qdrant-client>=1.9.0"]
 neo4j = ["neo4j>=5.0.0"]
 bm25 = ["rank-bm25>=0.2.2"]
-all-backends = ["septmuse[chroma,qdrant,neo4j,bm25]"]
+redis = ["redis>=5.0"]
+all-backends = ["septmuse[chroma,qdrant,neo4j,bm25,redis]"]
 # ONNX embedder (无 torch 依赖, 替代 sentence-transformers, ModelScope 下载)
 onnx = ["onnxruntime>=1.16", "tokenizers>=0.15", "modelscope>=1.10"]
 # 激活/参数化记忆 (自托管模型)
@@ -105,7 +107,7 @@ dev = [
   "mypy>=1.10",
   "httpx>=0.27",
 ]
-all = ["septmuse[openai,anthropic,ollama,dashscope,postgres,graph,activation,parametric,server,dev,onnx]"]
+all = ["septmuse[openai,anthropic,ollama,dashscope,postgres,mysql,graph,activation,parametric,server,dev,onnx,redis]"]
 
 [project.scripts]
 septmuse = "septmuse.cli.main:main"

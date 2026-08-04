@@ -1,7 +1,7 @@
 #  Copyright 2026 The sonhhxg0529 Authors. All Rights Reserved.
 """async 访问日志函数测试。"""
 
-from septmuse.governance.async_access_log import async_record_access
+from septmuse.governance.audit import async_record_access
 from septmuse.storage.async_base import AsyncMemoryStore
 
 

@@ -44,7 +44,7 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 from septmuse.core.logging import get_logger
-from septmuse.storage.parametric.base import BaseParametricMemory
+from septmuse.storage.parametric.lora_base import BaseParametricMemory
 
 logger = get_logger(__name__)
 
@@ -139,7 +139,7 @@ class LoRAMemory(BaseParametricMemory):
     用法 (自托管模型场景):
 
         from transformers import AutoModelForCausalLM
-        from septmuse.storage.parametric import LoRAMemory, LoRAConfig
+        from septmuse.storage.file_stores import LoRAMemory, LoRAConfig
 
         base_model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-3B-Instruct")
         lora = LoRAMemory()

@@ -13,13 +13,12 @@
 #  limitations under the License.
 """MCP server 实例 + lazy Memory + setup + run_stdio。
 
-源码参考 mem0/openmemory/api/app/mcp_server.py:
 - mcp = FastMCP("...")  实例化
 - get_memory_client_safe()  lazy + 失败不崩
 - setup_mcp_server(app: FastAPI)  挂载 router
 
 SeptMuse 增量 (架构文档 §13.3):
-- run_stdio()  stdio transport (mem0 openmemory 无, 仅 http/sse)
+- run_stdio()  stdio transport
   使 `septmuse mcp` 可在 Claude Code 本地零服务运行
 """
 
@@ -34,19 +33,17 @@ from septmuse.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-# MCP server 实例 (对齐 mem0: mcp = FastMCP("mem0-mcp-server"))
+# MCP server 实例
 mcp = FastMCP("septmuse-mcp-server")
 
-# lazy Memory 单例 (对齐 mem0 get_memory_client_safe — 失败不崩)
+# lazy Memory 单例 (失败不崩)
 _mem_instance = None
 
 
 def get_memory_safe():
     """获取 Memory 实例, 失败返回 None (不崩 server)。
 
-    源码参考 mem0 mcp_server.py get_memory_client_safe。
-
-    SeptMuse 增量: 默认用 HashEmbedder (零模型加载, 离线可用), 与 CLI _make_memory 一致。
+    默认用 HashEmbedder (零模型加载, 离线可用), 与 CLI _make_memory 一致。
     若 SEPTMUSE_EMBEDDER 环境变量非 "hash", 则用 Memory() 默认 (onnx/hash)。
     """
     global _mem_instance
@@ -67,8 +64,6 @@ def get_memory_safe():
 
 def setup_mcp_server(app: FastAPI) -> None:
     """挂载 MCP server 到 FastAPI (http/sse transport)。
-
-    源码参考 mem0 mcp_server.py setup_mcp_server(app): app.include_router(mcp_router)
 
     注意: 必须先 import tools 模块触发 @mcp.tool 装饰器注册, 否则 SSE/HTTP 模式下
     tools/list 返回空 (stdio 模式在 run_stdio 里 import, 此处补上 http/sse 路径)。

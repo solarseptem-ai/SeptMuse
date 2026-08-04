@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""LLM 抽象基类 (借鉴 mem0 llms/base.py 模式)。
+"""LLM 抽象基类。
 
 所有 LLM 实现此接口, 用于记忆抽取 (infer=True)。
 """

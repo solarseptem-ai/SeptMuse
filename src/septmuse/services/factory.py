@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""服务工厂基类 (借鉴 Langflow services/factory.py ServiceFactory)。
+"""服务工厂基类。
 
 每个具体 Service 的 Factory 继承此类, 设 service_class + 覆盖 create()。
 
@@ -37,7 +37,7 @@ from septmuse.services.base import Service
 class ServiceFactory:
     """服务工厂基类——绑定 service_class, create() 创建实例。
 
-    Langflow 模式: Factory 负责实例化 Service, ServiceManager 负责缓存。
+    Factory 负责实例化 Service, ServiceManager 负责缓存。
     deps.py 里每个 get_xxx_service() 传 default factory 给 get_service()。
     """
 

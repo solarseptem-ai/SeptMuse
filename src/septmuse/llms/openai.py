@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""OpenAI LLM provider (借鉴 mem0 llms/openai.py 模式)。
+"""OpenAI LLM provider。
 
 对齐 septmuse.llms.base.LLM ABC,
 调用 OpenAI Chat Completions API。
@@ -35,7 +35,7 @@ logger = get_logger(__name__)
 
 
 class OpenAILLM(LLM):
-    """OpenAI Chat Completions provider (借鉴 mem0 llms/openai.py)。
+    """OpenAI Chat Completions provider。
 
     零配置: 从 OPENAI_API_KEY 环境变量读取。
     自定义: OpenAILLM(api_key="sk-...", model="gpt-4o")。

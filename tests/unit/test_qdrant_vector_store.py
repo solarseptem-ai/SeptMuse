@@ -30,7 +30,7 @@ pytestmark = pytest.mark.integration
 @pytest.fixture()
 def qdrant_store() -> Iterator:
     pytest.importorskip("qdrant_client")
-    from septmuse.storage.vector.qdrant import QdrantVectorStore
+    from septmuse.storage.vector_stores.qdrant import QdrantVectorStore
 
     store = QdrantVectorStore(host="localhost", port=6333)
     yield store

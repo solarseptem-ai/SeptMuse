@@ -13,15 +13,10 @@
 #  limitations under the License.
 """cognify 抽取流水线 — LLM 抽取事实 + 三元组存储 (架构文档 §3.2.2)。
 
-源码参考 (实证):
-- mem0 FACT_RETRIEVAL_PROMPT + normalize_facts (LLM 输出 {"facts": [...]})
-- Cognee cognify 流水线 (classify → extract → summarize → store)
-- mem0 add infer=True (LLM 抽取 + 存储)
-
-SeptMuse 流程:
+流程:
 1. parse_messages → 文本
 2. LLM complete(FACT_EXTRACTION_PROMPT) → {"facts": [...]}
-3. normalize_facts (对齐 mem0, 处理 str/dict 变体)
+3. normalize_facts (处理 str/dict 变体)
 4. fact → 三元组 (简单规则解析, 避免二次 LLM)
 5. 存为 SemanticFact (subject/predicate/object) + verbatim memory (向量检索)
 """
@@ -37,13 +32,13 @@ from septmuse.embedders.base import Embedder
 from septmuse.llms.base import LLM
 from septmuse.prompts.extract import ADDITIVE_EXTRACTION_PROMPT, FACT_EXTRACTION_PROMPT
 from septmuse.storage.base import MemoryStore
-from septmuse.storage.typed_store import TypedMemoryStore
+from septmuse.storage.relational_stores.typed_store import TypedMemoryStore
 
 logger = get_logger(__name__)
 
 
 def parse_messages(messages: Any) -> str:
-    """解析 messages 为文本 (对齐 mem0 parse_messages)。"""
+    """解析 messages 为文本。"""
     if isinstance(messages, str):
         return messages
     parts: list[str] = []
@@ -59,7 +54,7 @@ def parse_messages(messages: Any) -> str:
 
 
 def normalize_facts(raw_facts: list[Any]) -> list[str]:
-    """归一化 facts (源码参考 mem0 normalize_facts)。
+    """归一化 facts。
 
     处理 str / {"fact": ...} / {"text": ...} 变体。
     """
@@ -106,7 +101,7 @@ def fact_to_triple(fact: str, user_id: str) -> tuple[str, str, str]:
 
 
 class FactExtractor:
-    """cognify 抽取流水线 (架构文档 §3.2.2, 借鉴 Cognee + mem0)。
+    """cognify 抽取流水线 (架构文档 §3.2.2)。
 
     依赖注入 LLM + Embedder + stores, 便于测试 (注入 MockLLM)。
     """
@@ -125,19 +120,45 @@ class FactExtractor:
         self.verbatim_store = verbatim_store
         self.prompt = ADDITIVE_EXTRACTION_PROMPT if use_additive_prompt else FACT_EXTRACTION_PROMPT
 
-    def extract_facts(self, messages: Any) -> list[str]:
-        """LLM 抽取 fact 字符串列表 (对齐 mem0 add infer=True 抽取阶段)。
+    def extract_facts(
+        self, messages: Any, existing_memories: list[dict[str, Any]] | None = None
+    ) -> list[str]:
+        """LLM 抽取 fact 字符串列表。
 
-        P3-Task 2: 默认用 ADDITIVE_EXTRACTION_PROMPT (含 9 个 few-shot, 对齐 mem0 V3)。
+        Args:
+            messages: 消息文本或列表
+            existing_memories: 已有记忆列表 (注入 prompt 避免重复抽取, None=纯抽取模式)
         """
         text = parse_messages(messages)
         if not text.strip():
             return []
 
-        raw = self.llm.complete(self.prompt, f"Input:\n{text}")
+        from septmuse.prompts.extract import build_extraction_user_prompt
+
+        user_prompt = build_extraction_user_prompt(text, existing_memories)
+        raw = self.llm.complete(self.prompt, user_prompt)
         facts = self._parse_facts_response(raw)
-        logger.info("facts_extracted", count=len(facts))
+        logger.info("facts_extracted", count=len(facts), existing=len(existing_memories or []))
         return facts
+
+    def _retrieve_existing(
+        self, text: str, user_id: str, top_k: int = 10
+    ) -> list[dict[str, Any]]:
+        """检索已有记忆 (Phase 1, 避免重复抽取, 对齐 mem0 V3)。
+
+        无 verbatim_store 时返回空列表 (降级为纯抽取模式)。
+        """
+        if self.verbatim_store is None:
+            return []
+        try:
+            emb = self.embedder.embed(text)
+            results = self.verbatim_store.search(
+                emb, user_id=user_id, top_k=top_k, threshold=0.0
+            )
+            return [{"id": r.get("id", ""), "memory": r.get("memory", "")} for r in results]
+        except Exception as e:
+            logger.warning("retrieve_existing_failed", error=str(e))
+            return []
 
     def extract_and_store(
         self,
@@ -146,12 +167,14 @@ class FactExtractor:
         user_id: str,
         provenance: str = "inferred",
     ) -> list[dict[str, Any]]:
-        """完整 cognify 流水线: 抽取 → 三元组 → 存储 (对齐 Cognee cognify + mem0 add)。
+        """完整 cognify 流水线: 检索已有记忆 → 抽取 → 三元组 → 存储。
 
-        P3-Task 2: 输出 linked_memory_ids (跨记忆链接, 对齐 mem0 V3)。
+        输出 linked_memory_ids (跨记忆链接)。
         返回 [{"id", "memory", "triple", "event": "ADD", "linked_memory_ids": [...]}]。
         """
-        facts = self.extract_facts(messages)
+        text = parse_messages(messages)
+        existing = self._retrieve_existing(text, user_id)
+        facts = self.extract_facts(messages, existing_memories=existing)
         results: list[dict[str, Any]] = []
         linked_memory_ids: list[str] = []
 
@@ -192,7 +215,7 @@ class FactExtractor:
 
     @staticmethod
     def _parse_facts_response(raw: str) -> list[str]:
-        """解析 LLM 输出为 fact 列表 (源码参考 mem0 normalize_facts + extract_json)。"""
+        """解析 LLM 输出为 fact 列表。"""
         # 去除 markdown 代码块
         cleaned = re.sub(r"^```[a-zA-Z0-9]*\n|\n```$", "", raw.strip())
         try:

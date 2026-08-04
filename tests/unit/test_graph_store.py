@@ -20,14 +20,16 @@ AGEGraphStore: mock ConnectionPool 单元测试 + skipif 集成测试。
 from __future__ import annotations
 
 import os
+import threading
 from collections.abc import Iterator
 from unittest.mock import MagicMock
 
 import pytest
+from sqlmodel import create_engine
 
-from septmuse.storage.graph.base import GraphEdge, GraphStore
-from septmuse.storage.graph.sqlite import SQLiteGraphStore
-from septmuse.storage.sqlite.store import SQLiteMemoryStore
+from septmuse.storage.graph_stores.base import GraphEdge, GraphStore
+from septmuse.storage.graph_stores.sqlite import SQLiteGraphStore
+from septmuse.storage.relational_stores.orm_store import ORMMemoryStore
 
 # ======================================================================
 # SQLiteGraphStore 单元测试 (真实 SQLite, 零外部依赖)
@@ -36,9 +38,11 @@ from septmuse.storage.sqlite.store import SQLiteMemoryStore
 
 @pytest.fixture()
 def graph_store() -> Iterator[SQLiteGraphStore]:
-    """用 :memory: SQLite 构造 SQLiteGraphStore (复用 SQLiteMemoryStore 的 conn/lock)。"""
-    store = SQLiteMemoryStore(db_path=":memory:")
-    graph = SQLiteGraphStore(store.conn, store._lock)
+    """用 :memory: SQLite 构造 SQLiteGraphStore (复用 ORMMemoryStore 的 engine)。"""
+    engine = create_engine("sqlite://")
+    store = ORMMemoryStore(engine)
+    raw_conn = store.engine.raw_connection()
+    graph = SQLiteGraphStore(raw_conn, threading.Lock())
     yield graph
     store.close()
 
@@ -157,31 +161,31 @@ class TestSQLiteGraphStoreBidirectional:
 def mock_age_pool(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     """Mock AGEGraphStore 的 ConnectionPool (避免真实 Postgres)。"""
     mock = MagicMock()
-    monkeypatch.setattr("septmuse.storage.graph.age.ConnectionPool", MagicMock(return_value=mock))
+    monkeypatch.setattr("septmuse.storage.graph_stores.age.ConnectionPool", MagicMock(return_value=mock))
     return mock
 
 
 class TestAGEGraphStoreInit:
     def test_inherits_graph_store(self, mock_age_pool: MagicMock) -> None:
-        from septmuse.storage.graph.age import AGEGraphStore
+        from septmuse.storage.graph_stores.age import AGEGraphStore
 
         store = AGEGraphStore(connection_string="postgresql://t:t@h:5432/d")
         assert isinstance(store, GraphStore)
 
     def test_default_graph_name(self, mock_age_pool: MagicMock) -> None:
-        from septmuse.storage.graph.age import AGEGraphStore
+        from septmuse.storage.graph_stores.age import AGEGraphStore
 
         store = AGEGraphStore(connection_string="postgresql://t:t@h:5432/d")
         assert store.graph_name == "septmuse_graph"
 
     def test_custom_graph_name(self, mock_age_pool: MagicMock) -> None:
-        from septmuse.storage.graph.age import AGEGraphStore
+        from septmuse.storage.graph_stores.age import AGEGraphStore
 
         store = AGEGraphStore(connection_string="postgresql://t:t@h:5432/d", graph_name="custom")
         assert store.graph_name == "custom"
 
     def test_connection_string_priority(self, mock_age_pool: MagicMock) -> None:
-        from septmuse.storage.graph.age import AGEGraphStore
+        from septmuse.storage.graph_stores.age import AGEGraphStore
 
         store = AGEGraphStore(
             connection_string="postgresql://custom:custom@customhost:5432/customdb",
@@ -190,7 +194,7 @@ class TestAGEGraphStoreInit:
         assert store.graph_name == "septmuse_graph"
 
     def test_external_connection_pool(self, mock_age_pool: MagicMock) -> None:
-        from septmuse.storage.graph.age import AGEGraphStore
+        from septmuse.storage.graph_stores.age import AGEGraphStore
 
         external_pool = MagicMock()
         store = AGEGraphStore(connection_pool=external_pool)
@@ -198,14 +202,15 @@ class TestAGEGraphStoreInit:
 
 
 # ======================================================================
-# MemoryStore 关系查询测试 (SQLiteMemoryStore, 验证新方法)
+# MemoryStore 关系查询测试 (ORMMemoryStore, 验证新方法)
 # ======================================================================
 
 
 @pytest.fixture()
-def store_with_data() -> Iterator[SQLiteMemoryStore]:
-    """构造有跨 agent 数据的 SQLiteMemoryStore。"""
-    store = SQLiteMemoryStore(db_path=":memory:")
+def store_with_data() -> Iterator[ORMMemoryStore]:
+    """构造有跨 agent 数据的 ORMMemoryStore。"""
+    engine = create_engine("sqlite://")
+    store = ORMMemoryStore(engine)
     store.add("alice doc 1", [1.0, 0.0], user_id="alice", agent_id="bot1")
     store.add("alice doc 2", [0.0, 1.0], user_id="alice", agent_id="bot2")
     store.add("alice shared", [1.0, 1.0], user_id="alice", agent_id=None)  # 跨 agent 共享
@@ -215,21 +220,21 @@ def store_with_data() -> Iterator[SQLiteMemoryStore]:
 
 
 class TestMemoryStoreRelationQueries:
-    def test_list_agents(self, store_with_data: SQLiteMemoryStore) -> None:
+    def test_list_agents(self, store_with_data: ORMMemoryStore) -> None:
         agents = store_with_data.list_agents("alice")
         assert set(agents) == {"bot1", "bot2"}  # NULL agent_id 被排除
 
-    def test_list_agents_empty(self, store_with_data: SQLiteMemoryStore) -> None:
+    def test_list_agents_empty(self, store_with_data: ORMMemoryStore) -> None:
         assert store_with_data.list_agents("nonexistent") == []
 
-    def test_list_users(self, store_with_data: SQLiteMemoryStore) -> None:
+    def test_list_users(self, store_with_data: ORMMemoryStore) -> None:
         users = store_with_data.list_users("bot1")
         assert set(users) == {"alice", "bob"}
 
-    def test_list_users_empty(self, store_with_data: SQLiteMemoryStore) -> None:
+    def test_list_users_empty(self, store_with_data: ORMMemoryStore) -> None:
         assert store_with_data.list_users("nonexistent") == []
 
-    def test_get_shared_memories(self, store_with_data: SQLiteMemoryStore) -> None:
+    def test_get_shared_memories(self, store_with_data: ORMMemoryStore) -> None:
         memories = store_with_data.get_shared_memories("alice", limit=100)
         assert len(memories) == 3
         # 验证字段完整
@@ -241,11 +246,11 @@ class TestMemoryStoreRelationQueries:
             assert "metadata" in m
             assert "created_at" in m
 
-    def test_get_shared_memories_limit(self, store_with_data: SQLiteMemoryStore) -> None:
+    def test_get_shared_memories_limit(self, store_with_data: ORMMemoryStore) -> None:
         memories = store_with_data.get_shared_memories("alice", limit=2)
         assert len(memories) == 2
 
-    def test_get_shared_memories_empty(self, store_with_data: SQLiteMemoryStore) -> None:
+    def test_get_shared_memories_empty(self, store_with_data: ORMMemoryStore) -> None:
         assert store_with_data.get_shared_memories("nonexistent") == []
 
 
@@ -267,7 +272,7 @@ class TestAGEGraphStoreIntegration:
 
     @pytest.fixture()
     def age_store(self) -> Iterator:
-        from septmuse.storage.graph.age import AGEGraphStore
+        from septmuse.storage.graph_stores.age import AGEGraphStore
 
         dsn = os.getenv("SEPTMUSE_TEST_PG_DSN", "")
         store = AGEGraphStore(connection_string=dsn)

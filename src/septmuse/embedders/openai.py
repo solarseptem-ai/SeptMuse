@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""OpenAI 嵌入 provider (借鉴 mem0 embeddings/openai.py OpenAIEmbedding 模式)。
+"""OpenAI 嵌入 provider。
 
 对齐 septmuse.embedders.base.Embedder ABC,
 调用 OpenAI Embeddings API。
@@ -40,7 +40,7 @@ MAX_BATCH = 100
 
 
 class OpenAIEmbedder(Embedder):
-    """OpenAI Embeddings provider (借鉴 mem0 OpenAIEmbedding)。
+    """OpenAI Embeddings provider。
 
     零配置: 从 OPENAI_API_KEY 环境变量读取。
     自定义: OpenAIEmbedder(api_key="sk-...", model="text-embedding-3-small")。
@@ -65,7 +65,7 @@ class OpenAIEmbedder(Embedder):
         self.model = model
         self._dim = embedding_dims or DEFAULT_DIMS
         # 仅当用户显式设了 embedding_dims 才向 API 传 dimensions 参数
-        # (非 matryoshka 后端如 vLLM/Voyage 拒绝 dimensions 参数, 对齐 mem0)
+        # (非 matryoshka 后端如 vLLM/Voyage 拒绝 dimensions 参数)
         self._pass_dimensions_to_api = embedding_dims is not None
 
         self._api_key = api_key or os.getenv("OPENAI_API_KEY") or "not-required"
@@ -85,9 +85,9 @@ class OpenAIEmbedder(Embedder):
         return self._dim
 
     def embed(self, text: str) -> list[float]:
-        """嵌入单条文本 (对齐 Embedder ABC + mem0 OpenAIEmbedding.embed)。
+        """嵌入单条文本 (对齐 Embedder ABC)。
 
-        换行替换为空格 (OpenAI 要求, 对齐 mem0)。
+        换行替换为空格 (OpenAI 要求)。
         """
         text = text.replace("\n", " ")
         kwargs: dict[str, Any] = {
@@ -101,7 +101,7 @@ class OpenAIEmbedder(Embedder):
         return response.data[0].embedding
 
     def embed_batch(self, texts: list[str]) -> list[list[float]]:
-        """批量嵌入 (对齐 mem0 OpenAIEmbedding.embed_batch)。
+        """批量嵌入。
 
         100 一批分块, 按 .index 排序, 数量校验。
         """

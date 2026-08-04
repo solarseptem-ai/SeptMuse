@@ -83,6 +83,10 @@ class MemoryConfig(BaseSettings):
         return self.database.db_path
 
     @property
+    def db_url(self) -> str | None:
+        return self.database.db_url
+
+    @property
     def llm_provider(self) -> str | None:
         if self.llm is None:
             return None
@@ -153,6 +157,7 @@ class MemoryConfig(BaseSettings):
         if not isinstance(data, dict):
             return data
         aliases = {
+            "SEPTMUSE_DB_URL": ("database", "db_url"),
             "SEPTMUSE_DB_PATH": ("database", "db_path"),
             "SEPTMUSE_EMBEDDER": ("embedder", "backend"),
             "SEPTMUSE_VECTOR_BACKEND": ("vector_store", "backend"),

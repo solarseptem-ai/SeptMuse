@@ -1,4 +1,4 @@
-"""5 个迁移模块 DDL 正确性测试。"""
+"""6 个迁移模块 DDL 正确性测试。"""
 import sqlite3
 
 import pytest
@@ -13,15 +13,15 @@ def conn():
     c.close()
 
 
-def test_migrations_list_has_5():
-    """注册表有 5 个迁移。"""
-    assert len(MIGRATIONS) == 5
+def test_migrations_list_has_6():
+    """注册表有 6 个迁移。"""
+    assert len(MIGRATIONS) == 6
 
 
 def test_migrations_versions_sequential():
-    """版本号从 001 到 005 有序。"""
+    """版本号从 001 到 006 有序。"""
     versions = [m.version for m in MIGRATIONS]
-    assert versions == ["001", "002", "003", "004", "005"]
+    assert versions == ["001", "002", "003", "004", "005", "006"]
 
 
 def test_m001_creates_memories_and_history(conn):
@@ -89,3 +89,15 @@ def test_m005_creates_access_logs(conn):
         "SELECT name FROM sqlite_master WHERE type='table'"
     ).fetchall()]
     assert "memory_access_logs" in tables
+
+
+def test_m006_adds_archived_at(conn):
+    """m006 添加 archived_at 列。"""
+    conn.execute("CREATE TABLE memories (id TEXT)")
+    m006 = MIGRATIONS[5]
+    assert m006.version == "006"
+    for step in m006.steps("sqlite"):
+        conn.execute(step.sql)
+    conn.commit()
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(memories)").fetchall()]
+    assert "archived_at" in cols

@@ -8,16 +8,18 @@
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 
 import pytest
+from sqlmodel import create_engine
 
 from septmuse.configs.defaults import MemoryConfig
 from septmuse.embedders.hash import HashEmbedder
 from septmuse.experimental import ExperimentalMemory
 from septmuse.retrieval.graph_search import GraphSearcher
-from septmuse.storage.graph.sqlite import SQLiteGraphStore
-from septmuse.storage.sqlite.store import SQLiteMemoryStore
+from septmuse.storage.graph_stores.sqlite import SQLiteGraphStore
+from septmuse.storage.relational_stores.orm_store import ORMMemoryStore
 
 
 @pytest.fixture()
@@ -27,8 +29,10 @@ def tmp_db(tmp_path: Path) -> str:
 
 @pytest.fixture()
 def store_and_graph(tmp_db: str):
-    store = SQLiteMemoryStore(db_path=tmp_db)
-    graph = SQLiteGraphStore(store.conn, store._lock)
+    engine = create_engine(f"sqlite:///{tmp_db}")
+    store = ORMMemoryStore(engine)
+    raw_conn = store.engine.raw_connection()
+    graph = SQLiteGraphStore(raw_conn, threading.Lock())
     return store, graph
 
 

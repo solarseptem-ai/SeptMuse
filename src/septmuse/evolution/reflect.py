@@ -11,15 +11,17 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""反思升华 — session 结束时提取教训, 固化为程序规则 (借鉴 cognee distill_session)。
+"""反思升华 — session 结束时提取教训, 固化为程序规则。
 
-借鉴 (源码实证):
-- cognee improve → _distill_sessions → distill_session:
-  LOAD (取 QA turns + context) → CURATE (batch, LLM propose lessons) →
-  ACCEPT (check existing, write/reject) → PUBLISH (render and store)
-- cognee ProposedLesson: working_statement, member_entry_ids
-- cognee WrittenLesson: accept, reason, statement, entities
-- cognee MIN_GATE_CONFIDENCE=0.75, CURATOR_BLOCKS_PER_BATCH=6
+三阶段流程:
+- LOAD: 取 QA turns + context
+- CURATE: batch, LLM propose lessons
+- ACCEPT: check existing, write/reject
+- PUBLISH: render and store
+
+数据结构: ProposedLesson (working_statement, member_entry_ids) →
+WrittenLesson (accept, reason, statement, entities)
+参数: MIN_GATE_CONFIDENCE=0.75, CURATOR_BLOCKS_PER_BATCH=6
 
 SeptMuse 简化:
 - 不用 batch curator, 对每条 episodic reasoning 直接 LLM 抽取 lesson
@@ -37,14 +39,14 @@ from dataclasses import dataclass, field
 from septmuse.core.logging import get_logger
 from septmuse.llms.base import LLM
 from septmuse.models.episodic import EpisodicEvent
-from septmuse.storage.typed_store import TypedMemoryStore
+from septmuse.storage.relational_stores.typed_store import TypedMemoryStore
 
 logger = get_logger(__name__)
 
 
 @dataclass
 class LessonProposal:
-    """教训提案 (对齐 cognee ProposedLesson)。"""
+    """教训提案。"""
 
     statement: str
     source_event_id: str
@@ -63,7 +65,7 @@ class ReflectionResult:
 
 
 class SessionReflector:
-    """反思升华器 (对齐 cognee distill_session: curate → accept → publish)。
+    """反思升华器 (三阶段: curate → accept → publish)。
 
     从 episodic reasoning events 提取教训, 存为 procedural rules。
 
@@ -90,7 +92,7 @@ class SessionReflector:
     ) -> ReflectionResult:
         """执行反思: 从 episodic reasoning 提取教训 → 存为 procedural rules。
 
-        流程 (对齐 cognee distill_session):
+        流程:
         1. LOAD: 取 episodic reasoning events
         2. CURATE: LLM 提取 lessons (或 heuristic)
         3. ACCEPT: 存为 procedural rules (confidence 退化机制)
@@ -129,12 +131,12 @@ class SessionReflector:
         return result
 
     def _load_reasoning_events(self, *, user_id: str, limit: int) -> list[EpisodicEvent]:
-        """加载 episodic reasoning events (对齐 cognee distill load_distillable_session_inputs)。"""
+        """加载 episodic reasoning events。"""
         events = self.typed_store.get_episodes(user_id=user_id, event_type="reasoning", limit=limit)
         return events
 
     def _extract_lessons(self, event: EpisodicEvent) -> list[LessonProposal]:
-        """从 reasoning event 提取 lessons (对齐 cognee curate_batch → propose_lessons)。
+        """从 reasoning event 提取 lessons。
 
         有 LLM: 用 LLM 从 event.thoughts + event.action 提取
         无 LLM: 从 event.thoughts/action 直接提取 (heuristic: 取非空行)
@@ -144,7 +146,7 @@ class SessionReflector:
         return self._heuristic_extract(event)
 
     def _llm_extract(self, event: EpisodicEvent) -> list[LessonProposal]:
-        """LLM 提取 lessons (对齐 cognee curator LLM)。"""
+        """LLM 提取 lessons。"""
         system_prompt = (
             "You are a reflection assistant. Extract concise lessons learned from the reasoning event. "
             "Return one lesson per line, starting with 'Lesson:'."
@@ -203,7 +205,7 @@ class SessionReflector:
         namespace: str,
         result: ReflectionResult,
     ) -> bool:
-        """writer/rejecter: 判定 lesson 是否值得写入 (对齐 cognee write_or_reject)。
+        """writer/rejecter: 判定 lesson 是否值得写入。
 
         三层过滤:
         1. 基本验证 (非空, >=5 字符)
@@ -244,7 +246,7 @@ class SessionReflector:
         return len(b_low) > 10 and b_low in a_low
 
     def _llm_accept(self, statement: str) -> bool:
-        """LLM writer/rejecter: 判定 lesson 是否值得写入 (对齐 cognee write_or_reject LLM)。"""
+        """LLM writer/rejecter: 判定 lesson 是否值得写入。"""
         prompt = (
             f"Decide if this lesson is worth saving as a rule. Answer ONLY 'accept' or 'reject'.\nLesson: {statement}"
         )

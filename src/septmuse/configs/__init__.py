@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""SeptMuse 配置 (借鉴 mem0 configs/ 分类结构)。
+"""SeptMuse 配置。
 
 顶层组合:
     base.py         MemoryConfig (组合所有子配置)

@@ -11,14 +11,17 @@
 from __future__ import annotations
 
 import json
+import threading
 from pathlib import Path
 
 import pytest
+from sqlmodel import create_engine
 
 from septmuse.configs.defaults import MemoryConfig
 from septmuse.embedders.hash import HashEmbedder
 from septmuse.experimental import ExperimentalMemory
 from septmuse.llms.base import LLM
+from septmuse.storage.relational_stores.orm_store import ORMMemoryStore
 
 
 class StubLLM(LLM):
@@ -148,14 +151,15 @@ class TestCognifyPipelineDirect:
     def test_pipeline_with_mock_llm(self, tmp_db: str):
         """直接用 CognifyPipeline + StubLLM 测试。"""
         from septmuse.extraction.cognify import CognifyPipeline
-        from septmuse.storage.entity_store import EntityStore
-        from septmuse.storage.graph.sqlite import SQLiteGraphStore
-        from septmuse.storage.sqlite.store import SQLiteMemoryStore
+        from septmuse.storage.graph_stores.sqlite import SQLiteGraphStore
+        from septmuse.storage.relational_stores.entity_store import EntityStore
 
-        store = SQLiteMemoryStore(db_path=tmp_db)
-        graph_store = SQLiteGraphStore(store.conn, store._lock)
+        engine = create_engine(f"sqlite:///{tmp_db}")
+        store = ORMMemoryStore(engine)
+        raw_conn = store.engine.raw_connection()
+        graph_store = SQLiteGraphStore(raw_conn, threading.Lock())
         embedder = HashEmbedder(dim=128)
-        entity_store = EntityStore(store.conn, store._lock, embedder=embedder)
+        entity_store = EntityStore.from_engine(store.engine, embedder=embedder)
         llm = StubLLM(
             _make_triplet_response(
                 ["Alice", "Google"],
@@ -179,11 +183,12 @@ class TestCognifyPipelineDirect:
     def test_pipeline_without_entity_store(self, tmp_db: str):
         """entity_store=None 时不崩, 只存 memory + triplets。"""
         from septmuse.extraction.cognify import CognifyPipeline
-        from septmuse.storage.graph.sqlite import SQLiteGraphStore
-        from septmuse.storage.sqlite.store import SQLiteMemoryStore
+        from septmuse.storage.graph_stores.sqlite import SQLiteGraphStore
 
-        store = SQLiteMemoryStore(db_path=tmp_db)
-        graph_store = SQLiteGraphStore(store.conn, store._lock)
+        engine = create_engine(f"sqlite:///{tmp_db}")
+        store = ORMMemoryStore(engine)
+        raw_conn = store.engine.raw_connection()
+        graph_store = SQLiteGraphStore(raw_conn, threading.Lock())
         embedder = HashEmbedder(dim=128)
         llm = StubLLM(
             _make_triplet_response(
@@ -209,12 +214,12 @@ class TestCognifyPipelineDirect:
     def test_pipeline_without_graph_store(self, tmp_db: str):
         """graph_store=None 时不崩, links 为空。"""
         from septmuse.extraction.cognify import CognifyPipeline
-        from septmuse.storage.entity_store import EntityStore
-        from septmuse.storage.sqlite.store import SQLiteMemoryStore
+        from septmuse.storage.relational_stores.entity_store import EntityStore
 
-        store = SQLiteMemoryStore(db_path=tmp_db)
+        engine = create_engine(f"sqlite:///{tmp_db}")
+        store = ORMMemoryStore(engine)
         embedder = HashEmbedder(dim=128)
-        entity_store = EntityStore(store.conn, store._lock, embedder=embedder)
+        entity_store = EntityStore.from_engine(store.engine, embedder=embedder)
         llm = StubLLM(
             _make_triplet_response(
                 ["Alice", "Google"],
@@ -236,14 +241,15 @@ class TestCognifyPipelineDirect:
     def test_pipeline_relations_idempotent(self, tmp_db: str):
         """同一三元组重复 cognify 不报错 (UNIQUE 约束)。"""
         from septmuse.extraction.cognify import CognifyPipeline
-        from septmuse.storage.entity_store import EntityStore
-        from septmuse.storage.graph.sqlite import SQLiteGraphStore
-        from septmuse.storage.sqlite.store import SQLiteMemoryStore
+        from septmuse.storage.graph_stores.sqlite import SQLiteGraphStore
+        from septmuse.storage.relational_stores.entity_store import EntityStore
 
-        store = SQLiteMemoryStore(db_path=tmp_db)
-        graph_store = SQLiteGraphStore(store.conn, store._lock)
+        engine = create_engine(f"sqlite:///{tmp_db}")
+        store = ORMMemoryStore(engine)
+        raw_conn = store.engine.raw_connection()
+        graph_store = SQLiteGraphStore(raw_conn, threading.Lock())
         embedder = HashEmbedder(dim=128)
-        entity_store = EntityStore(store.conn, store._lock, embedder=embedder)
+        entity_store = EntityStore.from_engine(store.engine, embedder=embedder)
         llm = StubLLM(
             _make_triplet_response(
                 ["Alice", "Google"],
@@ -269,12 +275,12 @@ class TestCognifyPipelineDirect:
     def test_pipeline_empty_text(self, tmp_db: str):
         """空文本 cognify 不崩, triplets 为空。"""
         from septmuse.extraction.cognify import CognifyPipeline
-        from septmuse.storage.entity_store import EntityStore
-        from septmuse.storage.sqlite.store import SQLiteMemoryStore
+        from septmuse.storage.relational_stores.entity_store import EntityStore
 
-        store = SQLiteMemoryStore(db_path=tmp_db)
+        engine = create_engine(f"sqlite:///{tmp_db}")
+        store = ORMMemoryStore(engine)
         embedder = HashEmbedder(dim=128)
-        entity_store = EntityStore(store.conn, store._lock, embedder=embedder)
+        entity_store = EntityStore.from_engine(store.engine, embedder=embedder)
 
         pipeline = CognifyPipeline(
             store=store,

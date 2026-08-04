@@ -25,9 +25,9 @@ import pytest
 from septmuse import MemoryConfig
 from septmuse.capture.hooks import PostToolUseHook, ToolCallEvent
 from septmuse.capture.pipeline import CapturePipeline
+from septmuse.capture.sanitize import PrivacyFilter
 from septmuse.embedders.hash import HashEmbedder
 from septmuse.experimental import ExperimentalMemory
-from septmuse.governance.privacy import PrivacyFilter
 
 
 @pytest.fixture()

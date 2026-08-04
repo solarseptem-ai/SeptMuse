@@ -11,19 +11,25 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""septmuse.memory - Memory facade + MemCube/MemOS containers + registry."""
+"""septmuse.memory - V2 编排 + V1 facade + ABC + MemCube/MemOS/registry."""
 
+from septmuse.memory.base import LongTermMemory, MemoryABC, ShortTermMemory
 from septmuse.memory.cube import MemCube, MemCubeConfig
 from septmuse.memory.main import Memory
+from septmuse.memory.memory_v2 import V2Memory
 from septmuse.memory.os import MemOS, MemOSConfig
 from septmuse.memory.registry import MemoryRegistry, get_default_registry
 
 __all__ = [
+    "LongTermMemory",
     "MemCube",
     "MemCubeConfig",
     "MemOS",
     "MemOSConfig",
     "Memory",
+    "MemoryABC",
     "MemoryRegistry",
+    "ShortTermMemory",
+    "V2Memory",
     "get_default_registry",
 ]

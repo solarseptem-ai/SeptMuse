@@ -11,15 +11,17 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""septmuse.governance — 治理 (permissions/access_log/privacy/approval/rbac/user_id)。"""
+"""septmuse.governance — 治理 (access/audit/approval/rbac/sharing)。"""
 
-from septmuse.governance.access_log import record_access
+from septmuse.governance.access import (
+    MemoryState,
+    async_check_memory_access_permissions,
+    check_memory_access_permissions,
+)
 from septmuse.governance.approval import DedupWindow, WriteValidator
-from septmuse.governance.permissions import MemoryState, check_memory_access_permissions
-from septmuse.governance.privacy import PrivacyFilter
+from septmuse.governance.audit import async_record_access, record_access
 from septmuse.governance.rbac import AccessCheckResult, AccessGrant, Permission, RBACManager, Role
-from septmuse.governance.token_budget import TokenBudget
-from septmuse.governance.user_id import MemoryScope, SharedMemoryAccessor
+from septmuse.governance.sharing import MemoryScope, SharedMemoryAccessor
 
 __all__ = [
     "AccessCheckResult",
@@ -28,12 +30,12 @@ __all__ = [
     "MemoryScope",
     "MemoryState",
     "Permission",
-    "PrivacyFilter",
     "RBACManager",
     "Role",
     "SharedMemoryAccessor",
-    "TokenBudget",
     "WriteValidator",
+    "async_check_memory_access_permissions",
+    "async_record_access",
     "check_memory_access_permissions",
     "record_access",
 ]

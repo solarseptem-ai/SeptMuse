@@ -11,12 +11,12 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""记忆存储后端抽象基类 (借鉴 mem0 vector_stores/base.py VectorStoreBase 模式)。
+"""记忆存储后端抽象基类。
 
-所有存储后端 (SQLiteMemoryStore / PGVectorStore / 未来 Qdrant 等)
+所有存储后端 (ORMMemoryStore / PGVectorStore / 未来 Qdrant 等)
 实现此接口, 保证 capture/retrieval/evolution 等横切关注点可插拔。
 
-方法签名严格对齐 SQLiteMemoryStore 既有实现, 不破坏现有行为。
+方法签名严格对齐 ORMMemoryStore 既有实现, 不破坏现有行为。
 score 语义: 相似度 (越高越相似, 范围 [0, 1])。
 """
 
@@ -50,9 +50,32 @@ class MemoryStore(ABC):
     ) -> str:
         """添加记忆, 返回 memory_id。
 
-        session_id: 会话 ID (可选, 对齐 mem0 run_id; None=不限制)。
+        session_id: 会话 ID (可选, 用于会话级过滤; None=不限制)。
         """
         ...
+
+    def add_batch(
+        self,
+        records: list[tuple[str, list[float]]],
+        *,
+        user_id: str,
+        agent_id: str | None = None,
+        session_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        valid_at: str | None = None,
+    ) -> list[str]:
+        """批量添加记忆, 返回 memory_id 列表。
+
+        默认实现: 逐条调用 add()。子类可覆盖以提高性能 (单次 commit)。
+        """
+        return [
+            self.add(
+                content, emb,
+                user_id=user_id, agent_id=agent_id,
+                session_id=session_id, metadata=metadata, valid_at=valid_at,
+            )
+            for content, emb in records
+        ]
 
     @abstractmethod
     def search(
@@ -63,20 +86,25 @@ class MemoryStore(ABC):
         session_id: str | None = None,
         top_k: int = 5,
         threshold: float = 0.1,
+        filters: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """向量检索, 返回 [{"id", "memory", "score", "metadata", "created_at"}]。
 
-        session_id: 仅搜该会话的记忆 (None=不限, 对齐 mem0 run_id 过滤)。
+        session_id: 仅搜该会话的记忆 (None=不限)。
         score: 相似度 (越高越相似, 范围 [0, 1])。
         threshold: 最低相似度过滤阈值。
+        filters: 字段过滤字典, None=不过滤 (子类按需实现)。
         """
         ...
 
     @abstractmethod
-    def get_all(self, *, user_id: str, session_id: str | None = None) -> list[dict[str, Any]]:
+    def get_all(
+        self, *, user_id: str, session_id: str | None = None, filters: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
         """列出该用户全部未删除记忆。
 
         session_id: 仅返回该会话的记忆 (None=不限)。
+        filters: 字段过滤字典, None=不过滤 (子类按需实现)。
         """
         ...
 
@@ -117,7 +145,7 @@ class MemoryStore(ABC):
         ...
 
     # ------------------------------------------------------------------
-    # 关系查询 (跨 agent 共享, 对齐 mem0 user_id 共享模式)
+    # 关系查询 (跨 agent 共享)
     # ------------------------------------------------------------------
 
     @abstractmethod
@@ -178,7 +206,7 @@ class MemoryStore(ABC):
         return []
 
     # ------------------------------------------------------------------
-    # 时态 (双时态建模, 子类有 temporal 列时覆盖; 借鉴 graphiti EntityEdge)
+    # 时态 (双时态建模, 子类有 temporal 列时覆盖)
     # ------------------------------------------------------------------
 
     def get_temporal_valid(
@@ -195,7 +223,7 @@ class MemoryStore(ABC):
     def get_temporal_interval(
         self, start: str, end: str, *, user_id: str, session_id: str | None = None
     ) -> list[dict[str, Any]]:
-        """查询时间区间 [start, end) 内为真的记忆 (借鉴 cognee temporal_retriever)。
+        """查询时间区间 [start, end) 内为真的记忆。
 
         条件: valid_at <= end AND (invalid_at IS NULL OR invalid_at > start)
         session_id: 仅返回该会话的记忆 (None=不限)。
@@ -214,7 +242,7 @@ class MemoryStore(ABC):
 
 
 def _rrf_fuse(vec_results: list[dict], kw_results: list[dict], *, alpha: float = 0.5, k: int = 60) -> list[dict]:
-    """RRF 融合排序 (借鉴 Cormack 2009, k=60 标准参数)。
+    """RRF 融合排序 (k=60 标准参数)。
 
     score = alpha * 1/(k+rank_vec) + (1-alpha) * 1/(k+rank_kw)
 
