@@ -4,7 +4,7 @@
 #   docker run -p 8000:8000 -e SEPTMUSE_API_KEY=sk-xxx septmuse:latest
 #   # 或 docker compose -f docker/docker-compose.yml up (见 docker/docker-compose.yml)
 
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 # 元数据
 LABEL org.opencontainers.image.title="SeptMuse" \
