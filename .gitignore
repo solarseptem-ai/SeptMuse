@@ -38,3 +38,7 @@ Thumbs.db
 venv/
 .venv/
 env/
+
+# 示例 + 基准测试
+examples/
+benchmarks/
