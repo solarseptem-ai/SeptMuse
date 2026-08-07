@@ -34,7 +34,12 @@ class BatchLLMReranker(BaseReranker):
     _SYSTEM_PROMPT = (
         "You are a relevance scoring assistant. "
         "Given a query and multiple documents, score how relevant each document is to the query.\n\n"
-        "Score the relevance on a scale from 0.0 to 1.0.\n"
+        "Score the relevance on a scale from 0.0 to 1.0, where:\n"
+        "- 1.0 = Perfectly relevant and directly answers the query\n"
+        "- 0.8-0.9 = Highly relevant with good information\n"
+        "- 0.6-0.7 = Moderately relevant with some useful information\n"
+        "- 0.4-0.5 = Slightly relevant with limited useful information\n"
+        "- 0.0-0.3 = Not relevant or no useful information\n\n"
         "Respond with ONLY a JSON array of objects with 'id' (integer) and 'score' (float) fields.\n"
         'Example: [{"id": 0, "score": 0.9}, {"id": 1, "score": 0.3}]'
     )

@@ -13,8 +13,12 @@
 #  limitations under the License.
 """PgvectorVectorStore — PostgreSQL + pgvector 扩展向量存储。
 
-有 pgvector 扩展时: 用 VECTOR(dim) 列 + <=> 余弦距离算子, 性能远超 numpy。
+有 pgvector 扩展时: 用 VECTOR(dim) 列 + <=> 余弦距离算子 + HNSW ANN 索引, 性能远超 numpy。
 无 pgvector 时: 降级为 SQLAlchemyVectorStore (JSON + numpy), 日志警告。
+
+HNSW 索引在 _init_pgvector 中自动创建 (pgvector >= 0.5.0):
+  CREATE INDEX IF NOT EXISTS ... USING hnsw (vector vector_cosine_ops)
+  参数: m=16 (每层最大连接数), ef_construction=64 (构建候选列表大小)
 
 需要: pip install pgvector (SQLAlchemy pgvector 支持)
 """
@@ -24,7 +28,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine
 
 from septmuse.core.logging import get_logger
@@ -66,7 +70,7 @@ class PgvectorVectorStore(VectorStoreBase):
             self._fallback = SQLAlchemyVectorStore(engine)
 
     def _init_pgvector(self) -> None:
-        """初始化 pgvector 扩展 + 建表。"""
+        """初始化 pgvector 扩展 + 建表 + HNSW 索引。"""
         with self._engine.connect() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
             conn.execute(
@@ -78,6 +82,14 @@ class PgvectorVectorStore(VectorStoreBase):
                     payload JSONB DEFAULT '{{}}'::jsonb
                 )
             """
+                )
+            )
+            # HNSW 近似最近邻索引 (pgvector >= 0.5.0), 余弦相似度
+            # m=16 每层最大连接数, ef_construction=64 构建时候选列表大小
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS vector_hnsw_idx ON vector_entries "
+                    "USING hnsw (vector vector_cosine_ops) WITH (m = 16, ef_construction = 64)"
                 )
             )
             conn.commit()
@@ -114,18 +126,23 @@ class PgvectorVectorStore(VectorStoreBase):
 
         # pgvector 余弦距离: <=> 操作符 (distance 越小越相似, score = 1 - distance)
         query_str = json.dumps(query_vector)
-        sql = text(
-            """
-            SELECT id, vector, payload,
-                   (vector <=> :query::vector) AS distance
-            FROM vector_entries
-            ORDER BY vector <=> :query::vector
-            LIMIT :top_k
-        """
-        ).bindparams(query=query_str, top_k=top_k)
+
+        # payload 过滤推到 SQL WHERE (PG JSONB @> 包含操作符)
+        where_clauses: list[str] = []
+        params: dict[str, Any] = {"query": query_str, "top_k": top_k}
+        if filters:
+            for _i, (key, value) in enumerate(filters.items()):
+                if value is None:
+                    continue
+                where_clauses.append(f"payload @> '{{\"{key}\": {json.dumps(value)}}}'::jsonb")
+
+        sql = "SELECT id, vector, payload, (vector <=> :query::vector) AS distance FROM vector_entries"
+        if where_clauses:
+            sql += " WHERE " + " AND ".join(where_clauses)
+        sql += " ORDER BY vector <=> :query::vector LIMIT :top_k"
 
         with self._engine.connect() as conn:
-            result = conn.execute(sql)
+            result = conn.execute(text(sql).bindparams(**params))
             rows = result.fetchall()
 
         results: list[VectorSearchResult] = []
@@ -133,9 +150,6 @@ class PgvectorVectorStore(VectorStoreBase):
             vid, _vec_json, payload_json, distance = row
             score = max(0.0, 1.0 - float(distance))
             payload = json.loads(payload_json) if payload_json else {}
-            # payload 过滤 (PG JSONB 字段匹配)
-            if filters and not all(payload.get(k) == v for k, v in filters.items()):
-                continue
             results.append(VectorSearchResult(id=str(vid), score=score, payload=payload))
         return results
 
@@ -188,6 +202,43 @@ class PgvectorVectorStore(VectorStoreBase):
         if limit is not None:
             entries = entries[:limit]
         return entries
+
+    def update_vector(self, vector_id: str, vector: list[float], payload: dict[str, Any] | None = None) -> bool:
+        """ON CONFLICT upsert。"""
+        if not self._pgvector_available:
+            return self._fallback.update_vector(vector_id, vector, payload)
+        with self._engine.connect() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO vector_entries (id, vector, payload) VALUES (:id, :vec::vector, :payload::jsonb) "
+                    "ON CONFLICT (id) DO UPDATE SET vector = :vec::vector, payload = :payload::jsonb"
+                ).bindparams(id=vector_id, vec=json.dumps(vector), payload=json.dumps(payload or {}))
+            )
+            conn.commit()
+        return True
+
+    def delete_collection(self) -> None:
+        if not self._pgvector_available:
+            return self._fallback.delete_collection()
+        with self._engine.connect() as conn:
+            conn.execute(text("DROP TABLE IF EXISTS vector_entries"))
+            conn.commit()
+
+    def get_collection_info(self) -> dict[str, Any]:
+        if not self._pgvector_available:
+            return self._fallback.get_collection_info()
+        if not inspect(self._engine).has_table("vector_entries"):
+            return {"name": "vector_entries", "count": 0, "dim": self._dim, "distance": "COSINE"}
+        with self._engine.connect() as conn:
+            result = conn.execute(text("SELECT COUNT(*) FROM vector_entries"))
+            count = result.scalar() or 0
+        return {"name": "vector_entries", "count": count, "dim": self._dim, "distance": "COSINE"}
+
+    def reset_collection(self) -> None:
+        if not self._pgvector_available:
+            return self._fallback.reset_collection()
+        self.delete_collection()
+        self._init_pgvector()
 
     def close(self) -> None:
         if self._pgvector_available:

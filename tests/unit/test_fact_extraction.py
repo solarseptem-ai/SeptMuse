@@ -29,7 +29,7 @@ class StubLLM(LLM):
     def __init__(self, facts: list[str]) -> None:
         self._facts = facts
 
-    def complete(self, system_prompt: str, user_prompt: str) -> str:
+    def _complete(self, system_prompt: str, user_prompt: str) -> str:
         return json.dumps({"facts": self._facts})
 
 

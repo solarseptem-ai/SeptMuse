@@ -26,7 +26,6 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-import numpy as np
 from sqlalchemy import create_engine, or_
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 from sqlmodel import SQLModel, select
@@ -61,7 +60,6 @@ class AsyncORMMemoryStore(AsyncMemoryStore):
     ) -> None:
         self._engine = engine
         self._session_maker = async_sessionmaker(engine, expire_on_commit=False)
-        self._vector_store = vector_store
         self._keyword_index = keyword_index
         # 建表: 从 async URL 派生 sync engine 建表 (避免 event loop 嵌套问题)
         # in-memory SQLite 因连接隔离不适用此方式, 测试请用文件 DB
@@ -74,8 +72,16 @@ class AsyncORMMemoryStore(AsyncMemoryStore):
         sync_engine = create_engine(sync_url)
         try:
             SQLModel.metadata.create_all(sync_engine)
-        finally:
+        except Exception:
             sync_engine.dispose()
+            raise
+        if vector_store is None:
+            from septmuse.storage.vector_stores.sqlalchemy_vec import SQLAlchemyVectorStore
+
+            vector_store = SQLAlchemyVectorStore(sync_engine)
+        else:
+            sync_engine.dispose()
+        self._vector_store = vector_store
         logger.info("async_orm_store_ready", dialect=engine.dialect.name)
 
     @property
@@ -108,7 +114,6 @@ class AsyncORMMemoryStore(AsyncMemoryStore):
                 agent_id=agent_id,
                 session_id=session_id,
                 content=content,
-                embedding=json.dumps(embedding),
                 metadata_json=json.dumps(metadata or {}),
                 created_at=now,
                 updated_at=now,
@@ -169,50 +174,54 @@ class AsyncORMMemoryStore(AsyncMemoryStore):
         threshold: float = 0.1,
         filters: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        """向量检索, 返回 [{"id", "memory", "score", "metadata", "created_at"}]。
+        """向量检索 (委托给 _vector_store ANN 索引)。
 
         score: 相似度 (越高越相似, 范围 [0, 1])。
         """
+        if self._vector_store is None:
+            return []
+
+        vs_filters: dict[str, Any] = {"user_id": user_id}
+        if session_id is not None:
+            vs_filters["session_id"] = session_id
+
+        vec_results = await asyncio.to_thread(
+            self._vector_store.search_vectors,
+            query_embedding, top_k * 3, vs_filters,
+        )
+        if not vec_results:
+            return []
+
+        vec_results = [r for r in vec_results if r.score >= threshold]
+        if not vec_results:
+            return []
+
+        score_map = {r.id: r.score for r in vec_results}
+
         async with AsyncSession(self._engine) as session:
             stmt = select(MemoryTable).where(
-                MemoryTable.user_id == user_id,
+                MemoryTable.id.in_(list(score_map.keys())),
                 MemoryTable.is_deleted == 0,
             )
-            if session_id is not None:
-                stmt = stmt.where(MemoryTable.session_id == session_id)
             if filters:
                 clean_filters = dict(filters)
-                if session_id is not None:
-                    clean_filters.pop("session_id", None)
-                    clean_filters.pop("run_id", None)
+                clean_filters.pop("session_id", None)
+                clean_filters.pop("run_id", None)
                 for key, value in clean_filters.items():
                     if hasattr(MemoryTable, key):
                         stmt = stmt.where(getattr(MemoryTable, key) == value)
             result = await session.exec(stmt)
             rows = result.all()
 
-        if not rows:
-            return []
-
-        q = np.array(query_embedding, dtype=np.float32)
-        qnorm = float(np.linalg.norm(q))
-        if qnorm > 0:
-            q = q / qnorm
-
         results: list[dict[str, Any]] = []
         for mem in rows:
-            if not mem.embedding:
-                continue
-            emb = np.array(json.loads(mem.embedding), dtype=np.float32)
-            score = float(np.dot(q, emb)) if qnorm > 0 else 0.0
-            if score >= threshold:
-                results.append({
-                    "id": mem.id,
-                    "memory": mem.content,
-                    "score": score,
-                    "metadata": json.loads(mem.metadata_json) if mem.metadata_json else {},
-                    "created_at": mem.created_at,
-                })
+            results.append({
+                "id": mem.id,
+                "memory": mem.content,
+                "score": score_map.get(mem.id, 0.0),
+                "metadata": json.loads(mem.metadata_json) if mem.metadata_json else {},
+                "created_at": mem.created_at,
+            })
         results.sort(key=lambda x: x["score"], reverse=True)
         return results[:top_k]
 
@@ -270,7 +279,6 @@ class AsyncORMMemoryStore(AsyncMemoryStore):
             old_content = mem.content
             old_meta = json.loads(mem.metadata_json) if mem.metadata_json else {}
             mem.content = content
-            mem.embedding = json.dumps(embedding)
             mem.metadata_json = json.dumps(metadata if metadata is not None else old_meta)
             mem.updated_at = now
             session.add(mem)

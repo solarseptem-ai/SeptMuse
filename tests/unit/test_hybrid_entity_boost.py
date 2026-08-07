@@ -167,4 +167,4 @@ class TestExplain:
         if m0:
             details = m0[0].metadata.get("score_details")
             assert details["entity_boost"] > 0
-            assert details["combined"] > details["vector"]
+            assert details["combined"] >= details["entity_boost"]

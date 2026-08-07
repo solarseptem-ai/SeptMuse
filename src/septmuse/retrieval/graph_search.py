@@ -10,7 +10,6 @@ SeptMuse 流程:
 
 from __future__ import annotations
 
-from collections import deque
 from typing import Any
 
 from septmuse.core.logging import get_logger
@@ -48,30 +47,10 @@ class GraphSearcher:
     ) -> list[dict[str, Any]]:
         """BFS 遍历, 返回 [{"id", "depth"}] (不含种子节点)。
 
-        去重: 已访问节点不重复入队。
-        双向: GraphStore 只存有向边, 但 ZettelLinker 建双向链接, 所以 BFS 能覆盖双向。
+        委托给 GraphStore.traverse() — 后端可用递归 CTE / Cypher *1..n 提升性能,
+        不支持时基类默认 Python BFS fallback。
         """
-        if max_depth < 1:
-            return []
-
-        visited: set[str] = {seed_memory_id}
-        results: list[dict[str, Any]] = []
-        queue: deque[tuple[str, int]] = deque([(seed_memory_id, 0)])
-
-        while queue:
-            current_id, depth = queue.popleft()
-            if depth >= max_depth:
-                continue
-
-            neighbors = self.graph_store.get_neighbors(current_id, relation)
-            for neighbor_id in neighbors:
-                if neighbor_id in visited:
-                    continue
-                visited.add(neighbor_id)
-                results.append({"id": neighbor_id, "depth": depth + 1})
-                queue.append((neighbor_id, depth + 1))
-
-        return results
+        return self.graph_store.traverse(seed_memory_id, max_depth, direction="out", relation=relation)
 
     def search_graph(
         self,

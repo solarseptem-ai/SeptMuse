@@ -152,10 +152,19 @@ class TestResolveEmbedder:
 
     def test_resolve_hash_default(self, monkeypatch) -> None:
         monkeypatch.delenv("SEPTMUSE_EMBEDDER", raising=False)
+        monkeypatch.delenv("SEPTMUSE_EMBEDDING_DIMS", raising=False)
         from septmuse.memory.main import _resolve_embedder
 
         emb = _resolve_embedder(MemoryConfig())
-        assert isinstance(emb, HashEmbedder)
+        # 默认 bge-zh (OnnxEmbedder), onnxruntime 不可用时降级到 HashEmbedder
+        try:
+            import onnxruntime  # noqa: F401
+
+            from septmuse.embedders.onnx import OnnxEmbedder
+
+            assert isinstance(emb, OnnxEmbedder)
+        except ImportError:
+            assert isinstance(emb, HashEmbedder)
 
     def test_resolve_onnx_english(self, monkeypatch) -> None:
         monkeypatch.setenv("SEPTMUSE_EMBEDDER", "onnx")

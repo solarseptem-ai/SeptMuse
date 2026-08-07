@@ -137,11 +137,12 @@ class Memory:
         else:
             self.graph_store = graph_store
 
-        # typed_store 共享 engine
+        # typed_store 共享 engine + facts vector_store
+        facts_vs = self._create_facts_vector_store()
         if store_engine is not None:
-            self.typed_store = TypedMemoryStore(engine=store_engine)
+            self.typed_store = TypedMemoryStore(engine=store_engine, vector_store=facts_vs)
         else:
-            self.typed_store = TypedMemoryStore(db_path=self.config.db_path)
+            self.typed_store = TypedMemoryStore(db_path=self.config.db_path, vector_store=facts_vs)
         self.semantic = SemanticMemory(self.typed_store, self.embedder)
         self.episodic = EpisodicMemory(self.typed_store)
         self.procedural = ProceduralMemory(self.typed_store)
@@ -195,6 +196,41 @@ class Memory:
         from septmuse.storage.relational_stores.factory import RelationalStoreFactory
 
         return RelationalStoreFactory.create(self.config)
+
+    def _create_facts_vector_store(self) -> Any:
+        """创建 SemanticFact 专用 vector_store (collection_name='septmuse_facts')。
+
+        从 ORMMemoryStore 的 vector_store 判断后端类型, 仅 QdrantVectorStore 支持多 collection。
+        本地模式复用同一 QdrantClient (_local_client_cache), 无文件锁冲突。
+        其他后端 (SQLAlchemy/Chroma 等) 返回 None, TypedMemoryStore 降级 numpy 全扫描。
+        """
+        import os
+
+        vs = getattr(self.store, "_vector_store", None)
+        if vs is None:
+            return None
+        if type(vs).__name__ != "QdrantVectorStore":
+            return None
+        try:
+            from septmuse.storage.vector_stores.qdrant import QdrantVectorStore
+
+            return QdrantVectorStore(
+                collection_name="septmuse_facts",
+                embedding_model_dims=getattr(
+                    vs, "_dim", self.config.vector_store.embedding_model_dims or 512
+                ),
+                path=os.getenv("SEPTMUSE_QDRANT_PATH"),
+                host=os.getenv("SEPTMUSE_QDRANT_HOST"),
+                port=int(os.getenv("SEPTMUSE_QDRANT_PORT", "6333"))
+                if os.getenv("SEPTMUSE_QDRANT_HOST")
+                else None,
+                url=os.getenv("SEPTMUSE_QDRANT_URL"),
+                api_key=os.getenv("SEPTMUSE_QDRANT_API_KEY"),
+                enable_bm25=getattr(vs, "_enable_bm25", True),
+            )
+        except Exception as e:
+            logger.warning("facts_vector_store_create_failed", error=str(e))
+            return None
 
     # ------------------------------------------------------------------
     # 核心 API

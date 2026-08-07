@@ -32,7 +32,9 @@ from septmuse.llms.base import LLM
 class MockLLM(LLM):
     """测试用确定性 LLM (模拟 mem0 fact 抽取输出)。"""
 
-    def complete(self, system_prompt: str, user_prompt: str) -> str:
+    provider_name = "mock"
+
+    def _complete(self, system_prompt: str, user_prompt: str) -> str:
         facts: list[str] = []
         text = user_prompt.lower()
 

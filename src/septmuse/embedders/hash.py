@@ -45,14 +45,15 @@ def _tokenize(text: str) -> list[str]:
 class HashEmbedder(Embedder):
     """词级 hash 确定性嵌入 (测试/离线用)。"""
 
-    def __init__(self, dim: int = 384) -> None:
+    def __init__(self, dim: int = 128) -> None:
         self._dim = dim
+        self.backend_name = "hash"
 
     @property
     def dimension(self) -> int:
         return self._dim
 
-    def embed(self, text: str) -> list[float]:
+    def _embed(self, text: str, memory_action: str | None = None) -> list[float]:
         vec = np.zeros(self._dim, dtype=np.float32)
         for token in _tokenize(text):
             h = int(hashlib.md5(token.encode("utf-8")).hexdigest(), 16)
@@ -62,5 +63,5 @@ class HashEmbedder(Embedder):
             vec = vec / norm
         return vec.tolist()
 
-    def embed_batch(self, texts: list[str]) -> list[list[float]]:
-        return [self.embed(t) for t in texts]
+    def _embed_batch(self, texts: list[str], memory_action: str | None = None) -> list[list[float]]:
+        return [self.embed(t, memory_action) for t in texts]

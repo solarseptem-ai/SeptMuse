@@ -30,8 +30,8 @@ class BackendEntry:
 BACKEND_MANIFEST: dict[str, dict[str, BackendEntry]] = {
     "vector_store": {
         "sqlite": BackendEntry(
-            module="septmuse.storage.vector_stores.sqlite_vec",
-            cls="SQLiteVectorStore",
+            module="septmuse.storage.vector_stores.sqlalchemy_vec",
+            cls="SQLAlchemyVectorStore",
             config_cls="septmuse.configs.vector_stores.sqlite.SQLiteVectorConfig",
             deps=(),
         ),
@@ -73,6 +73,12 @@ BACKEND_MANIFEST: dict[str, dict[str, BackendEntry]] = {
             config_cls="septmuse.configs.embeddings.onnx.OnnxEmbedderConfig",
             deps=("onnxruntime",),
         ),
+        "bge-zh": BackendEntry(
+            module="septmuse.embedders.onnx",
+            cls="OnnxEmbedder",
+            config_cls="septmuse.configs.embeddings.onnx.OnnxEmbedderConfig",
+            deps=("onnxruntime",),
+        ),
         "auto": BackendEntry(
             module="septmuse.embedders.auto",
             cls="AutoOnnxEmbedder",
@@ -90,6 +96,72 @@ BACKEND_MANIFEST: dict[str, dict[str, BackendEntry]] = {
             cls="SentenceTransformerEmbedder",
             config_cls="septmuse.configs.embeddings.base.BaseEmbedderConfig",
             deps=("sentence_transformers",),
+        ),
+        "mock": BackendEntry(
+            module="septmuse.embedders.mock",
+            cls="MockEmbedder",
+            config_cls="septmuse.configs.embeddings.mock.MockEmbedderConfig",
+            deps=(),
+        ),
+        "ollama": BackendEntry(
+            module="septmuse.embedders.ollama",
+            cls="OllamaEmbedder",
+            config_cls="septmuse.configs.embeddings.ollama.OllamaEmbedderConfig",
+            deps=("ollama",),
+        ),
+        "together": BackendEntry(
+            module="septmuse.embedders.together",
+            cls="TogetherEmbedder",
+            config_cls="septmuse.configs.embeddings.together.TogetherEmbedderConfig",
+            deps=("openai",),
+        ),
+        "lmstudio": BackendEntry(
+            module="septmuse.embedders.lmstudio",
+            cls="LMStudioEmbedder",
+            config_cls="septmuse.configs.embeddings.lmstudio.LMStudioEmbedderConfig",
+            deps=("openai",),
+        ),
+        "azure_openai": BackendEntry(
+            module="septmuse.embedders.azure_openai",
+            cls="AzureOpenAIEmbedder",
+            config_cls="septmuse.configs.embeddings.azure_openai.AzureOpenAIEmbedderConfig",
+            deps=("openai",),
+        ),
+        "gemini": BackendEntry(
+            module="septmuse.embedders.gemini",
+            cls="GeminiEmbedder",
+            config_cls="septmuse.configs.embeddings.gemini.GeminiEmbedderConfig",
+            deps=("google-genai",),
+        ),
+        "vertexai": BackendEntry(
+            module="septmuse.embedders.vertexai",
+            cls="VertexAIEmbedder",
+            config_cls="septmuse.configs.embeddings.vertexai.VertexAIEmbedderConfig",
+            deps=("google-cloud-aiplatform",),
+        ),
+        "huggingface": BackendEntry(
+            module="septmuse.embedders.huggingface",
+            cls="HuggingFaceEmbedder",
+            config_cls="septmuse.configs.embeddings.huggingface.HuggingFaceEmbedderConfig",
+            deps=("sentence_transformers",),
+        ),
+        "aws_bedrock": BackendEntry(
+            module="septmuse.embedders.aws_bedrock",
+            cls="AWSBedrockEmbedder",
+            config_cls="septmuse.configs.embeddings.aws_bedrock.AWSBedrockEmbedderConfig",
+            deps=("boto3",),
+        ),
+        "fastembed": BackendEntry(
+            module="septmuse.embedders.fastembed",
+            cls="FastEmbedEmbedder",
+            config_cls="septmuse.configs.embeddings.fastembed.FastEmbedEmbedderConfig",
+            deps=("fastembed",),
+        ),
+        "langchain": BackendEntry(
+            module="septmuse.embedders.langchain",
+            cls="LangchainEmbedder",
+            config_cls="septmuse.configs.embeddings.langchain.LangchainEmbedderConfig",
+            deps=("langchain",),
         ),
     },
     "llm": {
@@ -178,6 +250,12 @@ BACKEND_MANIFEST: dict[str, dict[str, BackendEntry]] = {
             cls="CohereReranker",
             config_cls="septmuse.configs.rerankers.cohere.CohereRerankerConfig",
             deps=("cohere",),
+        ),
+        "sentence_transformer": BackendEntry(
+            module="septmuse.rerankers.sentence_transformer",
+            cls="SentenceTransformerReranker",
+            config_cls="septmuse.configs.rerankers.sentence_transformer.SentenceTransformerRerankerConfig",
+            deps=("sentence_transformers",),
         ),
     },
     "entity_extractor": {
@@ -288,8 +366,8 @@ BACKEND_MANIFEST: dict[str, dict[str, BackendEntry]] = {
 
 # 代码默认后端。空串表示该能力默认不创建 (如 llm 需显式配置)。
 _DEFAULTS: dict[str, str] = {
-    "vector_store": "sqlite",
-    "embedder": "hash",
+    "vector_store": "qdrant",
+    "embedder": "bge-zh",
     "llm": "",
     "reranker": "noop",
     "entity_extractor": "regex",

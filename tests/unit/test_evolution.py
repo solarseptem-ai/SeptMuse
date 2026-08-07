@@ -43,7 +43,7 @@ def mem() -> ExperimentalMemory:
 class LessonMockLLM(LLM):
     """测试用 LLM, 返回 lesson 格式文本。"""
 
-    def complete(self, system_prompt: str, user_prompt: str) -> str:
+    def _complete(self, system_prompt: str, user_prompt: str) -> str:
         return "Lesson: Always test edge cases before shipping\nLesson: Document the reasoning behind decisions"
 
 

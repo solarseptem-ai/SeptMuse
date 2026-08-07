@@ -156,7 +156,7 @@ class _StubLLM(LLM):
     def __init__(self, facts: list[str]) -> None:
         self._facts = facts
 
-    def complete(self, system_prompt: str, user_prompt: str) -> str:
+    def _complete(self, system_prompt: str, user_prompt: str) -> str:
         return json.dumps({"facts": self._facts})
 
 
@@ -167,6 +167,6 @@ class _TrackingLLM(LLM):
         self._facts = facts
         self.last_user_prompt: str | None = None
 
-    def complete(self, system_prompt: str, user_prompt: str) -> str:
+    def _complete(self, system_prompt: str, user_prompt: str) -> str:
         self.last_user_prompt = user_prompt
         return json.dumps({"facts": self._facts})

@@ -89,3 +89,49 @@ class VectorStoreBase(ABC):
     ) -> list[VectorEntry]:
         """列向量。filters 按 payload 字段过滤。"""
         ...
+
+    @abstractmethod
+    def update_vector(
+        self,
+        vector_id: str,
+        vector: list[float],
+        payload: dict[str, Any] | None = None,
+    ) -> bool:
+        """原地更新向量 + payload。True=更新成功，False=不存在。"""
+        ...
+
+    @abstractmethod
+    def delete_collection(self) -> None:
+        """删除整个 collection（所有向量 + payload）。"""
+        ...
+
+    def search_batch(
+        self,
+        queries: list[str],
+        vectors_list: list[list[float]],
+        top_k: int = 5,
+        filters: dict[str, Any] | None = None,
+    ) -> list[list[VectorSearchResult]]:
+        """批量搜索。默认循环 search_vectors，子类可 override 做原生批量。"""
+        return [self.search_vectors(v, top_k, filters) for v in vectors_list]
+
+    def keyword_search(
+        self,
+        query: str,
+        top_k: int = 5,
+        filters: dict[str, Any] | None = None,
+    ) -> list[VectorSearchResult] | None:
+        """BM25 关键词搜索。默认返回 None（不支持），Qdrant 后端 override。"""
+        return None
+
+    def list_collections(self) -> list[str]:
+        """列出所有 collection。默认返回当前 collection 名。"""
+        return [getattr(self, "collection_name", "default")]
+
+    def get_collection_info(self) -> dict[str, Any]:
+        """collection 元信息。默认返回 name + count。"""
+        return {"name": getattr(self, "collection_name", "default"), "count": 0}
+
+    def reset_collection(self) -> None:
+        """重置 collection（删除 + 重新创建）。"""
+        self.delete_collection()

@@ -6,6 +6,7 @@ embedder 可选——有则做语义去重 (score >= 0.95), 无则只精确匹�
 
 from __future__ import annotations
 
+import contextlib
 import json
 import struct
 import uuid
@@ -94,6 +95,210 @@ class EntityStore:
             session.add(row)
             session.commit()
         return entity_id
+
+    def upsert_batch(
+        self,
+        items: list[tuple[Any, set[str]]],
+        *,
+        user_id: str,
+        agent_id: str | None = None,
+    ) -> list[str]:
+        """批量 upsert (对齐 mem0 V3 Phase 7)。
+
+        批量 embed + 批量精确匹配 + 批量语义匹配 + 批量 INSERT，
+        消除逐条 embed / DB 查询 / DB 写入的 N 次往返。
+
+        Args:
+            items: [(Entity, set[memory_id]), ...] 列表
+        Returns: [entity_id, ...] 与 items 同序
+        """
+        if not items:
+            return []
+
+        # 1. 批量 embed
+        texts = [e.text for e, _ in items]
+        embeddings = (
+            self._embedder.embed_batch(texts) if self._embedder is not None else [None] * len(texts)
+        )
+
+        # 2. 批量精确匹配
+        normalized_texts = [_normalize_entity_text(t) for t in texts]
+        exact_matches = self._find_by_text_batch(normalized_texts, user_id=user_id)
+
+        # 3. 批量语义匹配 (未精确命中的)
+        semantic_matches: dict[int, dict[str, Any]] = {}
+        unmatched_indices = [
+            i for i in range(len(items)) if normalized_texts[i] not in exact_matches
+        ]
+        if unmatched_indices and self._embedder is not None:
+            unmatched_embs = [embeddings[i] for i in unmatched_indices]
+            semantic_matches = self._find_by_embedding_batch(
+                unmatched_embs, user_id=user_id, threshold=0.95
+            )
+            # key 从 unmatched 局部 index 映射回全局 index
+            semantic_matches = {
+                unmatched_indices[k]: v for k, v in semantic_matches.items()
+            }
+
+        # 4. 分流: 命中 → append; 未命中 → insert
+        results: list[str | None] = [None] * len(items)
+        to_insert: list[tuple[int, Any, set[str], list[float] | None]] = []
+
+        for i, (entity, memory_ids) in enumerate(items):
+            exact = exact_matches.get(normalized_texts[i])
+            semantic = semantic_matches.get(i)
+            match = exact or semantic
+            if match:
+                self._append_memory_ids(match["id"], memory_ids)
+                results[i] = match["id"]
+            else:
+                to_insert.append((i, entity, memory_ids, embeddings[i]))
+
+        if to_insert:
+            new_ids = self._batch_insert(to_insert, user_id=user_id, agent_id=agent_id)
+            for (idx, _, _, _), eid in zip(to_insert, new_ids, strict=True):
+                results[idx] = eid
+
+        return [r for r in results]  # type: ignore[list-item]
+
+    def _find_by_text_batch(
+        self, normalized_texts: list[str], *, user_id: str
+    ) -> dict[str, dict[str, Any]]:
+        """批量精确归一化名匹配. Returns {normalized_text: entity_dict}。
+
+        DB 存原始 entity_text, 需客户端归一化后比较 (对齐 _find_by_text)。
+        一次 DB 查询替代 N 次。
+        """
+        if not normalized_texts:
+            return {}
+        normalized_set = set(normalized_texts)
+        result: dict[str, dict[str, Any]] = {}
+        with Session(self._engine) as session:
+            stmt = select(EntityTable).where(
+                EntityTable.user_id == user_id,
+                EntityTable.is_deleted == 0,
+            )
+            rows = session.exec(stmt).all()
+        for row in rows:
+            norm = _normalize_entity_text(row.entity_text)
+            if norm in normalized_set and norm not in result:
+                result[norm] = self._row_to_dict(row)
+        return result
+
+    def _find_by_embedding_batch(
+        self,
+        embeddings: list[list[float] | None],
+        *,
+        user_id: str,
+        threshold: float = 0.95,
+    ) -> dict[int, dict[str, Any]]:
+        """全表扫 + numpy 矩阵余弦. Returns {input_index: entity_dict}。
+
+        一次 DB 查询 + 一次矩阵运算替代 N 次 O(N*M) 循环。
+        """
+        if not embeddings:
+            return {}
+        with Session(self._engine) as session:
+            stmt = select(EntityTable).where(
+                EntityTable.user_id == user_id,
+                EntityTable.is_deleted == 0,
+            )
+            rows = session.exec(stmt).all()
+        if not rows:
+            return {}
+
+        import numpy as np
+
+        db_embs: list[list[float]] = []
+        valid_rows: list[Any] = []
+        for r in rows:
+            emb = self._deserialize_embedding(r.entity_embedding)
+            if emb is not None:
+                db_embs.append(emb)
+                valid_rows.append(r)
+
+        if not valid_rows:
+            return {}
+
+        query_indices = [i for i, e in enumerate(embeddings) if e is not None]
+        if not query_indices:
+            return {}
+
+        db_matrix = np.array(db_embs, dtype=np.float32)
+        query_matrix = np.array(
+            [embeddings[i] for i in query_indices], dtype=np.float32
+        )
+
+        # 归一化
+        db_norm = db_matrix / (np.linalg.norm(db_matrix, axis=1, keepdims=True) + 1e-8)
+        query_norm = query_matrix / (
+            np.linalg.norm(query_matrix, axis=1, keepdims=True) + 1e-8
+        )
+        sims = query_norm @ db_norm.T  # [n_query, n_db]
+
+        matches: dict[int, dict[str, Any]] = {}
+        for local_i, global_i in enumerate(query_indices):
+            best = int(np.argmax(sims[local_i]))
+            if sims[local_i][best] >= threshold:
+                matches[global_i] = self._row_to_dict(valid_rows[best])
+        return matches
+
+    def _batch_insert(
+        self,
+        items: list[tuple[int, Any, set[str], list[float] | None]],
+        *,
+        user_id: str,
+        agent_id: str | None = None,
+    ) -> list[str]:
+        """批量插入新实体. items: [(global_idx, Entity, memory_ids, embedding), ...]"""
+        now = datetime.now(timezone.utc).isoformat()
+        new_ids: list[str] = []
+        with Session(self._engine) as session:
+            for _, entity, memory_ids, emb in items:
+                eid = str(uuid.uuid4())
+                emb_blob = self._serialize_embedding(emb) if emb is not None else None
+                row = EntityTable(
+                    id=eid,
+                    entity_text=entity.text,
+                    entity_type=entity.entity_type,
+                    entity_embedding=emb_blob,
+                    linked_memory_ids=json.dumps(sorted(memory_ids)),
+                    user_id=user_id,
+                    agent_id=agent_id,
+                    created_at=now,
+                    updated_at=now,
+                    is_deleted=0,
+                )
+                session.add(row)
+                new_ids.append(eid)
+            session.commit()
+        return new_ids
+
+    def _append_memory_ids(self, entity_id: str, memory_ids: set[str]) -> None:
+        """批量追加 memory_ids (set → sorted list, 幂等)。"""
+        with Session(self._engine) as session:
+            row = session.get(EntityTable, entity_id)
+            if not row:
+                return
+            existing = set(json.loads(row.linked_memory_ids)) if row.linked_memory_ids else set()
+            existing.update(memory_ids)
+            row.linked_memory_ids = json.dumps(sorted(existing))
+            row.updated_at = datetime.now(timezone.utc).isoformat()
+            session.add(row)
+            session.commit()
+
+    def _row_to_dict(self, row: Any) -> dict[str, Any]:
+        """EntityTable row → dict。"""
+        return {
+            "id": row.id,
+            "entity_text": row.entity_text,
+            "entity_type": row.entity_type,
+            "linked_memory_ids": json.loads(row.linked_memory_ids)
+            if row.linked_memory_ids
+            else [],
+            "user_id": row.user_id,
+            "agent_id": row.agent_id,
+        }
 
     def get(self, entity_id: str) -> dict[str, Any] | None:
         """取单条实体。"""
@@ -297,6 +502,16 @@ class EntityStore:
                     row.linked_memory_ids = json.dumps(remaining)
                     row.updated_at = now
                 session.add(row)
+            session.commit()
+
+    def reset(self) -> None:
+        """重置实体存储 (清表: septmuse_entities + entity_relations)."""
+        from sqlalchemy import text
+
+        with Session(self._engine) as session:
+            for table_name in ["septmuse_entities", "entity_relations"]:
+                with contextlib.suppress(Exception):
+                    session.exec(text(f"DELETE FROM {table_name}"))
             session.commit()
 
     def close(self) -> None:

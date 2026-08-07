@@ -41,6 +41,8 @@ class AnthropicLLM(LLM):
     自定义: AnthropicLLM(api_key="sk-ant-...", model="claude-3-5-haiku-latest")。
     """
 
+    provider_name = "anthropic"
+
     def __init__(
         self,
         api_key: str | None = None,
@@ -62,7 +64,7 @@ class AnthropicLLM(LLM):
         self._client = Anthropic(api_key=self._api_key)
         logger.info("anthropic_llm_ready", model=model)
 
-    def complete(self, system_prompt: str, user_prompt: str) -> str:
+    def _complete(self, system_prompt: str, user_prompt: str) -> str:
         """调用 Anthropic Messages API (对齐 LLM ABC)。
 
         Anthropic API 要求 system 消息单独传 (不在 messages 列表中)。

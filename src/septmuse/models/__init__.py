@@ -17,6 +17,7 @@ from septmuse.models.block import Block, WorkingMemory, default_blocks
 from septmuse.models.causal import CausalEdge, CausalRelation
 from septmuse.models.episodic import EpisodeType, EpisodicEvent, EpisodicMemory
 from septmuse.models.procedural import ProceduralMemory, ProceduralRule
+from septmuse.models.profile import UserProfile, UserProfileValue
 from septmuse.models.semantic import SemanticFact
 from septmuse.models.strength import MemoryStrength
 
@@ -31,6 +32,8 @@ __all__ = [
     "ProceduralMemory",
     "ProceduralRule",
     "SemanticFact",
+    "UserProfile",
+    "UserProfileValue",
     "WorkingMemory",
     "default_blocks",
 ]

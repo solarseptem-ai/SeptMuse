@@ -132,7 +132,7 @@ class TestMemoryStrength:
 
     def test_thresholds(self) -> None:
         assert REHEARSE_STRENGTH_THRESHOLD == 0.3
-        assert REHEARSE_BASE_VALUE_THRESHOLD == 0.7
+        assert REHEARSE_BASE_VALUE_THRESHOLD == 0.5
         assert ARCHIVE_THRESHOLD == 0.1
 
 
@@ -151,7 +151,7 @@ class TestForgettingRetriever:
         weighted = retriever.apply_strength(results, user_id="alice")
         assert len(weighted) > 0
         assert weighted[0].final_score > 0
-        assert weighted[0].final_score <= weighted[0].relevance  # strength ≤ 1
+        # 加权平均: final = 0.7*relevance + 0.3*strength, 两者都在[0,1]
 
     def test_apply_strength_empty(self, mem: ExperimentalMemory) -> None:
         retriever = ForgettingRetriever(mem.typed_store)

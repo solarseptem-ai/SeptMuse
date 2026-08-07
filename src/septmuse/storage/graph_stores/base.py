@@ -13,16 +13,18 @@
 #  limitations under the License.
 """图存储后端抽象基类 (借鉴 cognee GraphDBInterface 简化为同步 + SeptMuse 所需方法)。
 
-所有图后端 (SQLiteGraphStore / AGEGraphStore / 未来 Neo4jGraphStore 等)
+所有图后端 (SQLiteGraphStore / AGEGraphStore / Neo4jGraphStore 等)
 实现此接口, 保证 zettel/dream 等演化模块可插拔。
 
-图语义: 记忆间有向边 (source_id → target_id), 每条边有 relation + score。
+图语义: 节点 (memory_nodes) + 有向边 (source_id → target_id), 每条边有 relation + score。
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from collections import deque
+from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -34,6 +36,7 @@ class GraphEdge:
     target_id: str
     relation: str
     score: float
+    properties: dict[str, Any] = field(default_factory=dict)
 
 
 class GraphStore(ABC):
@@ -45,6 +48,8 @@ class GraphStore(ABC):
     - get_neighbors 可按 relation 过滤
     - 双向链接由调用方分两次 add_edge (不内置, 保持图的数学语义)
     """
+
+    # ── 边管理 (原有, 抽象) ──
 
     @abstractmethod
     def add_edge(
@@ -85,3 +90,89 @@ class GraphStore(ABC):
     def close(self) -> None:
         """释放资源。"""
         ...
+
+    # ── 节点管理 (新增, 抽象) ──
+
+    @abstractmethod
+    def add_node(self, node_id: str, properties: dict[str, Any] | None = None) -> None:
+        """添加或更新节点 (幂等, 存在则更新 properties)。"""
+        ...
+
+    @abstractmethod
+    def get_node(self, node_id: str) -> dict[str, Any] | None:
+        """获取节点属性。None=不存在。"""
+        ...
+
+    @abstractmethod
+    def delete_node(self, node_id: str, *, cascade: bool = True) -> bool:
+        """删除节点。cascade=True 同时删除关联边。返回是否删除成功。"""
+        ...
+
+    # ── 入边查询 (新增, 抽象) ──
+
+    @abstractmethod
+    def get_in_edges(self, node_id: str) -> list[GraphEdge]:
+        """获取节点的所有入边 (target_id == node_id)。"""
+        ...
+
+    # ── 图统计 (新增, 抽象) ──
+
+    @abstractmethod
+    def get_stats(self) -> dict[str, Any]:
+        """图统计: node_count, edge_count, density (2*edges/nodes*(nodes-1))。"""
+        ...
+
+    # ── 多跳遍历 (新增, 非抽象, 默认 Python BFS fallback) ──
+
+    def traverse(
+        self,
+        seed_id: str,
+        max_depth: int = 2,
+        *,
+        direction: str = "out",
+        relation: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """BFS 遍历, 返回 [{"id", "depth"}] (不含种子节点)。
+
+        direction: "out"=出边, "in"=入边, "both"=双向。
+        后端可 override 用递归 CTE / Cypher *1..n 提升性能。
+        """
+        if max_depth < 1:
+            return []
+
+        visited: set[str] = {seed_id}
+        results: list[dict[str, Any]] = []
+        queue: deque[tuple[str, int]] = deque([(seed_id, 0)])
+
+        while queue:
+            current_id, depth = queue.popleft()
+            if depth >= max_depth:
+                continue
+
+            if direction == "in":
+                neighbors = [e.source_id for e in self.get_in_edges(current_id)]
+            elif direction == "both":
+                out_n = self.get_neighbors(current_id, relation)
+                in_n = [e.source_id for e in self.get_in_edges(current_id)]
+                neighbors = list(dict.fromkeys(out_n + in_n))
+            else:
+                neighbors = self.get_neighbors(current_id, relation)
+
+            for neighbor_id in neighbors:
+                if neighbor_id in visited:
+                    continue
+                visited.add(neighbor_id)
+                results.append({"id": neighbor_id, "depth": depth + 1})
+                queue.append((neighbor_id, depth + 1))
+
+        return results
+
+    # ── 社区检测 (新增, 非抽象, 默认 NotImplementedError) ──
+
+    def detect_communities(self, algorithm: str = "label_propagation") -> dict[str, list[str]]:
+        """社区检测, 返回 {community_id: [node_ids]}。
+
+        默认 raise NotImplementedError, 后端可 override。
+        借鉴 graphiti label_propagation。
+        """
+        raise NotImplementedError(f"Community detection '{algorithm}' not implemented for {type(self).__name__}")

@@ -302,3 +302,152 @@ class TestAGEGraphStoreIntegration:
         age_store.add_edge("mem-1", "mem-3", "causes", 0.5)
         neighbors = age_store.get_neighbors("mem-1", relation="causes")
         assert "mem-3" in neighbors
+
+
+# ======================================================================
+# 新增方法测试: 节点管理 / 入边 / 图统计 / 多跳遍历 / 社区检测
+# ======================================================================
+
+
+class TestSQLiteGraphStoreNodeManagement:
+    def test_add_and_get_node(self, graph_store: SQLiteGraphStore) -> None:
+        graph_store.add_node("mem-1", {"type": "fact", "importance": 0.9})
+        node = graph_store.get_node("mem-1")
+        assert node is not None
+        assert node["id"] == "mem-1"
+        assert node["properties"]["type"] == "fact"
+        assert node["properties"]["importance"] == 0.9
+
+    def test_get_node_nonexistent(self, graph_store: SQLiteGraphStore) -> None:
+        assert graph_store.get_node("nonexistent") is None
+
+    def test_add_node_idempotent_update(self, graph_store: SQLiteGraphStore) -> None:
+        graph_store.add_node("mem-1", {"v": 1})
+        graph_store.add_node("mem-1", {"v": 2})
+        node = graph_store.get_node("mem-1")
+        assert node is not None
+        assert node["properties"]["v"] == 2
+
+    def test_add_node_no_properties(self, graph_store: SQLiteGraphStore) -> None:
+        graph_store.add_node("mem-1")
+        node = graph_store.get_node("mem-1")
+        assert node is not None
+        assert node["properties"] == {}
+
+    def test_delete_node(self, graph_store: SQLiteGraphStore) -> None:
+        graph_store.add_node("mem-1")
+        assert graph_store.delete_node("mem-1") is True
+        assert graph_store.get_node("mem-1") is None
+
+    def test_delete_node_nonexistent(self, graph_store: SQLiteGraphStore) -> None:
+        assert graph_store.delete_node("nonexistent") is False
+
+    def test_delete_node_cascade_edges(self, graph_store: SQLiteGraphStore) -> None:
+        graph_store.add_node("mem-1")
+        graph_store.add_node("mem-2")
+        graph_store.add_edge("mem-1", "mem-2", "related_to", 0.8)
+        graph_store.delete_node("mem-1", cascade=True)
+        # 边应被级联删除
+        assert len(graph_store.get_edges("mem-1")) == 0
+        assert len(graph_store.get_in_edges("mem-2")) == 0
+
+
+class TestSQLiteGraphStoreInEdges:
+    def test_get_in_edges(self, graph_store: SQLiteGraphStore) -> None:
+        graph_store.add_edge("mem-1", "mem-2", "related_to", 0.8)
+        graph_store.add_edge("mem-3", "mem-2", "causes", 0.5)
+        in_edges = graph_store.get_in_edges("mem-2")
+        assert len(in_edges) == 2
+        sources = {e.source_id for e in in_edges}
+        assert sources == {"mem-1", "mem-3"}
+
+    def test_get_in_edges_empty(self, graph_store: SQLiteGraphStore) -> None:
+        assert graph_store.get_in_edges("mem-1") == []
+
+
+class TestSQLiteGraphStoreStats:
+    def test_stats_empty(self, graph_store: SQLiteGraphStore) -> None:
+        stats = graph_store.get_stats()
+        assert stats["node_count"] == 0
+        assert stats["edge_count"] == 0
+        assert stats["density"] == 0.0
+
+    def test_stats_with_data(self, graph_store: SQLiteGraphStore) -> None:
+        graph_store.add_node("mem-1")
+        graph_store.add_node("mem-2")
+        graph_store.add_edge("mem-1", "mem-2", "related_to", 0.8)
+        stats = graph_store.get_stats()
+        assert stats["node_count"] == 2
+        assert stats["edge_count"] == 1
+
+
+class TestSQLiteGraphStoreTraverse:
+    def test_traverse_out_1hop(self, graph_store: SQLiteGraphStore) -> None:
+        graph_store.add_edge("mem-1", "mem-2", "related_to")
+        graph_store.add_edge("mem-1", "mem-3", "related_to")
+        results = graph_store.traverse("mem-1", max_depth=1)
+        ids = {r["id"] for r in results}
+        assert ids == {"mem-2", "mem-3"}
+        assert all(r["depth"] == 1 for r in results)
+
+    def test_traverse_out_2hop(self, graph_store: SQLiteGraphStore) -> None:
+        graph_store.add_edge("mem-1", "mem-2")
+        graph_store.add_edge("mem-2", "mem-3")
+        results = graph_store.traverse("mem-1", max_depth=2)
+        ids = {r["id"] for r in results}
+        assert "mem-2" in ids
+        assert "mem-3" in ids
+        # mem-2 depth=1, mem-3 depth=2
+        depth_map = {r["id"]: r["depth"] for r in results}
+        assert depth_map["mem-2"] == 1
+        assert depth_map["mem-3"] == 2
+
+    def test_traverse_direction_in(self, graph_store: SQLiteGraphStore) -> None:
+        graph_store.add_edge("mem-2", "mem-1")
+        graph_store.add_edge("mem-3", "mem-1")
+        results = graph_store.traverse("mem-1", max_depth=1, direction="in")
+        ids = {r["id"] for r in results}
+        assert ids == {"mem-2", "mem-3"}
+
+    def test_traverse_direction_both(self, graph_store: SQLiteGraphStore) -> None:
+        graph_store.add_edge("mem-1", "mem-2")
+        graph_store.add_edge("mem-3", "mem-1")
+        results = graph_store.traverse("mem-1", max_depth=1, direction="both")
+        ids = {r["id"] for r in results}
+        assert ids == {"mem-2", "mem-3"}
+
+    def test_traverse_no_edges(self, graph_store: SQLiteGraphStore) -> None:
+        assert graph_store.traverse("mem-1", max_depth=2) == []
+
+    def test_traverse_max_depth_0(self, graph_store: SQLiteGraphStore) -> None:
+        graph_store.add_edge("mem-1", "mem-2")
+        assert graph_store.traverse("mem-1", max_depth=0) == []
+
+
+class TestSQLiteGraphStoreCommunities:
+    def test_detect_communities_simple(self, graph_store: SQLiteGraphStore) -> None:
+        # 两个不连通的子图: {1,2} 和 {3,4}
+        graph_store.add_edge("mem-1", "mem-2")
+        graph_store.add_edge("mem-2", "mem-1")
+        graph_store.add_edge("mem-3", "mem-4")
+        graph_store.add_edge("mem-4", "mem-3")
+        communities = graph_store.detect_communities()
+        assert len(communities) >= 2
+        all_nodes = set()
+        for members in communities.values():
+            all_nodes.update(members)
+        assert all_nodes == {"mem-1", "mem-2", "mem-3", "mem-4"}
+
+    def test_detect_communities_empty(self, graph_store: SQLiteGraphStore) -> None:
+        assert graph_store.detect_communities() == {}
+
+    def test_detect_communities_single_component(self, graph_store: SQLiteGraphStore) -> None:
+        graph_store.add_edge("mem-1", "mem-2")
+        graph_store.add_edge("mem-2", "mem-3")
+        communities = graph_store.detect_communities()
+        # 连通图应收敛到 1 个社区
+        assert len(communities) >= 1
+        all_nodes = set()
+        for members in communities.values():
+            all_nodes.update(members)
+        assert all_nodes == {"mem-1", "mem-2", "mem-3"}

@@ -41,6 +41,8 @@ class OpenAILLM(LLM):
     自定义: OpenAILLM(api_key="sk-...", model="gpt-4o")。
     """
 
+    provider_name = "openai"
+
     def __init__(
         self,
         api_key: str | None = None,
@@ -55,7 +57,7 @@ class OpenAILLM(LLM):
 
         self.model = model
         self._api_key = api_key or os.getenv("OPENAI_API_KEY") or "not-required"
-        resolved_base_url = base_url or os.getenv("OPENAI_BASE_URL")
+        resolved_base_url = base_url or os.getenv("OPENAI_BASE_URL") or os.getenv("SEPTMUSE_BASE_URL")
 
         client_kwargs: dict[str, Any] = {"api_key": self._api_key}
         if resolved_base_url:
@@ -65,19 +67,44 @@ class OpenAILLM(LLM):
         self._client = OpenAI(**client_kwargs)
         logger.info("openai_llm_ready", model=model, base_url=resolved_base_url or "default")
 
-    def complete(self, system_prompt: str, user_prompt: str) -> str:
-        """调用 OpenAI Chat Completions (对齐 LLM ABC)。"""
+    def _complete(self, system_prompt: str, user_prompt: str) -> str:
+        """调用 OpenAI Chat Completions (对齐 LLM ABC)。
+
+        优先非流式调用，失败时自动降级到流式（兼容 Dify 等平台要求 enable_thinking=false 的 bug）。
+        """
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+
+        # 先尝试非流式
         try:
             response = self._client.chat.completions.create(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
+                messages=messages,
+                stream=False,
             )
-            content = response.choices[0].message.content or ""
-            logger.debug("openai_complete_done", model=self.model, response_len=len(content))
-            return content
+            content = response.choices[0].message.content
+            if content is not None:
+                logger.debug("openai_complete_done", model=self.model, response_len=len(content))
+                return content
+        except Exception as e:
+            logger.debug("openai_nonstream_failed", error=str(e)[:200])
+
+        # 降级到流式
+        try:
+            logger.debug("openai_stream_fallback", model=self.model)
+            stream = self._client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                stream=True,
+            )
+            full = ""
+            for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    full += chunk.choices[0].delta.content
+            logger.debug("openai_complete_done", model=self.model, response_len=len(full))
+            return full
         except Exception as e:
             logger.error("openai_complete_failed", error=str(e))
             raise

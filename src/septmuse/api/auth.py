@@ -37,7 +37,7 @@ from septmuse.core.logging import get_logger
 logger = get_logger(__name__)
 
 # 豁免路径 (Swagger UI + 健康检查)
-EXEMPT_PATHS = frozenset(
+EXEMPT_PATHS = set(
     {
         "/docs",
         "/redoc",

@@ -250,3 +250,57 @@ class AGEGraphStore(GraphStore):
                 self.connection_pool.closeall()
         except Exception:
             pass
+
+    # ── 节点管理 (新增) ──
+
+    def add_node(self, node_id: str, properties: dict[str, Any] | None = None) -> None:
+        props_str = ", ".join(f"n.{k} = '{v}'" for k, v in (properties or {}).items())
+        set_clause = f" SET {props_str}" if props_str else ""
+        self._cypher_write(f"MERGE (n:Memory {{id: '{node_id}'}}){set_clause}")
+
+    def get_node(self, node_id: str) -> dict[str, Any] | None:
+        rows = self._cypher(f"MATCH (n:Memory {{id: '{node_id}'}}) RETURN n")
+        if not rows:
+            return None
+        return {"id": node_id, "properties": {}}
+
+    def delete_node(self, node_id: str, *, cascade: bool = True) -> bool:
+        check = self._cypher(f"MATCH (n:Memory {{id: '{node_id}'}}) RETURN count(n)")
+        exists = len(check) > 0 and int(check[0][0]) > 0
+        if not exists:
+            return False
+        if cascade:
+            self._cypher_write(f"MATCH (n:Memory {{id: '{node_id}'}}) DETACH DELETE n")
+        else:
+            self._cypher_write(f"MATCH (n:Memory {{id: '{node_id}'}}) DELETE n")
+        return True
+
+    # ── 入边查询 (新增) ──
+
+    def get_in_edges(self, node_id: str) -> list[GraphEdge]:
+        cypher = (
+            f"MATCH (s:Memory)-[r]->(t:Memory {{id: '{node_id}'}}) "
+            f"RETURN r.edge_id, s.id, t.id, type(r), r.score"
+        )
+        rows = self._cypher(cypher)
+        return [
+            GraphEdge(
+                id=str(r[0]),
+                source_id=str(r[1]),
+                target_id=str(r[2]),
+                relation=str(r[3]),
+                score=float(r[4]) if r[4] is not None else 0.0,
+            )
+            for r in rows
+        ]
+
+    # ── 图统计 (新增) ──
+
+    def get_stats(self) -> dict[str, Any]:
+        node_rows = self._cypher("MATCH (n:Memory) RETURN count(n)")
+        edge_rows = self._cypher("MATCH ()-[r]->() RETURN count(r)")
+        node_count = int(node_rows[0][0]) if node_rows else 0
+        edge_count = int(edge_rows[0][0]) if edge_rows else 0
+        max_edges = node_count * (node_count - 1) if node_count > 1 else 1
+        density = (edge_count / max_edges) if max_edges > 0 else 0.0
+        return {"node_count": node_count, "edge_count": edge_count, "density": round(density, 4)}

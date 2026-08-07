@@ -43,7 +43,7 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
-# 核心依赖: 零配置开箱即用 (pip install septmuse 即可跑, 零外部服务)
+# 核心依赖: 零配置开箱即用 (pip install septmuse 即可跑, 零外部服务, 无 torch)
 dependencies = [
   "fastapi>=0.110",
   "sqlmodel>=0.0.16",
@@ -54,51 +54,73 @@ dependencies = [
   "pydantic-settings>=2.2",
   "pyyaml>=6.0",
   "numpy>=1.26",
+  # 中文分词 (BM25 关键词检索质量, 零配置, 纯 Python ~5MB)
+  "jieba>=0.42",
   # 异步存储后端 (aiosqlite, AsyncMemory 使用)
   "aiosqlite>=0.20",
   # 默认向量后端 (sqlite-vec, 零外部服务)
   "sqlite-vec>=0.1.0",
-  # 默认嵌入 (sentence-transformers, 零 API key)
-  "sentence-transformers>=3.0",
+  # 可观测性指标 (Prometheus)
+  "prometheus-client>=0.16.0",
+  # Qdrant 向量数据库客户端 (纯 Python client, 安装零外部服务)
+  "qdrant-client>=1.12.0",
 ]
 
 [project.optional-dependencies]
-# LLM providers
+# ── LLM providers (单个安装或用 llms 一次装全) ──
 openai = ["openai>=1.30"]
 anthropic = ["anthropic>=0.30"]
 ollama = ["ollama>=0.3"]
 dashscope = ["dashscope>=1.17"]
-# 云 LLM providers (litellm 统一代理 + 原生 SDK)
 litellm = ["litellm>=1.40"]
 groq = ["groq>=0.11"]
 gemini = ["google-generativeai>=0.7"]
-deepseek = ["openai>=1.30"]
-# LLM alias (默认 LLM provider, 借鉴 mem0 [llm] extra)
-llm = ["openai>=1.30"]
-# 生产后端
-postgres = ["psycopg[binary,pool]>=3.1", "psycopg2-binary>=2.9", "pgvector>=0.3"]
-mysql = ["aiomysql>=0.2", "pymysql>=1.1"]
-graph = ["neo4j>=5.20"]
-# 可选存储后端 (extras, 按需安装)
+llms = ["septmuse[openai,anthropic,ollama,dashscope,litellm,groq,gemini]"]
+
+# ── 向量/图存储后端 ──
 chroma = ["chromadb>=0.5.0"]
 qdrant = ["qdrant-client>=1.9.0"]
-neo4j = ["neo4j>=5.0.0"]
-bm25 = ["rank-bm25>=0.2.2"]
+vector-stores = ["septmuse[chroma,qdrant]"]
+neo4j = ["neo4j>=5.20"]
+graph-stores = ["septmuse[neo4j]"]
+
+# ── 关系型/内存后端 ──
+postgres = ["psycopg[binary,pool]>=3.1", "psycopg2-binary>=2.9", "pgvector>=0.3"]
+mysql = ["aiomysql>=0.2", "pymysql>=1.1"]
 redis = ["redis>=5.0"]
-all-backends = ["septmuse[chroma,qdrant,neo4j,bm25,redis]"]
-# ONNX embedder (无 torch 依赖, 替代 sentence-transformers, ModelScope 下载)
+bm25 = ["rank-bm25>=0.2.2"]
+backends = ["septmuse[postgres,mysql,redis,bm25]"]
+
+# ── Embedder (ONNX 轻量 / sentence-transformers 重型) ──
 onnx = ["onnxruntime>=1.16", "tokenizers>=0.15", "modelscope>=1.10"]
-# 激活/参数化记忆 (自托管模型)
-activation = ["transformers>=4.40", "torch>=2.2"]
-# 参数化记忆 (LoRA adapter, 借鉴 HuggingFace PEFT)
-parametric = ["transformers>=4.40", "torch>=2.2", "peft>=0.11"]
-# Reranker (cross-encoder ONNX 推理)
+st = ["sentence-transformers>=3.0"]
+
+# ── 新增 Embedder providers ──
+langchain = ["langchain>=0.1"]
+azure-openai = ["openai>=1.30", "azure-identity>=1.16"]
+vertexai = ["google-cloud-aiplatform>=1.50"]
+aws-bedrock = ["boto3>=1.34"]
+fastembed = ["fastembed>=0.3.0"]
+
+# ── Embedder 聚合 ──
+embedders = ["septmuse[onnx,st,openai,ollama,gemini,langchain,azure-openai,vertexai,aws-bedrock,fastembed]"]
+
+# ── Reranker ──
 reranker = ["onnxruntime>=1.16"]
-# NER 实体抽取后端 (spacy, 替代默认 regex)
+reranker-st = ["sentence-transformers>=3.0"]
+rerankers = ["septmuse[reranker,reranker-st]"]
+
+# ── NER 实体抽取后端 (spacy, 替代默认 regex) ──
 ner = ["spacy>=3.7"]
-# HTTP server (CLI serve 命令需要)
+
+# ── 激活/参数化记忆 (自托管模型, 需 torch) ──
+activation = ["transformers>=4.40", "torch>=2.2"]
+parametric = ["transformers>=4.40", "torch>=2.2", "peft>=0.11"]
+
+# ── HTTP server (CLI serve 命令需要) ──
 server = ["uvicorn>=0.29"]
-# 开发
+
+# ── 开发 ──
 dev = [
   "pytest>=8.0",
   "pytest-asyncio>=0.23",
@@ -107,7 +129,9 @@ dev = [
   "mypy>=1.10",
   "httpx>=0.27",
 ]
-all = ["septmuse[openai,anthropic,ollama,dashscope,postgres,mysql,graph,activation,parametric,server,dev,onnx,redis]"]
+
+# ── 全量安装 ──
+all = ["septmuse[llms,vector-stores,graph-stores,backends,embedders,rerankers,ner,activation,parametric,server,dev]"]
 
 [project.scripts]
 septmuse = "septmuse.cli.main:main"

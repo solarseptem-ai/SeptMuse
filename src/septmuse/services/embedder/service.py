@@ -28,6 +28,7 @@ from septmuse.configs.base import MemoryConfig
 from septmuse.configs.defaults import default_config
 from septmuse.core.logging import get_logger
 from septmuse.embedders.base import Embedder
+from septmuse.embedders.resolver import resolve_embedder
 from septmuse.services.base import Service
 
 logger = get_logger(__name__)
@@ -117,17 +118,8 @@ class EmbedderService(Service):
         logger.info("embedder_service_reconfigured", backend=self._config.embedder_backend)
 
     def _resolve_embedder(self) -> Embedder:
-        """从配置解析并创建 Embedder 实例 (通过 ServiceProvider, 对齐 memory.py)。"""
-        from septmuse.services.providers import embedder_provider
-
-        backend = self._config.embedder.backend.lower()
-        if backend in ("sentence-transformers", "sentence_transformers"):
-            backend = "st"
-        if backend == "onnx-zh":
-            return embedder_provider.resolve(
-                backend, config=self._config.embedder, model_name="Xenova/paraphrase-multilingual-MiniLM-L12-v2"
-            )
-        return embedder_provider.resolve(backend, config=self._config.embedder)
+        """从配置解析并创建 Embedder 实例 (集中实现, 消除三处重复)。"""
+        return resolve_embedder(self._config)
 
     async def teardown(self) -> None:
         """释放嵌入模型资源。"""

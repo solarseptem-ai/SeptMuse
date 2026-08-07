@@ -13,9 +13,9 @@
 #  limitations under the License.
 """create_vector_store — 方言工厂, 根据 dialect 创建 VectorStoreBase。
 
-SQLite → SQLiteVectorStore (现有, 原生 sqlite3 + numpy)
+SQLite → SQLAlchemyVectorStore (JSON + numpy 余弦, 跨方言兼容)
 PostgreSQL → PgvectorVectorStore (pgvector 扩展, 降级回退)
-MySQL → SQLAlchemyVectorStore (通用 JSON + numpy)
+MySQL → SQLAlchemyVectorStore (JSON + numpy 余弦)
 """
 
 from __future__ import annotations
@@ -39,11 +39,9 @@ def create_vector_store(engine: Engine, dialect: str) -> VectorStoreBase:
         ValueError: 不支持的方言
     """
     if dialect == "sqlite":
-        from septmuse.storage.vector_stores.sqlite_vec import SQLiteVectorStore
+        from septmuse.storage.vector_stores.sqlalchemy_vec import SQLAlchemyVectorStore
 
-        # SQLite 用原生 sqlite3 连接 (性能优先)
-        conn = engine.raw_connection()
-        return SQLiteVectorStore(conn=conn)
+        return SQLAlchemyVectorStore(engine)
 
     if dialect == "postgresql":
         from septmuse.storage.vector_stores.pgvector_store import PgvectorVectorStore

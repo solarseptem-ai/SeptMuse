@@ -34,6 +34,8 @@ logger = get_logger(__name__)
 class GroqLLM(LLM):
     """Groq LLM provider。零配置: 从 GROQ_API_KEY 环境变量读取 key。"""
 
+    provider_name = "groq"
+
     def __init__(self, api_key: str | None = None, model: str = "llama-3.1-70b-versatile", **kwargs: Any) -> None:
         try:
             from groq import Groq
@@ -44,7 +46,7 @@ class GroqLLM(LLM):
         self._client = Groq(api_key=api_key or os.getenv("GROQ_API_KEY"), **kwargs)
         logger.info("groq_llm_ready", model=model)
 
-    def complete(self, system_prompt: str, user_prompt: str) -> str:
+    def _complete(self, system_prompt: str, user_prompt: str) -> str:
         """调用 Groq Chat Completions (对齐 LLM ABC)。"""
         try:
             response = self._client.chat.completions.create(

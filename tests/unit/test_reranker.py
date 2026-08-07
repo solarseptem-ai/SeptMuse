@@ -24,6 +24,7 @@ from septmuse.retrieval.reranker import (
     MMRReranker,
     NoopReranker,
     Reranker,
+    SentenceTransformerReranker,
     _resolve_reranker,
 )
 
@@ -101,6 +102,9 @@ class TestMMRReranker:
             def embed(self, text: str) -> list[float]:
                 return [1.0, 0.0, 0.0]
 
+            def embed_batch(self, texts: list[str]) -> list[list[float]]:
+                return [self.embed(t) for t in texts]
+
         results = [
             HybridResult(id="m0", memory="doc A", score=0.9, vector_score=0.9),
             HybridResult(id="m1", memory="doc B", score=0.8, vector_score=0.8),
@@ -120,6 +124,9 @@ class TestMMRReranker:
                     return [1.0, 0.0]
                 return [0.0, 1.0]
 
+            def embed_batch(self, texts: list[str]) -> list[list[float]]:
+                return [self.embed(t) for t in texts]
+
         results = [
             HybridResult(id="m0", memory="doc A", score=0.5),
             HybridResult(id="m1", memory="doc B", score=0.9),
@@ -132,6 +139,9 @@ class TestMMRReranker:
         class MockEmbedder:
             def embed(self, text: str) -> list[float]:
                 return [0.0]
+
+            def embed_batch(self, texts: list[str]) -> list[list[float]]:
+                return [self.embed(t) for t in texts]
 
         reranker = MMRReranker(embedder=MockEmbedder())
         out = reranker.rerank("query", [])
@@ -146,6 +156,9 @@ class TestMMRReranker:
                 vec[int(tail) if tail.isdigit() else 0] = 1.0
                 return vec
 
+            def embed_batch(self, texts: list[str]) -> list[list[float]]:
+                return [self.embed(t) for t in texts]
+
         results = _make_results(5)
         reranker = MMRReranker(embedder=MockEmbedder(), lambda_param=0.7)
         out = reranker.rerank("query", results, top_k=2)
@@ -155,6 +168,9 @@ class TestMMRReranker:
         class MockEmbedder:
             def embed(self, text: str) -> list[float]:
                 return [1.0, 0.0, 0.0]
+
+            def embed_batch(self, texts: list[str]) -> list[list[float]]:
+                return [self.embed(t) for t in texts]
 
         results = [
             HybridResult(id="m0", memory="doc A", score=0.5, metadata={"k": "v"}, created_at="2026-01-01"),
@@ -263,3 +279,111 @@ class TestLLMReranker:
     def test_resolve_llm(self):
         r = _resolve_reranker("llm", llm=_MockLLM())
         assert isinstance(r, LLMReranker)
+
+
+# ======================================================================
+# Prompt 升级 + CrossEncoder 配置测试
+# ======================================================================
+
+
+class TestLLMRerankerPrompt:
+    """LLMReranker prompt 包含详细评分标准 (对齐 mem0)。"""
+
+    def test_prompt_contains_scoring_rubric(self):
+        llm = _MockLLM("0.8")
+        reranker = LLMReranker(llm=llm)
+        _make_results(1)
+        reranker.rerank("query", _make_results(1))
+        system_prompt = llm.calls[0][0]
+        assert "1.0 = Perfectly relevant" in system_prompt
+        assert "0.8-0.9 = Highly relevant" in system_prompt
+        assert "0.6-0.7 = Moderately relevant" in system_prompt
+        assert "0.0-0.3 = Not relevant" in system_prompt
+
+    def test_prompt_requests_no_explanation(self):
+        llm = _MockLLM("0.8")
+        reranker = LLMReranker(llm=llm)
+        reranker.rerank("query", _make_results(1))
+        assert "Do not include any explanation" in llm.calls[0][0]
+
+
+class TestCrossEncoderConfig:
+    """CrossEncoderReranker normalize + device 配置。"""
+
+    def test_normalize_default_true(self):
+        r = CrossEncoderReranker(model_cache_dir=None)
+        assert r._normalize is True
+
+    def test_normalize_false(self):
+        r = CrossEncoderReranker(model_cache_dir=None, normalize=False)
+        assert r._normalize is False
+
+    def test_device_default_none(self):
+        r = CrossEncoderReranker(model_cache_dir=None)
+        assert r._device is None
+
+    def test_device_cuda(self):
+        r = CrossEncoderReranker(model_cache_dir=None, device="cuda")
+        assert r._device == "cuda"
+
+    def test_device_cpu(self):
+        r = CrossEncoderReranker(model_cache_dir=None, device="cpu")
+        assert r._device == "cpu"
+
+
+# ======================================================================
+# SentenceTransformerReranker (借鉴 mem0 SentenceTransformerReranker)
+# ======================================================================
+
+
+class TestSentenceTransformerReranker:
+    def test_degrades_without_sentence_transformers(self, monkeypatch):
+        """sentence-transformers 不可用时降级为中性分 + 警告。"""
+        import builtins
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "sentence_transformers":
+                raise ImportError("No module named 'sentence_transformers'")
+            return original_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", mock_import)
+
+        reranker = SentenceTransformerReranker()
+        results = _make_results(3)
+        out = reranker.rerank("query", results, top_k=3)
+        # 降级: 顺序不变, score=0.5
+        assert len(out) == 3
+        assert all(r.score == 0.5 for r in out)
+
+    def test_empty_input(self):
+        reranker = SentenceTransformerReranker()
+        out = reranker.rerank("query", [])
+        assert out == []
+
+    def test_config_defaults(self):
+        r = SentenceTransformerReranker()
+        assert r._model_name == "cross-encoder/ms-marco-MiniLM-L-6-v2"
+        assert r._device is None
+        assert r._batch_size == 32
+        assert r._normalize is True
+        assert r._show_progress_bar is False
+
+    def test_config_custom(self):
+        r = SentenceTransformerReranker(
+            model_name="BAAI/bge-reranker-base",
+            device="cuda",
+            batch_size=64,
+            normalize=False,
+            show_progress_bar=True,
+        )
+        assert r._model_name == "BAAI/bge-reranker-base"
+        assert r._device == "cuda"
+        assert r._batch_size == 64
+        assert r._normalize is False
+        assert r._show_progress_bar is True
+
+    def test_resolve_sentence_transformer(self):
+        r = _resolve_reranker("sentence_transformer")
+        assert isinstance(r, SentenceTransformerReranker)

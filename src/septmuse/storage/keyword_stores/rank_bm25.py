@@ -23,8 +23,8 @@ import threading
 from pathlib import Path
 
 from septmuse.core.logging import get_logger
+from septmuse.core.tokenizer import tokenize
 from septmuse.storage.keyword_stores.base import KeywordIndexBase
-from septmuse.storage.keyword_stores.sqlite_bm25 import _tokenize
 
 logger = get_logger(__name__)
 
@@ -64,7 +64,7 @@ class RankBM25Index(KeywordIndexBase):
         with self._lock:
             rows = self.conn.execute("SELECT id, text FROM docs").fetchall()
         self._doc_ids = [r[0] for r in rows]
-        self._corpus = [_tokenize(r[1]) for r in rows]
+        self._corpus = [tokenize(r[1]) for r in rows]
 
     def _rebuild_bm25(self) -> None:
         if not self._corpus:
@@ -79,10 +79,10 @@ class RankBM25Index(KeywordIndexBase):
             for doc_id, text in docs.items():
                 if doc_id in self._doc_ids:
                     idx = self._doc_ids.index(doc_id)
-                    self._corpus[idx] = _tokenize(text)
+                    self._corpus[idx] = tokenize(text)
                 else:
                     self._doc_ids.append(doc_id)
-                    self._corpus.append(_tokenize(text))
+                    self._corpus.append(tokenize(text))
                 self.conn.execute("INSERT OR REPLACE INTO docs (id, text) VALUES (?, ?)", (doc_id, text))
             self.conn.commit()
         self._rebuild_bm25()
@@ -90,7 +90,7 @@ class RankBM25Index(KeywordIndexBase):
     def retrieve(self, query: str, limit: int = 5) -> dict[str, float]:
         if not self._bm25 or not query.strip():
             return {}
-        tokens = _tokenize(query)
+        tokens = tokenize(query)
         scores = self._bm25.get_scores(tokens)
         indexed = sorted(enumerate(scores), key=lambda x: x[1], reverse=True)
         max_score = max((s for _, s in indexed if s > 0), default=0.0)

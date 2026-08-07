@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Reranker 优化 (对齐 mem0)
+
+- **LLMReranker + BatchLLMReranker prompt 升级** (`rerankers/llm.py` + `rerankers/batch_llm.py`)：prompt 加详细 0.0-1.0 评分标准（1.0=完美 / 0.8-0.9=高度相关 / 0.6-0.7=中等 / 0.4-0.5=轻微 / 0.0-0.3=不相关），对齐 mem0 LLMReranker。加"Do not include any explanation"指令。(原因: LLM 打分质量; 影响: rerankers/llm.py + batch_llm.py)。
+- **CrossEncoderReranker normalize 配置** (`rerankers/cross_encoder.py`)：加 `normalize=True/False` 参数，默认 sigmoid 归一化到 [0,1]，可选原始 logit。对齐 mem0 HuggingFaceReranker。(原因: 灵活性; 影响: rerankers/cross_encoder.py)。
+- **CrossEncoderReranker device 配置** (`rerankers/cross_encoder.py`)：加 `device=None/"cuda"/"cpu"` 参数，None 时自动检测 CUDA，cuda 用 `["CUDAExecutionProvider", "CPUExecutionProvider"]` fallback。对齐 mem0 HuggingFaceReranker device 自动检测。(原因: GPU 性能; 影响: rerankers/cross_encoder.py)。
+- **SentenceTransformerReranker 新增** (`rerankers/sentence_transformer.py`，新建)：sentence-transformers CrossEncoder（`cross-encoder/ms-marco-MiniLM-L-6-v2` 默认），延迟 import，不可用降级 noop + warning。支持 `normalize` + `device` + `batch_size` + `show_progress_bar` 配置。与 `cross_encoder`（ONNX 轻量版）功能重叠但模型选择更丰富。注册到 `services/registry.py` + `rerankers/__init__.py` + `retrieval/reranker.py` 兼容层。(原因: 功能覆盖对齐 mem0; 影响: rerankers/sentence_transformer.py + configs/rerankers/sentence_transformer.py + services/registry.py)。
+- 新增 `tests/unit/test_reranker.py` (+12: LLM prompt 评分标准 + CrossEncoder normalize/device + SentenceTransformer 降级/config/resolve)。全量 reranker 测试 **37 passed / 0 退化**。
+
+### Added — 优化计划 V2: Phase 0 基础设施 (P0-Task 5)
+
+- **SQLite WAL mode + busy_timeout** (`configs/database.py`)：`sqlite_pragmas` 默认加 `busy_timeout: 5000`（5s 写锁等待）。WAL mode 让并发读写不阻塞，`busy_timeout` 避免锁争用立即抛 `database is locked` 错误。(原因: 并发读写性能; 影响: configs/database.py)。
+- **PG/MySQL 连接池配置** (`services/database/service.py`)：PG/MySQL engine 创建时用 `pool_size` + `max_overflow` + `pool_timeout`（从 config 读取，默认 pool_size=5, max_overflow=10, timeout=30s）。`:memory:` SQLite 用 `StaticPool`（已有），文件 SQLite 用默认 `QueuePool`。(原因: 生产级连接池; 影响: services/database/service.py)。
+- 新增 `tests/unit/test_database_service.py` (+5: WAL PRAGMA + busy_timeout + synchronous + StaticPool + 自定义 PRAGMA 覆盖)。全量 **1319 passed / 16 failed (pre-existing) / 23 skipped / 0 退化**。
+
+### Added — 优化计划 V2: Phase 0 基础设施 (P0-Task 3)
+
+- **检索三路并发** (`retrieval/hybrid.py`)：`HybridRetriever.search` 用 `ThreadPoolExecutor(max_workers=3)` 并发执行向量检索 + BM25 关键词检索 + entity boost。延迟从 `v + b + e` 降为 `max(v, b, e)`。每路超时 5s 降级空结果 (`SEARCH_TIMEOUT` + `_await_future` helper)。BM25 降级路径 (keyword_search 抛异常时) 依赖候选集，在向量路径完成后串行执行。(原因: 检索延迟优化; 影响: retrieval/hybrid.py)。
+- **`:memory:` SQLite StaticPool** (`services/database/service.py`)：`:memory:` SQLite 用 `poolclass=StaticPool` 共享单连接，跨线程并发检索看到同一内存库。修复 ThreadPoolExecutor 中 `:memory:` 每线程独立空库问题。(原因: 并发检索前提; 影响: services/database/service.py)。
+- 新增 `tests/unit/test_hybrid_concurrent.py` (+4: 向量异常降级/BM25异常降级/向量超时降级/三路成功)。全量 **1314 passed / 16 failed (pre-existing) / 23 skipped / 0 退化**。
+
+### Added — 优化计划 V2: Phase 0 基础设施 (P0-Task 1 + P0-Task 2)
+
+- **chromadb 降级** (`storage/relational_stores/factory.py`)：`_resolve_vector_store()` 方法 — chromadb ImportError 时降级到 SQLAlchemyVectorStore + 日志警告。生产环境 chroma 不可用时不崩溃, 降级到纯 SQL 向量检索 (全扫描, 小数据集可用)。(原因: 零配置可用性; 影响: storage/relational_stores/factory.py)。
+- **pgvector HNSW 索引** (`storage/vector_stores/pgvector_store.py`)：`_init_pgvector()` 加 `CREATE INDEX IF NOT EXISTS ... USING hnsw (vector vector_cosine_ops) WITH (m=16, ef_construction=64)`。ANN 检索从全扫描 O(n) 加速到 O(log n)。对齐 pgvector 官方推荐参数。(原因: 大数据集 ANN 性能; 影响: storage/vector_stores/pgvector_store.py)。
+- **统一中文分词模块** (`core/tokenizer.py`, 新建)：`tokenize(text)` 函数 — jieba 可用时按词切分 ("我喜欢编程" → ["我", "喜欢", "编程"]), 不可用时降级正则按字 ("我喜欢编程" → ["我", "喜", "欢", "编", "程"])。`SEPTMUSE_TOKENIZER` env var 控制 (`jieba`/`space`/`auto`, 默认 `auto`)。消除三处重复 `_tokenize` 函数 (sqlite_bm25 / rank_bm25 / hybrid)。(原因: 中文检索质量 — BM25 分词质量决定召回; 影响: core/tokenizer.py + storage/keyword_stores/ + retrieval/)。
+- **jieba 默认依赖** (`pyproject.toml`)：加 `jieba>=0.42` 到 `[project] dependencies`。(原因: 中文分词零配置可用; 影响: pyproject.toml)。
+- 新增 `tests/unit/test_relational_store_factory.py` (+2: chromadb 降级 + chroma 可用) + `tests/unit/test_pgvector_vector_store.py` (+1: HNSW 索引 SQL) + `tests/unit/test_tokenizer.py` (+10: space/jieba/auto/降级)。全量 **1310 passed / 16 failed (pre-existing LLM) / 23 skipped / 0 退化**。
+
+### Added — 向量存储层重构 + Embedding/Reranker 优化 + bge-zh 默认模型
+
+- **向量存储层重构** (`storage/vector_stores/`)：统一 `VectorStoreBase` 抽象（5 方法：add/query/get/delete/ensure_dim），实现三后端 — `ChromaVectorStore`（默认配置，cosine，metadata None 过滤，`$and` 多键 where，`upsert()` 替代 `add()`）、`SQLAlchemyVectorStore`（SQLite/MySQL，`json_extract` WHERE payload 过滤）、`PgvectorVectorStore`（Postgres，`payload @> ::jsonb` WHERE 过滤）。`SQLiteCompositeStore` 重构为组合器（委托 vector_store + keyword_store + graph_store）。（原因: 生产级向量后端 + 对齐 mem0 抽象; 影响: storage/vector_stores/）。
+- **Embedder ABC `embed_batch` 非抽象默认实现** (`embedders/base.py`)：`embed_batch` 改为基类默认实现（循环 `embed()`），子类可 override 做真批量。对齐 mem0 `EmbedderInterface.embed_many`。（原因: 基类不该强制子类实现批量; 影响: embedders/）。
+- **OnnxEmbedder 真批量推理** (`embedders/onnx.py`)：`embed_batch` 改为 batch encode → 单次 `session.run` → 向量化 mean pool + L2，batch_size=32 分块。新增 `max_length` 参数（BGE 512，MiniLM 256）。`BGE_ZH_MODEL` 常量 + `_MODEL_FILE_OVERRIDES` 支持非 Xenova 文件结构（Maiteka `model_qint8.onnx` 在根目录）。`_ensure_model_files` 返回 `(onnx_path, tokenizer_path)` tuple。（原因: 批量推理 10x 加速 + bge-zh 模型适配; 影响: embedders/onnx.py）。
+- **HashEmbedder dim 对齐** (`embedders/hash.py`)：dim 384 → 128 对齐 config。（原因: 配置一致性; 影响: embedders/hash.py）。
+- **MMRReranker numpy 向量化** (`rerankers/mmr.py`)：sim_matrix 预计算 + `np.argmax` 内层循环，用 `embed_batch` 替代逐个 `embed`。（原因: 大候选池 reranker 性能; 影响: rerankers/mmr.py）。
+- **CrossEncoderReranker 批量推理** (`rerankers/cross_encoder.py`)：batch encode pairs → 单次 `session.run` → `np.sigmoid`，batch_size=32 分块。（原因: 批量推理加速; 影响: rerankers/cross_encoder.py）。
+- **CachedEmbedder** (`embedders/cached.py`，新建)：LRU cache 透明包装 `embed` + `embed_batch`（maxsize=256），`threading.Lock` 保证 async/sync 并发安全，返回 `list(vec)` 浅拷贝防缓存污染。（原因: 避免重复嵌入开销; 影响: embedders/cached.py）。
+- **集中 `resolve_embedder`** (`embedders/resolver.py`，新建)：消除 `memory/main.py` / `memory/async_main.py` / `services/embedder/service.py` 三处重复 embedder 解析逻辑。新增 `bge-zh` 后端，onnxruntime 不可用时降级到 HashEmbedder。（原因: DRY + bge-zh 后端注册; 影响: embedders/resolver.py）。
+- **Reranker 实例缓存** (`memory/main.py`)：`_get_reranker` dict 缓存，对齐 mem0 init-once 模式，避免每次 search 重新实例化。（原因: 性能; 影响: memory/main.py）。
+- **默认 Embedding 切换到 bge-zh** (`configs/embeddings/base.py` + `configs/vector_stores/base.py` + `services/registry.py`)：`backend` 默认 `"hash"` → `"bge-zh"`，`embedding_model_dims` 默认 128 → 512，`_DEFAULTS["embedder"]` → `"bge-zh"`，新增 `bge-zh` BackendEntry。模型 `Maiteka/bge-small-zh-v1.5-onnx`（512 dim，ModelScope 下载）。onnxruntime 不可用时降级 HashEmbedder。测试 conftest 强制 `hash` + `dim=128` 避免模型下载。（原因: 中文语义嵌入质量; 影响: configs/ + services/ + tests/conftest.py）。
+- **`SEPTMUSE_EMBEDDING_DIMS` 环境变量** (`configs/base.py`)：新增 alias 覆盖向量维度。（原因: 灵活配置; 影响: configs/base.py）。
+- **AutoOnnxEmbedder 显式 max_length** (`embedders/auto.py`)：传 `max_length=256` 给 OnnxEmbedder。（原因: 防止默认值不匹配; 影响: embedders/auto.py）。
+
+### Fixed — 细微缺陷修复 (12 项)
+
+- **AI 幻觉修正 — CachedEmbedder 缓存污染** (`embedders/cached.py`)：返回可变 list 引用导致调用方修改污染 LRU 缓存。修复：返回 `list(vec)` 浅拷贝。（原因: 缓存完整性; 影响: embedders/cached.py）。
+- **CachedEmbedder 线程不安全** (`embedders/cached.py`)：async/sync 并发访问 LRU cache 导致 crash。修复：加 `threading.Lock`，读/写分离加锁。（原因: 并发安全; 影响: embedders/cached.py）。
+- **Entity boost 量级劫持排序** (`retrieval/hybrid.py`)：entity boost `0.5` 比 RRF score 大 ~43 倍，排序被 boost 主导。修复：`0.5` → `0.5/(RRF_K+1)` ≈ 0.008，与 RRF 可比。（原因: 排序公平性; 影响: retrieval/hybrid.py）。
+- **SQLAlchemyVectorStore 全量加载** (`storage/vector_stores/sqlalchemy_vec.py`)：`_fetch_rows` 全量加载后 Python 侧 payload 过滤，大数据集 OOM。修复：payload 过滤推到 SQL `json_extract` WHERE（SQLite/MySQL），只加载匹配行。（原因: 性能; 影响: storage/vector_stores/sqlalchemy_vec.py）。
+- **PgvectorStore Python 侧 payload 过滤** (`storage/vector_stores/pgvector_store.py`)：同上，payload 过滤在 Python 侧导致 top_k 不足。修复：`payload @> '{"key":value}'::jsonb` SQL WHERE。（原因: 性能; 影响: storage/vector_stores/pgvector_store.py）。
+- **BM25 IDF 小样本不可靠** (`retrieval/hybrid.py`)：BM25 IDF 在候选池小样本上计算不可靠。修复：优先用 `store.keyword_search`（全局 IDF），降级用候选池 BM25。（原因: 检索质量; 影响: retrieval/hybrid.py）。
+- **HybridRetriever 每次重建** (`memory/main.py`)：每次 search 重新实例化 HybridRetriever。修复：`self._retriever` 延迟缓存。（原因: 性能; 影响: memory/main.py）。
+- **ORMMemoryStore over-fetch 不足** (`storage/relational_stores/orm_store.py`)：over-fetch 3x 过滤后 top_k 不足。修复：3x → 5x。（原因: 检索完整性; 影响: storage/relational_stores/orm_store.py）。
+- **MemoryConfig docstring 过时** (`configs/base.py`)：docstring 写 "HashEmbedder" 但默认已改 bge-zh。修复：更新为 "bge-zh"。（原因: 文档准确性; 影响: configs/base.py）。
+- **CachedEmbedder.embed_batch 返回行误导** (`embedders/cached.py`)：`[r for r in results if r is not None]` 静默丢弃 None。修复：`assert all(r is not None)` + 直接返回。（原因: 契约清晰; 影响: embedders/cached.py）。
+- 测试更新：`test_hybrid_entity_boost.py` 断言 `combined >= entity_boost`（RRF 归一化后不同 scale），`test_reranker.py` mock 加 `embed_batch`，`test_config_merge.py` / `test_service_provider.py` / `test_memory.py` 适配 bge-zh 默认。
+- 全量测试 **1297 passed / 16 failed（全为预先存在的 LLM/OpenAI API key 问题）/ 23 skipped / 0 新增失败**，e2e 32 passed。
+
 ### Added — V2 记忆架构 (ABC 分层 + V2Memory 编排入口 + 10 子组件)
 
 - **记忆 ABC 分层** (`memory/base.py`)：MemoryABC (根抽象, 类型标记) + ShortTermMemory (compile_to_prompt/get_limit/evict_overflow) + LongTermMemory (invalidate/get_history/get_all)。ABC 只做类型标记 + 各层特有方法, 不强制统一 add/search (原因: 参数签名不同; 影响: memory/)。

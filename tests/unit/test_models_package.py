@@ -24,10 +24,10 @@ def engine():
 
 
 def test_memory_table_columns(engine):
-    """MemoryTable 有全部 16 列。"""
+    """MemoryTable 有全部 15 列。"""
     cols = {c["name"] for c in inspect(engine).get_columns("memories")}
     expected = {
-        "id", "user_id", "agent_id", "session_id", "content", "embedding",
+        "id", "user_id", "agent_id", "session_id", "content",
         "metadata", "created_at", "updated_at", "is_deleted", "state",
         "app_id", "archived_at", "deleted_at", "valid_at", "invalid_at", "expired_at",
     }

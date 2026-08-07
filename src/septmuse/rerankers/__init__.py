@@ -40,6 +40,7 @@ from septmuse.rerankers.cross_encoder import CrossEncoderReranker
 from septmuse.rerankers.llm import LLMReranker
 from septmuse.rerankers.mmr import MMRReranker
 from septmuse.rerankers.noop import NoopReranker
+from septmuse.rerankers.sentence_transformer import SentenceTransformerReranker
 
 if TYPE_CHECKING:
     from septmuse.embedders.base import Embedder
@@ -53,6 +54,7 @@ __all__ = [
     "LLMReranker",
     "MMRReranker",
     "NoopReranker",
+    "SentenceTransformerReranker",
     "create_reranker",
 ]
 

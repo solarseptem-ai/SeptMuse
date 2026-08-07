@@ -1,6 +1,6 @@
 # AGENTS.md — SeptMuse
 
-SeptMuse 是 Python agent 记忆系统（包名 `septmuse`，src/ layout）。三维正交架构：内容类型（工作/情节/语义/程序）× 存储形态（block/向量/图/文件/激活/参数化）× 横切关注点（捕获/检索/治理/演化/共享/元认知）。零配置 `pip install septmuse` 即可用，默认 SQLite + HashEmbedder，无 API key、无外部服务。
+SeptMuse 是 Python agent 记忆系统（包名 `septmuse`，src/ layout）。三维正交架构：内容类型（工作/情节/语义/程序）× 存储形态（block/向量/图/文件/激活/参数化）× 横切关注点（捕获/检索/治理/演化/共享/元认知）。零配置 `pip install septmuse` 即可用，默认 SQLite ORM + HashEmbedder（bge-zh 配置自动降级），无 API key、无外部服务。`pip install septmuse[onnx]` 升级到 bge-zh 语义嵌入（512 dim）。
 
 ## 开发命令
 
@@ -10,8 +10,8 @@ pip install -e ".[dev,server]"
 
 # 测试（必须设 PYTHONPATH=src，否则 import septmuse 失败）
 $env:PYTHONPATH = "src"        # PowerShell
-PYTHONPATH=src pytest tests/unit/ -q          # 单元 + 集成（686 passed, 22 skipped 基线）
-PYTHONPATH=src pytest tests/e2e/ -q           # 端到端（23 passed）
+PYTHONPATH=src pytest tests/unit/ -q          # 单元 + 集成（1319 passed, 16 failed pre-existing LLM, 23 skipped 基线）
+PYTHONPATH=src pytest tests/e2e/ -q           # 端到端（32 passed）
 PYTHONPATH=src pytest tests/unit/test_memory.py::test_add_returns_id -q   # 单测试
 
 # Lint + format（line-length 120）
@@ -28,13 +28,13 @@ PYTHONPATH=src python -m septmuse.api.mcp.server            # MCP server（stdio
 
 ## 架构入口
 
-- ** facade**：`src/septmuse/orchestration/memory.py` `Memory` 类（零配置入口，借鉴 mem0）— `_resolve_embedder` 读 `SEPTMUSE_EMBEDDER` 环境变量
+- ** facade**：`src/septmuse/memory/main.py` `Memory` 类（零配置入口，借鉴 mem0）— `_resolve_store` 走 `RelationalStoreFactory`，`resolve_embedder` 读 `SEPTMUSE_EMBEDDER` 环境变量
 - **三 API 入口**：
   - CLI：`src/septmuse/cli/main.py`（argparse，非 Typer；10 命令：init/add/search/dump/update/history/block/serve/mcp/version）
   - REST：`src/septmuse/api/rest/__init__.py` `create_app()` → FastAPI（~17 端点：/memories, /memories/{id}, /memories/{id}/access-logs, /memories/search, /agents/{user_id}/memories, /health 等）
   - MCP：`src/septmuse/api/mcp/tools.py`（15 工具，FastMCP `@mcp.tool`）+ `transports.py`（stdio/SSE/Streamable HTTP 三 transport，挂载到 FastAPI）
-- **存储抽象**：`src/septmuse/storage/base.py` `MemoryStore` ABC + `storage/vector/base.py` `VectorStoreBase` + `storage/keyword/base.py` `KeywordIndexBase` + `storage/graph/base.py` `GraphStore` ABC
-- **默认后端**：`storage/sqlite/store.py` `SQLiteCompositeStore`（组合 vector + keyword + graph，双写迁移，`ALTER TABLE` 在代码内非 alembic）
+- **存储抽象**：`src/septmuse/storage/base.py` `MemoryStore` ABC + `storage/vector_stores/base.py` `VectorStoreBase`（5 方法：add/query/get/delete/ensure_dim）+ `storage/keyword/base.py` `KeywordIndexBase` + `storage/graph_stores/base.py` `GraphStore` ABC
+- **默认后端**：`storage/relational_stores/orm_store.py` `ORMMemoryStore`（组合 vector_store + keyword_store + graph_store，通过 `RelationalStoreFactory` 创建）。Vector store 默认 `SQLAlchemyVectorStore`（SQLite JSON + numpy 余弦），可选 `ChromaVectorStore`（`[chroma]` extra）/ `PgvectorVectorStore`（pgvector 扩展）。
 - **配置**：`src/septmuse/configs/defaults.py` `MemoryConfig`（pydantic）+ `default_config()` 读环境变量
 - **治理**：`src/septmuse/concerns/governance/permissions.py` `MemoryState` enum + `check_memory_access_permissions`（4 层）；`access_log.py` `record_access`（吞错，`hasattr` 向后兼容）
 
@@ -60,18 +60,29 @@ PYTHONPATH=src python -m septmuse.api.mcp.server            # MCP server（stdio
 
 ### SQLite
 
-- 默认 `~/.septmuse/septmuse.db`；`db_path=None` 触发此默认；`":memory:"` 可用但 **FastAPI TestClient 跨线程会连到新空库** — REST/e2e 测试一律用 `tmp_path / "test.db"` 文件路径（见 `tests/e2e/*.py` 的 `db = str(tmp_path / "e2e.db")` 模式）。
+- 默认 `~/.septmuse/septmuse.db`；`db_path=None` 触发此默认；`":memory:"` 可用但 **FastAPI TestClient 跨线程会连到新空库** — REST/e2e 测试一律用 `tmp_path / "test.db"` 文件路径（见 `tests/e2e/*.py` 的 `db = str(tmp_path / "e2e.db")` 模式）。单元测试用 `:memory:` 时，DatabaseService 自动用 `StaticPool` 共享单连接（跨线程并发检索看到同一内存库）。
 - `record_access` 吞错（日志失败不阻塞业务），用 `hasattr` 检查 store 是否有 `get_access_logs` 方法（向后兼容旧 store）。
 
 ### Embedder
 
-- `SEPTMUSE_EMBEDDER=hash`（默认，HashEmbedder，离线零模型加载，0.5s 初始化）— CLI/MCP server/测试默认。
+- `SEPTMUSE_EMBEDDER=bge-zh`（默认，OnnxEmbedder，`Maiteka/bge-small-zh-v1.5-onnx`，512 dim，~95MB，中文语义嵌入，ModelScope 下载）— onnxruntime 不可用时自动降级到 HashEmbedder（非语义，但零配置可用）。`pip install septmuse[onnx]` 升级。
+- `SEPTMUSE_EMBEDDER=hash` — HashEmbedder（离线零模型加载，0.5s 初始化）— 测试默认（conftest 强制）。
 - `SEPTMUSE_EMBEDDER=onnx` — Xenova/all-MiniLM-L6-v2 ONNX 量化版（384 dim，~23MB，无 torch，CPU <50ms，ModelScope 下载）。
 - `SEPTMUSE_EMBEDDER=onnx-zh` — Xenova/paraphrase-multilingual-MiniLM-L12-v2（384 dim，多语言，中英文均支持，ModelScope 下载）。
 - `SEPTMUSE_EMBEDDER=auto` — init 时语言检测自动选 onnx-zh（默认）或 onnx。`SEPTMUSE_LANG=zh/en` 可覆盖。
 - `SEPTMUSE_EMBEDDER=st` — sentence-transformers（延迟 import，启动慢 ~30s，需模型缓存）。
 - **语言检测策略**：init 时一次，不 per-query 切换（不同模型投影到不同语义空间）。
 - 不要在生产路径强制加载 sentence-transformers。
+- **`resolve_embedder`**（`embedders/resolver.py`）：集中解析逻辑，消除三处重复。bge-zh 后端 onnxruntime 不可用时降级 HashEmbedder + 日志警告。
+- **CachedEmbedder**（`embedders/cached.py`）：LRU cache 透明包装 embed + embed_batch（maxsize=256），`threading.Lock` 保证并发安全，返回浅拷贝防污染。Memory facade 默认包装。
+- **`embed_batch`**（`embedders/base.py`）：基类非抽象默认实现（循环 `embed()`），OnnxEmbedder override 做真批量推理（batch_size=32，单次 session.run + 向量化 mean pool + L2）。
+
+### Tokenizer
+
+- `core/tokenizer.py` — 统一中文分词模块，BM25 检索质量基座。
+- `SEPTMUSE_TOKENIZER=jieba`（默认 auto，jieba 可用时自动用）— jieba 按词切分（"我喜欢编程" → ["我", "喜欢", "编程"]），中文 BM25 召回质量最佳。jieba 是默认依赖。
+- `SEPTMUSE_TOKENIZER=space` — 正则按字切分（"我喜欢编程" → ["我", "喜", "欢", "编", "程"]），零依赖降级路径。测试默认（conftest 强制，保持现有测试行为）。
+- `tokenize(text)` 函数：三处共用（`sqlite_bm25` / `rank_bm25` / `hybrid`），消除重复 `_tokenize`。小写化 + 去标点 + 去停用词。
 
 ### Entity Extractor
 
@@ -167,10 +178,21 @@ PYTHONPATH=src python -m septmuse.api.mcp.server            # MCP server（stdio
 
 - `SEPTMUSE_RERANKER=noop`（默认，透传）— 不改变顺序，零开销。
 - `SEPTMUSE_RERANKER=mmr` — 最大边际相关性，去冗余（相似度 >0.9 只留一个），纯数学无依赖。
-- `SEPTMUSE_RERANKER=cross_encoder` — ONNX cross-encoder（`BAAI/bge-reranker-v2-m3`），`pip install septmuse[reranker]`，不可用时降级为 noop。
-- `SEPTMUSE_RERANKER=llm` — LLM 逐条打分 0-1，需 `SEPTMUSE_LLM` 配置 LLM provider。
+- `SEPTMUSE_RERANKER=cross_encoder` — ONNX cross-encoder（`BAAI/bge-reranker-v2-m3`），`pip install septmuse[reranker]`，不可用时降级为 noop。支持 `normalize=True/False`（sigmoid 归一化，默认 True）和 `device=None`（自动检测 CUDA）/`"cuda"`/`"cpu"` 参数。
+- `SEPTMUSE_RERANKER=llm` — LLM 逐条打分 0-1，prompt 含详细评分标准（1.0=完美 / 0.8-0.9=高度相关 / 0.6-0.7=中等 / 0.4-0.5=轻微 / 0.0-0.3=不相关）。需 `SEPTMUSE_LLM` 配置 LLM provider。
+- `SEPTMUSE_RERANKER=sentence_transformer` — sentence-transformers CrossEncoder（`cross-encoder/ms-marco-MiniLM-L-6-v2` 默认），需 torch，启动慢 ~30s，模型质量高。支持 `normalize=True/False`（sigmoid 归一化，默认 True）和 `device=None`（自动检测 CUDA）/`"cuda"`/`"cpu"` 参数。与 `cross_encoder`（ONNX，轻量无 torch）功能重叠但模型选择更丰富。
 - `Memory.search(reranker="mmr")` 可覆盖配置。
 - Entity boost 集成在 `HybridRetriever`（第三信号），`Memory.search(explain=True)` 返回 `score_details`。
+
+### Vector Store (向量存储)
+
+- `SEPTMUSE_VECTOR_BACKEND`（默认 `qdrant`）— `qdrant`/`sqlite`/`chroma`/`pgvector`。默认 Qdrant 本地嵌入模式（`QdrantClient(path="~/.septmuse/qdrant")`），零配置，HNSW ANN 索引。
+- `qdrant-client` 是核心依赖（纯 Python）。`qdrant-client` 不可用时降级到 `SQLAlchemyVectorStore`（JSON + numpy 暴力搜索）+ 日志警告。
+- **Qdrant 本地嵌入**：`SEPTMUSE_QDRANT_PATH` 控制路径，默认 `~/.septmuse/qdrant`。设 `SEPTMUSE_QDRANT_HOST` 走远程服务。
+- **BM25 稀疏向量**：Qdrant 后端可选内置 BM25（`enable_bm25=True`），需要 `fastembed`（`pip install septmuse[fastembed]`）。未装时 `keyword_search()` 返回 None，HybridRetriever 回退外部 KeywordIndexBase。
+- **Filter 操作符**：`search_vectors` 的 `filters` 支持 10 种操作符（eq/ne/gt/gte/lt/lte/in/nin/contains/icontains）+ AND/OR/NOT 逻辑组合。简单 `{"k": "v"}` 向后兼容。
+- **ABC 12 方法**：`insert_vectors`/`search_vectors`/`delete_vector`/`get_vector`/`list_vectors`/`update_vector`/`delete_collection`/`search_batch`/`keyword_search`/`list_collections`/`get_collection_info`/`reset_collection`。
+- 测试：`tests/unit/test_vector_stores/`（7 文件，19 passed + 1 skipped）。
 
 ### Bitemporal (双时态)
 
@@ -192,10 +214,23 @@ PYTHONPATH=src python -m septmuse.api.mcp.server            # MCP server（stdio
 - `OpenAILLM` 已在 `providers/llms/openai.py` 实现（支持 `OPENAI_BASE_URL` 兼容端点）。
 - LLM ABC：`complete(system_prompt, user_prompt) -> str`，JSON 输出靠 prompt 工程。
 
+### Observability (可观测性)
+
+- `SEPTMUSE_METRICS`（默认未设）— `true`/`1`/`yes` 启用 Prometheus 指标 + `/metrics` 端点。
+- `SEPTMUSE_METRICS_PATH`（默认 `/metrics`）— 端点路径（可自定义）。
+- `prometheus_client` 是核心依赖（纯 Python ~50KB）。
+- 未启用时所有埋点 no-op（`MetricsCollector` 单例检查 `enabled` 标志）。
+- **三层埋点**：REST 中间件（RED）+ facade `@track_operation`（业务操作）+ 底层 ABC 模板方法（embed/LLM 全覆盖）。
+- **模板方法重命名**：`Embedder._embed()` 子类实现（原 `embed()`）；`LLM._complete()` 子类实现（原 `complete()`）。`embed()`/`complete()` 现在是基类非抽象方法，自动计时。
+- **业务指标 pull-on-scrape**：`BusinessMetricsCollector` 实现 `prometheus_client.Collector`，每次 scrape 查 DB 算值。
+- `/metrics` 免 API key（加入 `EXEMPT_PATHS`），生产环境通过网络层隔离。
+- 测试：`tests/unit/test_observability/`（6 文件 16 测试），`conftest.py` 有 `_reset_metrics` autouse fixture。
+
 ## 测试怪癖
 
-- **36 skipped 是正常的**：`pytest.mark.integration` 标记的测试（chroma/qdrant/neo4j/rank-bm25）需装对应 extras；pgvector + AGE 测试需 `SEPTMUSE_TEST_PG_DSN`；Neo4j 需 `SEPTMUSE_TEST_NEO4J_URI`；parametric 需 torch+peft；activation 需 torch；onnx/auto embedder 需 `pip install septmuse[onnx]`。
-- **e2e 测试**：`tests/e2e/` 4 文件 23 测试，全部用 `tmp_path` 文件 DB，测跨会话持久化。`pytest tests/e2e/` 必须通过。
+- **23 skipped 是正常的**：`pytest.mark.integration` 标记的测试（chroma/qdrant/neo4j/rank-bm25）需装对应 extras；pgvector + AGE 测试需 `SEPTMUSE_TEST_PG_DSN`；Neo4j 需 `SEPTMUSE_TEST_NEO4J_URI`；parametric 需 torch+peft；activation 需 torch；onnx/auto embedder 需 `pip install septmuse[onnx]`。
+- **16 failed 是 pre-existing**：`test_llm_providers.py`（7）、`test_memory.py`（3 OpenAI embedder）、`test_rbac_rest_openai.py`（3）、`test_llm.py`（3）— 需要真实 API key 或 `openai` 包，与重构无关。
+- **e2e 测试**：`tests/e2e/` 4 文件 32 测试，全部用 `tmp_path` 文件 DB，测跨会话持久化。`pytest tests/e2e/` 必须通过。
 - **`pytest_asyncio_mode = "auto"`**：async 测试无需 `@pytest.mark.asyncio`。
 - **`--strict-markers --strict-config`**：新增 marker 必须在 `pyproject.toml [tool.pytest.ini_options] markers` 注册。
 - **测试保护规则**：现有单元/接口测试案例固定不动，禁止改测试代码绕过业务缺陷；仅可新增测试覆盖新功能。
@@ -205,10 +240,16 @@ PYTHONPATH=src python -m septmuse.api.mcp.server            # MCP server（stdio
 | 变量 | 默认 | 作用 |
 |------|------|------|
 | `SEPTMUSE_DB_PATH` | `~/.septmuse/septmuse.db` | SQLite 路径；`:memory:` 内存库 |
-| `SEPTMUSE_EMBEDDER` | `hash` | `hash`/`onnx`/`onnx-zh`/`auto`/`st` |
+| `SEPTMUSE_EMBEDDER` | `bge-zh` | `bge-zh`/`hash`/`onnx`/`onnx-zh`/`auto`/`st` |
+| `SEPTMUSE_EMBEDDING_DIMS` | 未设 | 覆盖向量维度（别名，优先级高于 config） |
 | `SEPTMUSE_API_KEY` | 未设 | 未设=开发模式（无认证，警告一次）；已设=生产模式（401 未认证） |
 | `SEPTMUSE_USER_ID` | `default`（CLI） | CLI/MCP 默认 user_id |
-| `SEPTMUSE_VECTOR_BACKEND` | `sqlite` | `sqlite`/`pgvector`/`chroma`/`qdrant` |
+| `SEPTMUSE_VECTOR_BACKEND` | `qdrant` | `qdrant`/`sqlite`/`chroma`/`pgvector` |
+| `SEPTMUSE_QDRANT_PATH` | `~/.septmuse/qdrant` | Qdrant 本地嵌入路径 |
+| `SEPTMUSE_QDRANT_HOST` | 未设 | Qdrant 远程 host（设了走远程） |
+| `SEPTMUSE_QDRANT_PORT` | `6333` | Qdrant 远程端口 |
+| `SEPTMUSE_QDRANT_API_KEY` | 未设 | Qdrant Cloud API key |
+| `SEPTMUSE_QDRANT_URL` | 未设 | Qdrant 完整 URL |
 | `SEPTMUSE_KEYWORD_BACKEND` | `sqlite_bm25` | `sqlite_bm25`/`rank_bm25`/`none` |
 | `SEPTMUSE_GRAPH_BACKEND` | `sqlite` | `sqlite`/`age`/`neo4j` |
 | `SEPTMUSE_LLM` | 未设 | LLM provider（verbatim 模式不需要） |
@@ -218,8 +259,11 @@ PYTHONPATH=src python -m septmuse.api.mcp.server            # MCP server（stdio
 | `SEPTMUSE_MODEL_CACHE` | `~/.septmuse/models/` | ONNX 模型缓存目录 |
 | `SEPTMUSE_ENTITY_EXTRACTOR` | `regex` | `regex`/`spacy`/`none` |
 | `SEPTMUSE_RERANKER` | `noop` | `noop`/`mmr`/`cross_encoder`/`llm` |
+| `SEPTMUSE_TOKENIZER` | `auto` | `auto`/`jieba`/`space`（auto: jieba 可用时用, 否则 space） |
 | `SEPTMUSE_TEST_PG_DSN` | 未设 | 测试用 Postgres DSN |
 | `SEPTMUSE_TEST_NEO4J_URI` | 未设 | 测试用 Neo4j URI |
+| `SEPTMUSE_METRICS` | 未设 | `true` 启用 /metrics 端点 + 全部埋点 |
+| `SEPTMUSE_METRICS_PATH` | `/metrics` | 端点路径 |
 
 ## 关键约定
 
@@ -227,13 +271,14 @@ PYTHONPATH=src python -m septmuse.api.mcp.server            # MCP server（stdio
 - **state 状态机**：`memories.state` 列（active/paused/archived/deleted，默认 active，`ALTER TABLE` 迁移自动兼容旧数据）。`delete()` 双写 `is_deleted=1` + `state='deleted'`。`search`/`get_all` 过滤 `state != 'active'`。
 - **access-logs**：`memory_access_logs` 表 + `_record_access_log` + `get_access_logs`；REST `GET /memories/{id}/access-logs` 端点查询审计日志。
 - **score 统一为相似度 [0,1]**：越高越相似。向量 cosine、BM25 归一化、RRF 融合（k=60，`alpha` 是向量权重 pure-mode）都遵守此约定。不要引入"距离越小越相似"的歧义。
+- **Entity boost 量级**：`0.5/(RRF_K+1)` ≈ 0.008（与 RRF score 可比范围），不是 `0.5`（会劫持排序）。
 - **MCP 工具 `search_memory` 带 `app_id` 参数**：用于多租户权限隔离 + `record_access` 审计。
 - **Docker**：`docker/docker-compose.yml`（默认 SQLite+HashEmbedder，`--profile prod` 加 Postgres/pgvector）；`Dockerfile` 在根目录，镜像零配置可用。
 
 ## 仓库状态
 
-- **不是 git 仓库**（文件快照模式）— 不要跑 git commit/push，改动靠文件对比。
-- **README 测试数已过时**（写的是 576 unit，实际 708 collected / 686 passed + 22 skipped）— 以 `pytest --co -q` 实际收集数为准。
+- **是 git 仓库**（远程 `git@github.com:solarseptem-ai/SeptMuse.git`）— 可以跑 git commit/push。
+- **README 测试数已过时**（写的是 576 unit，实际 1319+ collected / 1319 passed + 23 skipped）— 以 `pytest --co -q` 实际收集数为准。
 - **`run_opencode.bat`** 是会话恢复快捷方式（`opencode --session <id>`），非构建脚本。
 - **`scripts/`** 当前为空。
 - **`dist/`** 是 `python -m build` 产物，勿手动改。

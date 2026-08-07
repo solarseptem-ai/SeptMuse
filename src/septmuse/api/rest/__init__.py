@@ -411,6 +411,43 @@ def register_routes(app: FastAPI, memory: ExperimentalMemory, async_memory: Asyn
         agents = app.state.memory.list_agents(user_id)
         return {"user_id": user_id, "agents": agents, "is_cross_agent": app.state.memory.is_cross_agent(user_id)}
 
+    @app.get("/agents/{user_id}/profile", tags=["sharing"])
+    async def get_agent_profile(
+        user_id: str,
+        include_temporal: bool = Query(default=False, description="含历史/已删除事实"),
+    ) -> dict[str, Any]:
+        """获取用户画像 (从 SemanticFact 聚合的结构化画像).
+
+        include_temporal=true 返回历史/已删除事实; false 只返回当前有效.
+        """
+        profile = app.state.memory.get_user_profile(user_id, include_temporal=include_temporal)
+        return {
+            "user_id": profile.user_id,
+            "attributes": {
+                k: {
+                    "value": v.value,
+                    "confidence": v.confidence,
+                    "is_current": v.is_current,
+                    "updated_at": v.updated_at,
+                }
+                for k, v in profile.attributes.items()
+            },
+            "preferences": {
+                k: {"value": v.value, "is_current": v.is_current}
+                for k, v in profile.preferences.items()
+            },
+            "relationships": {
+                k: {"value": v.value, "is_current": v.is_current}
+                for k, v in profile.relationships.items()
+            },
+            "plans": [
+                {"value": p.value, "is_current": p.is_current}
+                for p in profile.plans
+            ],
+            "raw_facts": profile.raw_facts,
+            "temporal_summary": profile.temporal_summary,
+        }
+
     @app.get("/entities", tags=["entities"])
     async def search_entities(
         query: str = Query(..., description="搜索查询"),
@@ -573,6 +610,11 @@ Agent 记忆系统 REST API — 三维正交架构（内容类型 × 存储形�
                 instance=str(request.url.path),
             ).model_dump(),
         )
+
+    # 可观测性指标 (opt-in: SEPTMUSE_METRICS=true)
+    from septmuse.observability import init_metrics
+
+    init_metrics(app, sync_memory.store, sync_memory.config)
 
     register_routes(app, sync_memory, async_memory)
     return app

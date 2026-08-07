@@ -37,6 +37,7 @@ from septmuse.models.episodic import EpisodeType, EpisodicEvent
 from septmuse.models.procedural import ProceduralRule
 from septmuse.models.semantic import SemanticFact
 from septmuse.models.strength import MemoryStrength
+from septmuse.storage.vector_stores.base import VectorStoreBase
 
 logger = get_logger(__name__)
 
@@ -56,14 +57,18 @@ class TypedMemoryStore:
     与阶段1 ORMMemoryStore (verbatim memories) 共存于同一 db 文件。
     """
 
-    def __init__(self, db_path: str | Path | None = None, *, engine: Any | None = None) -> None:
+    def __init__(
+        self,
+        db_path: str | Path | None = None,
+        *,
+        engine: Any | None = None,
+        vector_store: VectorStoreBase | None = None,
+    ) -> None:
         if engine is not None:
-            # 共享 engine（ORMMemoryStore 路径）
             self.engine = engine
             self.db_path = None
             self._owns_engine = False
         else:
-            # 自建 engine（零配置默认路径，向后兼容）
             if db_path is None:
                 db_path = _default_db_path()
             self.db_path = Path(db_path)
@@ -71,9 +76,14 @@ class TypedMemoryStore:
             url = f"sqlite:///{self.db_path}"
             self.engine = create_engine(url, echo=False, connect_args={"check_same_thread": False})
             self._owns_engine = True
-        # create_all 建所有已 import 的 SQLModel table
+        self._vector_store = vector_store
         SQLModel.metadata.create_all(self.engine)
-        logger.info("typed_store_ready", path=str(self.db_path), shared_engine=engine is not None)
+        logger.info(
+            "typed_store_ready",
+            path=str(self.db_path),
+            shared_engine=engine is not None,
+            has_vector_store=vector_store is not None,
+        )
 
     # ------------------------------------------------------------------
     # 语义事实 (SemanticFact)
@@ -93,7 +103,15 @@ class TypedMemoryStore:
         embedding: list[float] | None = None,
         org_id: str = "default",
     ) -> SemanticFact:
-        """添加语义事实 (对齐 LangMem Triple)。"""
+        """添加语义事实 (对齐 LangMem Triple)。
+
+        有 vector_store 时: 向量存向量引擎 (insert_vectors), SQL embedding 列不写。
+        无 vector_store 时: 向量降级存 SQL JSON bytes (numpy 全扫描)。
+        """
+        sql_embedding: bytes | None = None
+        if embedding is not None and self._vector_store is None:
+            sql_embedding = json.dumps(embedding).encode()
+
         fact = SemanticFact(
             subject=subject,
             predicate=predicate,
@@ -104,22 +122,47 @@ class TypedMemoryStore:
             confidence=confidence,
             provenance=provenance,
             tags=tags or [],
-            embedding=json.dumps(embedding).encode() if embedding else None,
+            embedding=sql_embedding,
         )
         with Session(self.engine) as session:
             session.add(fact)
             session.commit()
             session.refresh(fact)
+
+        if embedding is not None and self._vector_store is not None:
+            try:
+                self._vector_store.insert_vectors(
+                    vectors=[embedding],
+                    ids=[fact.id],
+                    payloads=[{"user_id": user_id, "type": "fact"}],
+                )
+            except Exception as e:
+                logger.warning("fact_vector_insert_failed", fact_id=fact.id, error=str(e))
+
         logger.info(
             "fact_added",
             fact_id=fact.id,
             user_id=user_id,
             triple=f"{subject}-{predicate}->{object}",
+            vector_store=self._vector_store is not None,
         )
         return fact
 
-    def update_fact(self, fact_id: str, subject: str, predicate: str, object: str) -> SemanticFact | None:
-        """更新语义事实。"""
+    def update_fact(
+        self,
+        fact_id: str,
+        subject: str,
+        predicate: str,
+        object: str,
+        *,
+        embedding: list[float] | None = None,
+        confidence: float | None = None,
+    ) -> SemanticFact | None:
+        """更新语义事实 (增强: 支持 embedding/confidence 更新).
+
+        有 vector_store 时: 向量存向量引擎 (update_vector), SQL embedding 列不写。
+        无 vector_store 时: 向量降级存 SQL JSON bytes。
+        """
         with Session(self.engine) as session:
             fact = session.get(SemanticFact, fact_id)
             if not fact or fact.is_deleted:
@@ -127,14 +170,30 @@ class TypedMemoryStore:
             fact.subject = subject
             fact.predicate = predicate
             fact.object = object
+            if embedding is not None and self._vector_store is None:
+                fact.embedding = json.dumps(embedding).encode()
+            if confidence is not None:
+                fact.confidence = confidence
             fact.touch()
             session.add(fact)
             session.commit()
             session.refresh(fact)
-            return fact
+
+        if embedding is not None and self._vector_store is not None:
+            try:
+                self._vector_store.update_vector(
+                    fact_id, embedding, payload={"user_id": fact.user_id, "type": "fact"}
+                )
+            except Exception as e:
+                logger.warning("fact_vector_update_failed", fact_id=fact_id, error=str(e))
+
+        return fact
 
     def soft_delete_fact(self, fact_id: str) -> bool:
-        """软删除语义事实 (is_deleted=True, 借鉴 graphiti resolve_edge_contradictions)。"""
+        """软删除语义事实 (is_deleted=True, 借鉴 graphiti resolve_edge_contradictions).
+
+        有 vector_store 时: 同时从向量引擎删除 (delete_vector)。
+        """
         with Session(self.engine) as session:
             fact = session.get(SemanticFact, fact_id)
             if not fact or fact.is_deleted:
@@ -143,7 +202,14 @@ class TypedMemoryStore:
             fact.touch()
             session.add(fact)
             session.commit()
-            return True
+
+        if self._vector_store is not None:
+            try:
+                self._vector_store.delete_vector(fact_id)
+            except Exception as e:
+                logger.warning("fact_vector_delete_failed", fact_id=fact_id, error=str(e))
+
+        return True
 
     def search_facts(
         self,
@@ -153,7 +219,86 @@ class TypedMemoryStore:
         top_k: int = 5,
         threshold: float = 0.1,
     ) -> list[dict[str, Any]]:
-        """向量检索事实 (numpy 余弦, embedder 归一化则点积即余弦)。"""
+        """向量检索事实。
+
+        有 vector_store 时: 走向量引擎 search_vectors (HNSW ANN) + SQLite 取结构化数据。
+        无 vector_store 时: 降级 numpy 余弦全扫描 (embedder 归一化则点积即余弦)。
+        """
+        if self._vector_store is not None:
+            return self._search_facts_vector_store(
+                query_embedding, user_id=user_id, top_k=top_k, threshold=threshold
+            )
+        return self._search_facts_numpy(
+            query_embedding, user_id=user_id, top_k=top_k, threshold=threshold
+        )
+
+    def _search_facts_vector_store(
+        self,
+        query_embedding: list[float],
+        *,
+        user_id: str,
+        top_k: int,
+        threshold: float,
+    ) -> list[dict[str, Any]]:
+        """向量引擎检索: Qdrant search_vectors -> SQLite 取结构化字段。"""
+        try:
+            hits = self._vector_store.search_vectors(  # type: ignore[union-attr]
+                query_vector=query_embedding,
+                top_k=top_k,
+                filters={"user_id": user_id},
+            )
+        except Exception as e:
+            logger.warning("fact_vector_search_failed", error=str(e), fallback="numpy")
+            return self._search_facts_numpy(
+                query_embedding, user_id=user_id, top_k=top_k, threshold=threshold
+            )
+
+        if not hits:
+            return []
+
+        qualified = [h for h in hits if h.score >= threshold]
+        if not qualified:
+            return []
+
+        fact_ids = [h.id for h in qualified]
+        score_map = {h.id: h.score for h in qualified}
+
+        with Session(self.engine) as session:
+            stmt = select(SemanticFact).where(
+                SemanticFact.id.in_(fact_ids),  # type: ignore[union-attr]
+                SemanticFact.is_deleted == False,  # noqa: E712
+            )
+            facts = {f.id: f for f in session.exec(stmt).all()}
+
+        results: list[dict[str, Any]] = []
+        for fid in fact_ids:
+            f = facts.get(fid)
+            if f is None:
+                continue
+            results.append(
+                {
+                    "id": f.id,
+                    "subject": f.subject,
+                    "predicate": f.predicate,
+                    "object": f.object,
+                    "context": f.context,
+                    "confidence": f.confidence,
+                    "provenance": f.provenance,
+                    "tags": f.tags,
+                    "score": score_map.get(fid, 0.0),
+                }
+            )
+        return results
+
+    def _search_facts_numpy(
+        self,
+        query_embedding: list[float],
+        *,
+        user_id: str,
+        top_k: int,
+        threshold: float,
+    ) -> list[dict[str, Any]]:
+        """numpy 余弦全扫描 (降级路径, embedder 归一化则点积即余弦)。"""
         with Session(self.engine) as session:
             stmt = select(SemanticFact).where(
                 SemanticFact.user_id == user_id,

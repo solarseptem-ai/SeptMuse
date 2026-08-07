@@ -41,6 +41,8 @@ class OllamaLLM(LLM):
     自定义: OllamaLLM(model="qwen2.5:7b", host="http://gpu-server:11434")。
     """
 
+    provider_name = "ollama"
+
     def __init__(
         self,
         api_key: str | None = None,
@@ -58,7 +60,7 @@ class OllamaLLM(LLM):
         self._client = Client(host=self._host)
         logger.info("ollama_llm_ready", model=model, host=self._host)
 
-    def complete(self, system_prompt: str, user_prompt: str) -> str:
+    def _complete(self, system_prompt: str, user_prompt: str) -> str:
         """调用 Ollama Chat (对齐 LLM ABC)。"""
         try:
             response = self._client.chat(

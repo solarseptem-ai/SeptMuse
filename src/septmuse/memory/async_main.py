@@ -14,6 +14,8 @@ from septmuse.configs.base import MemoryConfig
 from septmuse.configs.defaults import default_config
 from septmuse.core.logging import get_logger
 from septmuse.embedders.base import Embedder
+from septmuse.embedders.cached import CachedEmbedder
+from septmuse.embedders.resolver import resolve_embedder
 from septmuse.llms.base import LLM
 from septmuse.storage.async_base import AsyncMemoryStore
 
@@ -57,25 +59,44 @@ class AsyncMemory:
     ) -> None:
         self.config = config or default_config()
         self.embedder = embedder or self._resolve_embedder()
+        if not isinstance(self.embedder, CachedEmbedder):
+            self.embedder = CachedEmbedder(self.embedder)
         self.store = store or self._resolve_store()
         self.llm = llm
         if self.llm is None and self.config.llm is not None:
             self.llm = self._resolve_llm()
 
-        # 内部 sync 实例（共享同一 DB 文件，高级方法用 to_thread 桥接）
+        # 内部 sync 实例（共享同一 DB 文件 + vector_store，高级方法用 to_thread 桥接）
         from septmuse.experimental import ExperimentalMemory
+
+        sync_store = None
+        vs = getattr(self.store, "_vector_store", None)
+        ki = getattr(self.store, "_keyword_index", None)
+        if vs is not None:
+            from sqlalchemy import create_engine as _ce
+
+            sync_url = (
+                str(self.config.db_url or f"sqlite:///{self.config.db_path or ':memory:'}")
+                .replace("+aiosqlite", "")
+                .replace("+aiomysql", "+pymysql")
+                .replace("+asyncpg", "+psycopg2")
+            )
+            sync_engine = _ce(sync_url)
+            from septmuse.storage.relational_stores.orm_store import ORMMemoryStore
+
+            sync_store = ORMMemoryStore(sync_engine, vs, ki)
 
         self._sync = ExperimentalMemory(
             config=self.config,
             embedder=self.embedder,
+            store=sync_store,
             llm=self.llm,
         )
 
         logger.info("async_memory_init", db_path=str(self.config.db_path))
 
     def _resolve_embedder(self) -> Embedder:
-        from septmuse.services.providers import embedder_provider
-        return embedder_provider.resolve(self.config.embedder.backend, config=self.config.embedder)
+        return resolve_embedder(self.config)
 
     def _resolve_llm(self) -> LLM | None:
         from septmuse.services.providers import llm_provider
@@ -100,10 +121,84 @@ class AsyncMemory:
         session_id: str | None = None,
         metadata: dict[str, Any] | None = None,
         infer: bool | None = None,
+        memory_type: str | None = None,
         valid_at: str | None = None,
         auto_extract_entities: bool = True,
+        expiration_date: str | None = None,
+        attributed_to: str | None = None,
+        namespace: str = "default",
+        subject: str | None = None,
+        predicate: str | None = None,
+        object: str | None = None,
+        event_type: str = "fact",
+        rule: str | None = None,
     ) -> dict[str, Any]:
-        """异步添加记忆。"""
+        """异步添加记忆。
+
+        memory_type != None 或 infer 决策为 True → 委托 sync (to_thread)。
+        infer=False verbatim → 真 async 路径 (P1 参数: expiration_date/attributed_to/actor_id)。
+        """
+        # 类型化记忆 + 决策模式 → 委托 sync
+        should_delegate = (
+            memory_type is not None
+            or infer is True
+            or (infer is None and self.llm is not None)
+        )
+        if should_delegate:
+            return await asyncio.to_thread(
+                self._sync.add,
+                messages,
+                user_id=user_id,
+                agent_id=agent_id,
+                session_id=session_id,
+                metadata=metadata,
+                infer=infer,
+                memory_type=memory_type,
+                valid_at=valid_at,
+                auto_extract_entities=auto_extract_entities,
+                expiration_date=expiration_date,
+                attributed_to=attributed_to,
+                namespace=namespace,
+                subject=subject,
+                predicate=predicate,
+                object=object,
+                event_type=event_type,
+                rule=rule,
+            )
+
+        # verbatim 真 async 路径
+        from septmuse.core.validation import validate_entity_id
+
+        user_id = validate_entity_id(user_id, "user_id") or "default"
+        if agent_id is not None:
+            agent_id = validate_entity_id(agent_id, "agent_id")
+        if session_id is not None:
+            session_id = validate_entity_id(session_id, "session_id")
+
+        # 过期日期归一化
+        from septmuse.memory.main import _normalize_expiration_date
+
+        normalized_exp = _normalize_expiration_date(expiration_date)
+        if normalized_exp is not None:
+            if metadata is None:
+                metadata = {}
+            metadata = {**metadata, "expiration_date": normalized_exp}
+
+        # 多说话人归因
+        if attributed_to is not None:
+            if metadata is None:
+                metadata = {}
+            metadata = {**metadata, "attributed_to": attributed_to}
+
+        # actor_id 从 message["name"] 提取
+        if isinstance(messages, list) and messages:
+            first_msg = messages[0] if isinstance(messages[0], dict) else {}
+            actor_id = first_msg.get("name")
+            if actor_id is not None:
+                if metadata is None:
+                    metadata = {}
+                metadata = {**metadata, "actor_id": actor_id}
+
         texts = _normalize_messages(messages)
         if not texts:
             return {"results": [], "relations": []}
@@ -122,25 +217,114 @@ class AsyncMemory:
         return {"results": results, "relations": []}
 
     async def search(
-        self, query: str, *, user_id: str, session_id: str | None = None,
-        top_k: int = 5, threshold: float = 0.1, filters: dict[str, Any] | None = None,
-    ) -> list[dict[str, Any]]:
-        """异步检索记忆。"""
+        self,
+        query: str,
+        *,
+        user_id: str,
+        session_id: str | None = None,
+        top_k: int = 5,
+        threshold: float = 0.1,
+        filters: dict[str, Any] | None = None,
+        hybrid: bool = False,
+        reranker: str | None = None,
+        recipe: str | None = None,
+        explain: bool = False,
+        search_filter: dict[str, Any] | None = None,
+        forgetting: bool = False,
+        token_budget: int | None = None,
+        inject_prompt: bool = False,
+        hyde: bool = False,
+        query_rewrite: bool = False,
+        show_expired: bool = False,
+    ) -> list[dict[str, Any]] | dict[str, Any]:
+        """异步检索记忆。
+
+        有高级参数时 → 委托 sync (hybrid/reranker/recipe 等)。
+        基础检索 (纯向量) → 真 async 路径 + 过期过滤。
+        """
+        # 高级参数检测 → 委托 sync
+        has_advanced = (
+            hybrid or reranker is not None or recipe is not None or explain
+            or search_filter is not None or forgetting or token_budget is not None
+            or inject_prompt or hyde or query_rewrite
+        )
+        if has_advanced:
+            return await asyncio.to_thread(
+                self._sync.search,
+                query,
+                user_id=user_id,
+                session_id=session_id,
+                top_k=top_k,
+                threshold=threshold,
+                filters=filters,
+                hybrid=hybrid,
+                reranker=reranker,
+                recipe=recipe,
+                explain=explain,
+                search_filter=search_filter,
+                forgetting=forgetting,
+                token_budget=token_budget,
+                inject_prompt=inject_prompt,
+                hyde=hyde,
+                query_rewrite=query_rewrite,
+                show_expired=show_expired,
+            )
+
+        # 基础纯向量检索 (真 async)
+        from septmuse.core.validation import validate_entity_id, validate_search_query
+
+        user_id = validate_entity_id(user_id, "user_id") or "default"
+        query = validate_search_query(query)
+
         emb = await asyncio.to_thread(self.embedder.embed, query)
-        return await self.store.search(
+        results = await self.store.search(
             emb, user_id=user_id, session_id=session_id, top_k=top_k, threshold=threshold, filters=filters
         )
 
+        # 过期过滤
+        if not show_expired:
+            from septmuse.memory.main import _is_expired
+
+            results = [r for r in results if not _is_expired(r.get("metadata"))]
+
+        return results
+
     async def update(
-        self, memory_id: str, content: str, *, metadata: dict[str, Any] | None = None
-    ) -> bool:
-        """异步更新记忆。"""
+        self,
+        memory_id: str,
+        content: str,
+        *,
+        metadata: dict[str, Any] | None = None,
+        user_id: str | None = None,
+    ) -> dict[str, Any] | bool:
+        """异步更新记忆 (含实体重链接).
+
+        user_id 提供时 → 委托 sync (含实体清理+重链接).
+        无 user_id → 真 async (仅更新 content+embedding).
+        """
+        if user_id is not None and self._sync is not None:
+            return await asyncio.to_thread(
+                self._sync.update,
+                memory_id,
+                content,
+                metadata=metadata,
+                user_id=user_id,
+            )
+        # 降级: 真 async (无实体重链接)
         emb = await asyncio.to_thread(self.embedder.embed, content)
         return await self.store.update(memory_id, content, emb, metadata=metadata)
 
-    async def delete(self, memory_id: str) -> None:
-        """异步软删除。"""
+    async def delete(self, memory_id: str, *, user_id: str | None = None) -> dict[str, Any] | None:
+        """异步删除记忆 (user_id 提供时含 invalidate + 图清理)."""
+        if user_id is not None and self._sync is not None:
+            return await asyncio.to_thread(
+                self._sync.forget,
+                memory_id,
+                user_id=user_id,
+            )
+        # 降级: 仅软删除
         await self.store.delete(memory_id)
+        return None
 
     async def delete_all(self, *, user_id: str) -> int:
         """异步批量删除该用户所有记忆。"""
@@ -250,6 +434,76 @@ class AsyncMemory:
     async def rules_to_prompt(self, *, user_id: str, namespace: str = "default") -> str:
         """异步编译规则为 prompt 注入文本。"""
         return await asyncio.to_thread(self._sync.rules_to_prompt, user_id=user_id, namespace=namespace)
+
+    # ------------------------------------------------------------------
+    # V2 编排 API (to_thread 桥接 sync, 共享同一 DB 文件)
+    # ------------------------------------------------------------------
+
+    async def remember(
+        self,
+        messages: Any,
+        *,
+        user_id: str,
+        agent_id: str | None = None,
+        session_id: str | None = None,
+    ) -> dict[str, Any]:
+        """异步捕获 → add(决策) → episodic raw_log → working_memory."""
+        if self._sync is None:
+            # 降级: 简单 add
+            return await self.add(messages, user_id=user_id, agent_id=agent_id, session_id=session_id)
+        return await asyncio.to_thread(
+            self._sync.remember,
+            messages,
+            user_id=user_id,
+            agent_id=agent_id,
+            session_id=session_id,
+        )
+
+    async def recall(
+        self,
+        query: str,
+        *,
+        user_id: str,
+        top_k: int = 5,
+        recipe: str | None = None,
+        inject_profile: bool = False,
+        auto_compress: bool = False,
+    ) -> dict[str, Any]:
+        """异步检索 → 遗忘加权 → token预算 → block+规则注入 → 画像注入."""
+        if self._sync is None:
+            # 降级: 简单 search
+            results = await self.search(query, user_id=user_id, top_k=top_k)
+            return {"memories": results, "injected_prompt": "", "route": None, "strategy": None, "used_tokens": 0}
+        return await asyncio.to_thread(
+            self._sync.recall,
+            query,
+            user_id=user_id,
+            top_k=top_k,
+            recipe=recipe,
+            inject_profile=inject_profile,
+            auto_compress=auto_compress,
+        )
+
+    async def forget(self, memory_id: str, *, user_id: str) -> dict[str, Any]:
+        """异步 invalidate → delete → 图清理."""
+        if self._sync is None:
+            await self.store.delete(memory_id)
+            return {"memory_id": memory_id, "event": "FORGET"}
+        return await asyncio.to_thread(
+            self._sync.forget,
+            memory_id,
+            user_id=user_id,
+        )
+
+    async def improve(self, *, user_id: str, limit: int = 50) -> dict[str, Any]:
+        """异步 dream + reflect + conflict + coverage."""
+        if self._sync is None:
+            return {"dream": {"links_created": 0, "processed": 0}, "rules": 0, "conflicts": {}, "coverage": {}}
+        return await asyncio.to_thread(
+            self._sync.improve,
+            user_id=user_id,
+            limit=limit,
+        )
 
     async def close(self) -> None:
         """异步释放资源。"""

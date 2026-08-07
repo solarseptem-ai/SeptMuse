@@ -11,13 +11,13 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""遗忘曲线检索 — 强度加权排序 + 主动复述 (架构文档 §6.2 自研)。
+"""遗忘曲线检索 — 强度加权排序 + 测试效应 + 主动复述 (架构文档 §6.2 自研)。
 
 14 家开源均无强度衰减 + 主动复述。SeptMuse 新增:
-- apply_strength: final_score = relevance × decayed_strength, 低强度记忆下沉
-- find_rehearse_candidates: 扫描 strength < 0.3 且 base_value > 0.7 的记忆
+- apply_strength: final_score = 0.7*relevance + 0.3*strength, 检索后刷新 last_accessed (测试效应)
+- find_rehearse_candidates: 扫描 decayed_strength < 0.3 且 base_value > 0.5 的记忆
 - rehearse: 主动复述 (strength 回升 + access_count+1)
-- archive: strength < 0.1 → 归档冷存储
+- archive: decayed_strength < 0.1 → 归档冷存储
 """
 
 from __future__ import annotations
@@ -55,8 +55,9 @@ class ForgettingRetriever:
         retriever.rehearse_batch([m.memory_id for m in candidates], user_id="alice")
     """
 
-    def __init__(self, typed_store: TypedMemoryStore) -> None:
+    def __init__(self, typed_store: TypedMemoryStore, *, half_life_days: float = 7.0) -> None:
         self.store = typed_store
+        self.half_life_days = half_life_days
 
     def apply_strength(
         self,
@@ -65,13 +66,14 @@ class ForgettingRetriever:
         user_id: str,
         now: datetime | None = None,
     ) -> list[StrengthWeightedResult]:
-        """对检索结果应用强度加权 (final_score = relevance × strength)。
+        """对检索结果应用强度加权 (final_score = 0.7*relevance + 0.3*strength) + 测试效应。
 
         对每条结果:
         1. 查 MemoryStrength (不存在则创建, 默认 base_value=0.5)
         2. 计算 decayed_strength
-        3. final_score = relevance × decayed_strength
+        3. final_score = 0.7 * relevance + 0.3 * decayed_strength (加权平均, 相关度优先)
         4. 按 final_score 降序排序
+        5. 测试效应: 刷新 last_accessed + access_count+1 (检索到的记忆不再继续衰减)
 
         归档记忆 (archived=True) 不参与, 被过滤掉。
         """
@@ -87,9 +89,10 @@ class ForgettingRetriever:
             if strength.archived:
                 continue  # 归档记忆不参与默认检索
 
-            decayed = strength.decay(now)
+            decayed = strength.decay(now, half_life_days=self.half_life_days)
             relevance = r.get("score", 0.0)
-            final = relevance * decayed
+            # 加权平均: 相关度权重 0.7, 强度权重 0.3
+            final = 0.7 * relevance + 0.3 * decayed
 
             weighted.append(
                 StrengthWeightedResult(
@@ -100,6 +103,17 @@ class ForgettingRetriever:
                     final_score=final,
                     metadata=r.get("metadata", {}),
                 )
+            )
+
+            # 测试效应: 检索即复习, 刷新 last_accessed 防止继续衰减
+            strength.last_accessed = now
+            strength.access_count += 1
+            self.store.update_strength(
+                mid,
+                user_id=user_id,
+                strength=decayed,
+                last_accessed=now,
+                access_count=strength.access_count,
             )
 
         weighted.sort(key=lambda x: x.final_score, reverse=True)

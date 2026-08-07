@@ -30,7 +30,9 @@ from typing import Any
 
 
 def build_extraction_user_prompt(
-    text: str, existing_memories: list[dict[str, Any]] | None = None
+    text: str,
+    existing_memories: list[dict[str, Any]] | None = None,
+    last_k_messages: list[dict[str, Any]] | None = None,
 ) -> str:
     """构建抽取 user prompt，注入已有记忆避免重复抽取 (对齐 mem0 V3 Phase 1)。
 
@@ -38,11 +40,17 @@ def build_extraction_user_prompt(
         text: 新消息文本
         existing_memories: 已有记忆列表 [{"id": "...", "memory": "..."}]
             None 或空列表时不注入已有记忆段落 (纯抽取模式)。
+        last_k_messages: 近期对话上下文 [{"role": "...", "content": "..."}]
+            注入 Phase 0/1 上下文窗口, 帮助 LLM 理解对话连续性。
 
     Returns:
         user prompt 字符串
     """
     sections: list[str] = []
+    if last_k_messages:
+        k_lines = "\n".join(f"{m.get('role', 'user')}: {m.get('content', '')}" for m in last_k_messages)
+        sections.append("## Last k Messages\n" + k_lines)
+
     if existing_memories:
         mem_lines: list[str] = []
         for i, m in enumerate(existing_memories[:10], 1):
@@ -150,4 +158,58 @@ FACT_TO_TRIPLE_PROMPT = """Parse each fact into a triple (subject, predicate, ob
 
 Return JSON: {"triples": [{"subject": "...", "predicate": "...", "object": "..."}, ...]}
 Order must match input facts order. Return ONLY JSON.
+"""
+
+ADDITIVE_DECISION_PROMPT = """You are a Personal Information Organizer. Given existing memories and new messages, decide for each fact: ADD (new), UPDATE (existing fact value changed, must include id), DELETE (existing fact contradicted by new message, must include id), or NOOP (already exists, no change).
+
+# Input Format
+## Existing Memories
+1. [mem-xxx] Likes Python
+...
+
+## New Messages
+<user message>
+
+# Output Format
+Return ONLY valid JSON: {"facts": [{"text": "...", "event": "ADD|UPDATE|DELETE|NOOP", "id": null_or_memid, "confidence": 0.0-1.0, "linked_memory_ids": ["memid1", ...]}]}
+- UPDATE/DELETE must include the existing memory's id.
+- confidence: your confidence in this decision (0.0-1.0).
+- linked_memory_ids: IDs of existing memories related to this fact (same topic, updated preference, follow-up event). Empty array if none.
+- If nothing relevant, return {"facts": []}.
+
+# Examples
+Existing: [mem-1] Likes Python
+New: "I now prefer Rust over Python."
+Output: {"facts":[{"text":"Prefers Rust","event":"ADD","id":null,"confidence":0.9},{"text":"Likes Python","event":"DELETE","id":"mem-1","confidence":0.85}]}
+
+Existing: [mem-2] Name is Alice
+New: "My name is actually Alyssa."
+Output: {"facts":[{"text":"Name is Alyssa","event":"UPDATE","id":"mem-2","confidence":0.95}]}
+
+Existing: [mem-3] Lives in Tokyo
+New: "I love sushi."
+Output: {"facts":[{"text":"Likes sushi","event":"ADD","id":null,"confidence":0.9,"linked_memory_ids":["mem-3"]}]}
+
+Existing: [mem-4] Likes Python
+New: "Python is great."
+Output: {"facts":[{"text":"Likes Python","event":"NOOP","id":"mem-4","confidence":1.0}]}
+"""
+
+# procedural memory 自动生成系统提示 (对齐 mem0 _create_procedural_memory)
+PROCEDURAL_MEMORY_SYSTEM_PROMPT = """You are a procedural memory extractor. Your job is to extract reusable rules, heuristics, and how-to knowledge from conversations.
+
+Given a conversation between a user and an assistant, identify any:
+- Problem-solving strategies that worked
+- Best practices or conventions mentioned
+- Step-by-step procedures or workflows
+- Lessons learned from mistakes or corrections
+- Coding patterns or architectural decisions
+
+Output a single concise rule (1-3 sentences) that captures the reusable knowledge.
+If no procedural knowledge is present, return exactly: NONE
+
+Rules:
+- Focus on reusable knowledge, not one-time facts.
+- Be specific and actionable, not vague.
+- Preserve the original language of the conversation.
 """

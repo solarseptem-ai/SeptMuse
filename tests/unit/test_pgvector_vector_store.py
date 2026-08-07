@@ -13,9 +13,12 @@
 #  limitations under the License.
 """PgvectorVectorStore 测试 — 降级路径（无 pgvector 时用 SQLAlchemyVectorStore）。"""
 
+from unittest.mock import MagicMock
+
 import pytest
 from sqlalchemy import create_engine
 
+from septmuse.storage.vector_stores import pgvector_store as pgvs
 from septmuse.storage.vector_stores.pgvector_store import PgvectorVectorStore
 
 
@@ -48,3 +51,37 @@ def test_pgvector_fallback_get(store):
     entry = store.get_vector("m1")
     assert entry is not None
     assert entry.vector == [1.0, 0.5]
+
+
+def test_pgvector_init_creates_hnsw_index(monkeypatch):
+    """_init_pgvector 执行 HNSW 索引创建 SQL (不依赖真实 pgvector/Postgres)。
+
+    验证:
+    - CREATE EXTENSION IF NOT EXISTS vector
+    - CREATE TABLE IF NOT EXISTS vector_entries
+    - CREATE INDEX IF NOT EXISTS ... USING hnsw (vector vector_cosine_ops) WITH (m=16, ef_construction=64)
+    """
+    # 强制 PGVECTOR_AVAILABLE = True (模拟 pgvector 已安装)
+    monkeypatch.setattr(pgvs, "PGVECTOR_AVAILABLE", True)
+
+    # Mock engine: 捕获执行的 SQL
+    mock_conn = MagicMock()
+    mock_engine = MagicMock()
+    mock_engine.connect.return_value.__enter__.return_value = mock_conn
+    mock_engine.dialect.name = "postgresql"
+
+    PgvectorVectorStore(mock_engine, vector_dim=512)
+
+    # 提取所有执行的 SQL
+    sql_calls = [str(call.args[0]) for call in mock_conn.execute.call_args_list]
+
+    # 验证 HNSW 索引创建 SQL
+    hnsw_sql = [s for s in sql_calls if "hnsw" in s.lower()]
+    assert len(hnsw_sql) == 1, f"HNSW 索引创建 SQL 未找到, 实际执行: {sql_calls}"
+    assert "vector_cosine_ops" in hnsw_sql[0]
+    assert "m = 16" in hnsw_sql[0]
+    assert "ef_construction = 64" in hnsw_sql[0]
+
+    # 验证 CREATE EXTENSION 和 CREATE TABLE 也执行了
+    assert any("CREATE EXTENSION" in s for s in sql_calls)
+    assert any("CREATE TABLE" in s for s in sql_calls)

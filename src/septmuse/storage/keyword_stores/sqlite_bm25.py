@@ -17,31 +17,27 @@
 
 参考模式 (实证):
 - BM25 公式: ReMe BM25Index (k1=1.5, b=0.75 标准参数)
-- 中文分词按字: ReMe RegexTokenizer + HashEmbedder._tokenize 模式
-- 归一化: score / max_score → [0,1]
+- 中文分词: jieba 可用时按词切分, 否则正则按字 (core.tokenizer)
+- 归一化: sigmoid 自适应 (对齐 mem0 normalize_bm25), score/max_score 已弃用
 """
 
 from __future__ import annotations
 
 import math
-import re
 import sqlite3
 import threading
 from collections import Counter, defaultdict
 from pathlib import Path
 
 from septmuse.core.logging import get_logger
+from septmuse.core.tokenizer import tokenize
+from septmuse.retrieval.scoring import get_bm25_params, normalize_bm25
 from septmuse.storage.keyword_stores.base import KeywordIndexBase
 
 logger = get_logger(__name__)
 
 _BM25_K1 = 1.5
 _BM25_B = 0.75
-
-
-def _tokenize(text: str) -> list[str]:
-    """分词: 中英文混合, 英文按词、中文按字 (对齐 HashEmbedder._tokenize)。"""
-    return re.findall(r"[a-z0-9]+|[^\s\W]", text.lower())
 
 
 class SQLiteBM25Index(KeywordIndexBase):
@@ -85,7 +81,7 @@ class SQLiteBM25Index(KeywordIndexBase):
             self._index_doc(doc_id, text)
 
     def _index_doc(self, doc_id: str, text: str) -> None:
-        tokens = _tokenize(text)
+        tokens = tokenize(text)
         self._doc_len[doc_id] = len(tokens)
         tf = Counter(tokens)
         for token, count in tf.items():
@@ -113,7 +109,7 @@ class SQLiteBM25Index(KeywordIndexBase):
             self.conn.commit()
 
     def retrieve(self, query: str, limit: int = 5) -> dict[str, float]:
-        tokens = _tokenize(query)
+        tokens = tokenize(query)
         if not tokens:
             return {}
 
@@ -139,11 +135,13 @@ class SQLiteBM25Index(KeywordIndexBase):
         if not scores:
             return {}
 
-        max_score = max(scores.values())
-        if max_score == 0:
-            return {}
-
-        normalized = {doc_id: score / max_score for doc_id, score in scores.items()}
+        # sigmoid 归一化 (替代 score / max_score, 对齐 mem0 normalize_bm25)
+        # 长查询原始 BM25 分偏高 → 提高 midpoint; 短查询偏低 → 降低 midpoint
+        midpoint, steepness = get_bm25_params(query, num_terms=len(tokens))
+        normalized = {
+            doc_id: normalize_bm25(score, midpoint, steepness)
+            for doc_id, score in scores.items()
+        }
         ordered = sorted(normalized.items(), key=lambda x: x[1], reverse=True)
         return dict(ordered[:limit])
 

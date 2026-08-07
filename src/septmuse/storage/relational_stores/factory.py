@@ -19,20 +19,76 @@
   async → AsyncORMMemoryStore (async_engine + sync vector_store + keyword_index)
 
 双写 vector_store/keyword_index 用 sync engine (ORMMemoryStore 双写是 sync 调用)。
+
+向量后端: 默认 Qdrant (HNSW + BM25 稀疏向量), 也可选 chroma/sqlite/pgvector/mysql。
+qdrant-client 不可用时自动降级到 SQLAlchemyVectorStore (JSON + numpy 全扫描) + 日志警告。
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import os
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+from septmuse.core.logging import get_logger
 
 if TYPE_CHECKING:
     from septmuse.configs.base import MemoryConfig
     from septmuse.storage.relational_stores.async_orm_store import AsyncORMMemoryStore
     from septmuse.storage.relational_stores.orm_store import ORMMemoryStore
+    from septmuse.storage.vector_stores.base import VectorStoreBase
+
+logger = get_logger(__name__)
 
 
 class RelationalStoreFactory:
     """根据 config 创建 ORMMemoryStore + 方言工厂的 vector_store + keyword_index。"""
+
+    @staticmethod
+    def _resolve_vector_store(config: MemoryConfig, engine: Any, dialect: str) -> VectorStoreBase:
+        """解析 vector_store — chroma 不可用时降级到 SQLAlchemy (JSON + numpy)。
+
+        chroma 后端自带 HNSW ANN 索引, 但 chromadb 是 optional extra。
+        未安装时自动降级到 SQLAlchemyVectorStore (全扫描) + 日志警告, 保证零配置不 crash。
+        """
+        vs_backend = config.vector_store.backend
+        if vs_backend == "qdrant":
+            try:
+                from septmuse.storage.vector_stores.qdrant import QdrantVectorStore
+
+                return QdrantVectorStore(
+                    collection_name="septmuse",
+                    embedding_model_dims=config.vector_store.embedding_model_dims or 512,
+                    path=os.getenv("SEPTMUSE_QDRANT_PATH"),
+                    host=os.getenv("SEPTMUSE_QDRANT_HOST"),
+                    port=int(os.getenv("SEPTMUSE_QDRANT_PORT", "6333"))
+                    if os.getenv("SEPTMUSE_QDRANT_HOST")
+                    else None,
+                    url=os.getenv("SEPTMUSE_QDRANT_URL"),
+                    api_key=os.getenv("SEPTMUSE_QDRANT_API_KEY"),
+                    enable_bm25=True,
+                )
+            except ImportError:
+                logger.warning("qdrant_not_available_fallback_sqlite")
+
+        if vs_backend == "chroma":
+            try:
+                import chromadb  # noqa: F401
+
+                from septmuse.storage.vector_stores.chroma import ChromaVectorStore
+
+                persist_path = os.getenv(
+                    "SEPTMUSE_CHROMA_PERSIST_PATH", str(Path.home() / ".septmuse" / "chroma")
+                )
+                return ChromaVectorStore(persist_path=persist_path)
+            except ImportError:
+                logger.warning(
+                    "chroma_not_available_fallback_sqlite",
+                    reason="chromadb not installed, run: pip install septmuse[chroma]",
+                )
+        from septmuse.storage.vector_stores.factory import create_vector_store
+
+        return create_vector_store(engine, dialect)
 
     @staticmethod
     def create(config: MemoryConfig) -> ORMMemoryStore:
@@ -47,12 +103,12 @@ class RelationalStoreFactory:
         from septmuse.services.database.service import DatabaseService
         from septmuse.storage.keyword_stores.factory import create_keyword_index
         from septmuse.storage.relational_stores.orm_store import ORMMemoryStore
-        from septmuse.storage.vector_stores.factory import create_vector_store
 
         db_svc = DatabaseService(config)
         engine = db_svc.get_engine()
         dialect = db_svc.get_dialect()
-        vector_store = create_vector_store(engine, dialect)
+
+        vector_store = RelationalStoreFactory._resolve_vector_store(config, engine, dialect)
         keyword_index = create_keyword_index(engine, dialect)
         return ORMMemoryStore(engine, vector_store, keyword_index)
 
@@ -69,13 +125,12 @@ class RelationalStoreFactory:
         from septmuse.services.database.service import DatabaseService
         from septmuse.storage.keyword_stores.factory import create_keyword_index
         from septmuse.storage.relational_stores.async_orm_store import AsyncORMMemoryStore
-        from septmuse.storage.vector_stores.factory import create_vector_store
 
         db_svc = DatabaseService(config)
         async_engine = db_svc.get_async_engine()
         dialect = db_svc.get_dialect()
-        # 双写 vector_store/keyword_index 用 sync engine (ORMMemoryStore 双写是 sync 调用)
         sync_engine = db_svc.get_engine()
-        vector_store = create_vector_store(sync_engine, dialect)
+
+        vector_store = RelationalStoreFactory._resolve_vector_store(config, sync_engine, dialect)
         keyword_index = create_keyword_index(sync_engine, dialect)
         return AsyncORMMemoryStore(async_engine, vector_store, keyword_index)

@@ -24,6 +24,7 @@ from septmuse.rerankers.cross_encoder import CrossEncoderReranker as _CEInner
 from septmuse.rerankers.llm import LLMReranker as _LLMInner
 from septmuse.rerankers.mmr import MMRReranker as _MMRInner
 from septmuse.rerankers.noop import NoopReranker as _NoopInner
+from septmuse.rerankers.sentence_transformer import SentenceTransformerReranker as _STInner
 
 if TYPE_CHECKING:
     pass
@@ -80,6 +81,19 @@ class LLMReranker(_LLMInner):
         return strategy.reconstruct(scored, tracker, results, tk, search_filter)
 
 
+class SentenceTransformerReranker(_STInner):
+    """旧接口兼容。"""
+    def rerank(self, query, results, *, top_k=None, search_filter=None):
+        if not results:
+            return []
+        from septmuse.rerankers.strategies.full_memory import FullMemoryStrategy
+        strategy = FullMemoryStrategy()
+        tracker, documents = strategy.prepare(results)
+        tk = top_k or len(results)
+        scored = super().rerank(query, documents, top_k=tk)
+        return strategy.reconstruct(scored, tracker, results, tk, search_filter)
+
+
 def _resolve_reranker(backend="noop", *, embedder=None, llm=None, model_cache_dir=None, api_key=None):
     """旧工厂函数 (兼容)。"""
     if backend == "noop":
@@ -94,5 +108,7 @@ def _resolve_reranker(backend="noop", *, embedder=None, llm=None, model_cache_di
         if llm is None:
             raise ValueError("LLMReranker requires an LLM instance")
         return LLMReranker(llm=llm)
+    if backend == "sentence_transformer":
+        return SentenceTransformerReranker()
     from septmuse.rerankers import create_reranker
     return create_reranker(backend, embedder=embedder, llm=llm, model_cache_dir=model_cache_dir, api_key=api_key)

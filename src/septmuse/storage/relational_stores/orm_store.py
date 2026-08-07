@@ -23,13 +23,13 @@ CRUD 全用 SQLModel select() / session.add()。SQLModel.metadata.create_all()
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-import numpy as np
 from sqlalchemy import desc, or_
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
@@ -126,6 +126,10 @@ class ORMMemoryStore(MemoryStore):
     ) -> None:
         self._engine = engine
         self._session_maker = sessionmaker(engine, expire_on_commit=False)
+        if vector_store is None:
+            from septmuse.storage.vector_stores.sqlalchemy_vec import SQLAlchemyVectorStore
+
+            vector_store = SQLAlchemyVectorStore(engine)
         self._vector_store = vector_store
         self._keyword_index = keyword_index
         self._create_tables()
@@ -148,6 +152,37 @@ class ORMMemoryStore(MemoryStore):
         """释放引擎资源。"""
         self._engine.dispose()
 
+    def reset(self) -> None:
+        """重置存储 (删表数据 + 双写清理).
+
+        清除 memories / history / memory_access_logs 三表数据,
+        并重置 vector_store + keyword_index。
+        """
+        from sqlalchemy import text
+
+        with Session(self._engine) as session:
+            for table_name in ["memories", "history", "memory_access_logs"]:
+                with contextlib.suppress(Exception):
+                    session.exec(text(f"DELETE FROM {table_name}"))
+            session.commit()
+        # 双写清理: vector_store
+        if self._vector_store is not None:
+            try:
+                if hasattr(self._vector_store, "reset_collection"):
+                    self._vector_store.reset_collection()
+                elif hasattr(self._vector_store, "delete_collection"):
+                    self._vector_store.delete_collection()
+            except Exception:
+                pass
+        # 双写清理: keyword_index
+        if self._keyword_index is not None:
+            try:
+                if hasattr(self._keyword_index, "reset"):
+                    self._keyword_index.reset()
+            except Exception:
+                pass
+        logger.info("orm_store_reset_done")
+
     def add(
         self,
         content: str,
@@ -169,7 +204,6 @@ class ORMMemoryStore(MemoryStore):
                 agent_id=agent_id,
                 session_id=session_id,
                 content=content,
-                embedding=json.dumps(embedding),
                 metadata_json=json.dumps(metadata or {}),
                 created_at=now,
                 updated_at=now,
@@ -245,7 +279,6 @@ class ORMMemoryStore(MemoryStore):
                 agent_id=agent_id,
                 session_id=session_id,
                 content=content,
-                embedding=json.dumps(embedding),
                 metadata_json=json.dumps(metadata or {}),
                 created_at=now,
                 updated_at=now,
@@ -318,44 +351,54 @@ class ORMMemoryStore(MemoryStore):
         threshold: float = 0.1,
         filters: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        """向量检索, 返回 [{"id", "memory", "score", "metadata", "created_at"}]。
+        """向量检索 (委托给 _vector_store ANN 索引, 不再自行 numpy 余弦)。
 
+        流程: _vector_store.search_vectors → 取 ID → MemoryTable 查 content + metadata + 高级过滤。
         score: 相似度 (越高越相似, 范围 [0, 1])。
         """
-        with Session(self._engine) as session:
-            stmt = select(MemoryTable).where(
-                MemoryTable.user_id == user_id,
-                MemoryTable.is_deleted == 0,
-            )
-            if session_id is not None:
-                stmt = stmt.where(MemoryTable.session_id == session_id)
-            # 高级过滤 (eq/ne/gt/gte/lt/lte/in/nin/contains/icontains, 对齐 mem0)
-            skip = {"session_id", "run_id"} if session_id is not None else set()
-            stmt = _apply_metadata_filters(stmt, filters, MemoryTable, skip_keys=skip)
-            rows = session.exec(stmt).all()
-
-        if not rows:
+        if self._vector_store is None:
             return []
 
-        q = np.array(query_embedding, dtype=np.float32)
-        qnorm = float(np.linalg.norm(q))
-        if qnorm > 0:
-            q = q / qnorm
+        # session_id 可来自参数或 filters 字典
+        effective_session_id = session_id
+        if effective_session_id is None and filters:
+            effective_session_id = filters.get("session_id")
+
+        vs_filters: dict[str, Any] = {"user_id": user_id}
+        if effective_session_id is not None:
+            vs_filters["session_id"] = effective_session_id
+
+        vec_results = self._vector_store.search_vectors(
+            query_embedding, top_k=top_k * 5, filters=vs_filters
+        )
+        if not vec_results:
+            return []
+
+        vec_results = [r for r in vec_results if r.score >= threshold]
+        if not vec_results:
+            return []
+
+        score_map = {r.id: r.score for r in vec_results}
+
+        with Session(self._engine) as session:
+            stmt = select(MemoryTable).where(
+                MemoryTable.id.in_(list(score_map.keys())),
+                MemoryTable.is_deleted == 0,
+            )
+            if effective_session_id is not None:
+                stmt = stmt.where(MemoryTable.session_id == effective_session_id)
+            stmt = _apply_metadata_filters(stmt, filters, MemoryTable, skip_keys={"session_id", "run_id"})
+            rows = session.exec(stmt).all()
 
         results: list[dict[str, Any]] = []
         for mem in rows:
-            if not mem.embedding:
-                continue
-            emb = np.array(json.loads(mem.embedding), dtype=np.float32)
-            score = float(np.dot(q, emb)) if qnorm > 0 else 0.0
-            if score >= threshold:
-                results.append({
-                    "id": mem.id,
-                    "memory": mem.content,
-                    "score": score,
-                    "metadata": json.loads(mem.metadata_json) if mem.metadata_json else {},
-                    "created_at": mem.created_at,
-                })
+            results.append({
+                "id": mem.id,
+                "memory": mem.content,
+                "score": score_map.get(mem.id, 0.0),
+                "metadata": json.loads(mem.metadata_json) if mem.metadata_json else {},
+                "created_at": mem.created_at,
+            })
         results.sort(key=lambda x: x["score"], reverse=True)
         return results[:top_k]
 
@@ -435,8 +478,9 @@ class ORMMemoryStore(MemoryStore):
                 return False
             old_content = mem.content
             old_meta = json.loads(mem.metadata_json) if mem.metadata_json else {}
+            vs_user_id = mem.user_id
+            vs_session_id = mem.session_id
             mem.content = content
-            mem.embedding = json.dumps(embedding)
             mem.metadata_json = json.dumps(metadata if metadata is not None else old_meta)
             mem.updated_at = now
             session.add(mem)
@@ -450,9 +494,12 @@ class ORMMemoryStore(MemoryStore):
                 is_deleted=0,
             ))
             session.commit()
-        # 双写更新
+        # 双写更新 (带 payload, 否则过滤搜索找不到更新后的向量)
         if self._vector_store is not None:
-            self._vector_store.insert_vectors([embedding], [memory_id])
+            self._vector_store.insert_vectors(
+                [embedding], [memory_id],
+                [{"user_id": vs_user_id, "session_id": vs_session_id}],
+            )
         if self._keyword_index is not None:
             self._keyword_index.add_docs({memory_id: content})
         logger.info("memory_updated", memory_id=memory_id, content_len=len(content))

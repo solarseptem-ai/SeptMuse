@@ -33,9 +33,9 @@ def memory(tmp_db: str) -> ExperimentalMemory:
 
 
 class TestRecipeDefinitions:
-    def test_seven_recipes_exist(self):
-        """验收: 7 种 recipe 均定义。"""
-        assert len(RECIPES) == 7
+    def test_eight_recipes_exist(self):
+        """验收: 8 种 recipe 均定义。"""
+        assert len(RECIPES) == 8
         expected = {
             "HYBRID_RRF",
             "HYBRID_RRF_ENTITY",
@@ -44,13 +44,14 @@ class TestRecipeDefinitions:
             "GRAPH_BFS",
             "PROGRESSIVE",
             "FORGETTING",
+            "OPTIMAL",
         }
         assert set(RECIPES.keys()) == expected
 
     def test_list_recipes_returns_all(self):
         """list_recipes 返回全部 recipe 名称。"""
         names = list_recipes()
-        assert len(names) == 7
+        assert len(names) == 8
         assert "HYBRID_RRF" in names
 
     def test_get_recipe_returns_search_recipe(self):
@@ -98,6 +99,15 @@ class TestRecipeConfigs:
         r = get_recipe("FORGETTING")
         assert r.forgetting is True
 
+    def test_optimal_recipe_has_hyde_and_query_rewrite(self):
+        """OPTIMAL 开启 hyde + query_rewrite + cross_encoder + explain。"""
+        r = get_recipe("OPTIMAL")
+        assert r.hyde is True
+        assert r.query_rewrite is True
+        assert r.reranker == "cross_encoder"
+        assert r.explain is True
+        assert r.hybrid is True
+
 
 class TestRecipeExecution:
     def test_search_with_hybrid_rrf_recipe(self, memory: ExperimentalMemory):
@@ -144,4 +154,9 @@ class TestRecipeExecution:
     def test_search_without_recipe_uses_defaults(self, memory: ExperimentalMemory):
         """无 recipe 时用默认参数 (hybrid=True, reranker=noop)。"""
         results = memory.search("Python", user_id="u1")
+        assert isinstance(results, list)
+
+    def test_search_with_optimal_recipe(self, memory: ExperimentalMemory):
+        """验收: m.search(recipe="OPTIMAL") 正确执行 (全链路最优)。"""
+        results = memory.search("Python", user_id="u1", recipe="OPTIMAL")
         assert isinstance(results, list)

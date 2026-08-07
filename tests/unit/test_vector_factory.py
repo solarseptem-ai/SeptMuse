@@ -6,14 +6,13 @@ from sqlalchemy import create_engine
 from septmuse.storage.vector_stores.factory import create_vector_store
 from septmuse.storage.vector_stores.pgvector_store import PgvectorVectorStore
 from septmuse.storage.vector_stores.sqlalchemy_vec import SQLAlchemyVectorStore
-from septmuse.storage.vector_stores.sqlite_vec import SQLiteVectorStore
 
 
-def test_factory_sqlite_returns_sqlite_store():
-    """SQLite 方言返回 SQLiteVectorStore。"""
+def test_factory_sqlite_returns_sqlalchemy_store():
+    """SQLite 方言返回 SQLAlchemyVectorStore。"""
     engine = create_engine("sqlite://")
     store = create_vector_store(engine, "sqlite")
-    assert isinstance(store, SQLiteVectorStore)
+    assert isinstance(store, SQLAlchemyVectorStore)
     store.close()
 
 

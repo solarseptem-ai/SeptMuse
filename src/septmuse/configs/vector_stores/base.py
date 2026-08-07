@@ -21,5 +21,5 @@ from pydantic import BaseModel, Field
 class BaseVectorStoreConfig(BaseModel):
     """向量存储通用配置。"""
 
-    backend: str = Field(default="sqlite", description="向量后端")
-    embedding_model_dims: int = Field(default=384, description="嵌入维度")
+    backend: str = Field(default="qdrant", description="向量后端")
+    embedding_model_dims: int = Field(default=512, description="嵌入维度")

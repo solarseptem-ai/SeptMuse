@@ -32,6 +32,8 @@ class SearchRecipe:
     graph_bfs: bool = False
     forgetting: bool = False
     progressive: bool = False
+    hyde: bool = False
+    query_rewrite: bool = False
     description: str = ""
 
 
@@ -79,6 +81,15 @@ RECIPES: dict[str, SearchRecipe] = {
         hybrid=True,
         forgetting=True,
         description="遗忘曲线加权 (strength 衰减排序)",
+    ),
+    "OPTIMAL": SearchRecipe(
+        name="OPTIMAL",
+        hybrid=True,
+        reranker="cross_encoder",
+        explain=True,
+        hyde=True,
+        query_rewrite=True,
+        description="全链路最优: query_rewrite + HyDE + RRF + cross-encoder (推荐)",
     ),
 }
 

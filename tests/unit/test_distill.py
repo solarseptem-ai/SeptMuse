@@ -30,7 +30,7 @@ class StubLLM(LLM):
         self._extract_response = extract_response
         self._accept = accept
 
-    def complete(self, system_prompt: str, user_prompt: str) -> str:
+    def _complete(self, system_prompt: str, user_prompt: str) -> str:
         if "lesson" in system_prompt.lower() and "evaluator" in system_prompt.lower():
             return "accept" if self._accept else "reject"
         return self._extract_response

@@ -11,16 +11,15 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""VectorStoreBase ABC 契约 + SQLiteVectorStore CRUD 测试。"""
+"""VectorStoreBase ABC 契约 + SQLAlchemyVectorStore CRUD 测试。"""
 
 from __future__ import annotations
 
-import sqlite3
-
 import pytest
+from sqlalchemy import create_engine
 
 from septmuse.storage.vector_stores.base import VectorEntry, VectorSearchResult, VectorStoreBase
-from septmuse.storage.vector_stores.sqlite_vec import SQLiteVectorStore
+from septmuse.storage.vector_stores.sqlalchemy_vec import SQLAlchemyVectorStore
 
 
 def test_abc_cannot_instantiate():
@@ -44,8 +43,8 @@ def test_vector_entry_dataclass():
 
 @pytest.fixture()
 def vec_store(tmp_path):
-    conn = sqlite3.connect(str(tmp_path / "test.db"))
-    store = SQLiteVectorStore(conn=conn)
+    engine = create_engine(f"sqlite:///{tmp_path}/test.db")
+    store = SQLAlchemyVectorStore(engine)
     yield store
     store.close()
 

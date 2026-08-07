@@ -38,6 +38,8 @@ class LitellmLLM(LLM):
     零配置: 从环境变量读取 api_key（按 provider 前缀）。
     """
 
+    provider_name = "litellm"
+
     def __init__(
         self,
         model: str = "gpt-4o-mini",
@@ -57,7 +59,7 @@ class LitellmLLM(LLM):
         self._extra_kwargs = kwargs
         logger.info("litellm_llm_ready", model=model)
 
-    def complete(self, system_prompt: str, user_prompt: str) -> str:
+    def _complete(self, system_prompt: str, user_prompt: str) -> str:
         """委托 litellm.completion。"""
         try:
             response = self._litellm.completion(

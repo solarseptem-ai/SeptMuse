@@ -35,6 +35,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from septmuse.core.logging import get_logger
 from septmuse.services.base import Service
@@ -69,7 +70,26 @@ class DatabaseService(Service):
         self._dialect = self.database_url.split("://", 1)[0].split("+", 1)[0]
 
         connect_args = self._get_connect_args()
-        self.engine: Engine = create_engine(self.database_url, connect_args=connect_args, echo=False)
+        # :memory: SQLite 需要 StaticPool 共享单连接 (跨线程并发检索看到同一内存库)
+        if self._dialect == "sqlite" and self.database_url == "sqlite://":
+            self.engine: Engine = create_engine(
+                self.database_url,
+                connect_args=connect_args,
+                poolclass=StaticPool,
+                echo=False,
+            )
+        elif self._dialect in ("postgresql", "mysql"):
+            # PG/MySQL: 连接池大小 + 溢出 + 超时配置
+            self.engine: Engine = create_engine(
+                self.database_url,
+                connect_args=connect_args,
+                pool_size=self._config.database.connection_pool_size,
+                max_overflow=self._config.database.connection_max_overflow,
+                pool_timeout=self._config.database.connect_timeout,
+                echo=False,
+            )
+        else:
+            self.engine: Engine = create_engine(self.database_url, connect_args=connect_args, echo=False)
 
         # SQLite PRAGMA 事件监听（只监听当前 engine, 避免全局污染）
         if self._dialect == "sqlite":

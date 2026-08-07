@@ -24,7 +24,7 @@ import json
 from typing import Any
 
 import numpy as np
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine
 from sqlmodel import Session
 
@@ -78,6 +78,14 @@ class SQLAlchemyVectorStore(VectorStoreBase):
             payloads = [{}] * len(ids)
         elif len(payloads) != len(ids):
             raise ValueError(f"payloads ({len(payloads)}) and ids ({len(ids)}) length mismatch")
+        # 维度校验
+        if vectors:
+            dim = len(vectors[0])
+            for i, v in enumerate(vectors):
+                if len(v) != dim:
+                    raise ValueError(
+                        f"vector dimension mismatch: vector[0] has dim {dim}, vector[{i}] has dim {len(v)}"
+                    )
         # 跨方言 upsert: DELETE + INSERT 两步 (INSERT OR REPLACE 仅 SQLite 可用)
         with Session(self._engine) as session:
             for vec, vid, payload in zip(vectors, ids, payloads, strict=True):
@@ -119,16 +127,41 @@ class SQLAlchemyVectorStore(VectorStoreBase):
         return [VectorSearchResult(id=vid, score=sc, payload=pl) for sc, vid, pl in scored[:top_k]]
 
     def _fetch_rows(self, filters: dict[str, Any] | None) -> list[tuple[str, str, str]]:
-        """取全部行, 在 Python 侧做 payload 过滤。"""
+        """取行, payload 过滤推到 SQL 层 (减少 Python 侧加载和反序列化量)。
+
+        SQLite/MySQL: json_extract WHERE 精确过滤, 只加载匹配行。
+        其他方言: 全量加载 + Python 侧过滤 (降级路径)。
+        """
+        dialect = self._engine.dialect.name
+        supports_json_extract = dialect in ("sqlite", "mysql")
+
+        where_clauses: list[str] = []
+        params: dict[str, Any] = {}
+
+        if filters and supports_json_extract:
+            for i, (key, value) in enumerate(filters.items()):
+                if value is None:
+                    continue
+                param_name = f"fv{i}"
+                where_clauses.append(f"json_extract(payload, '$.{key}') = :{param_name}")
+                params[param_name] = str(value) if not isinstance(value, (int, float, bool)) else value
+
+        sql = "SELECT id, vector, payload FROM vector_entries"
+        if where_clauses:
+            sql += " WHERE " + " AND ".join(where_clauses)
+
         with self._engine.connect() as conn:
-            result = conn.execute(text("SELECT id, vector, payload FROM vector_entries"))
+            result = conn.execute(text(sql).bindparams(**params))
             rows = result.fetchall()
-        if not filters:
+
+        if not filters or supports_json_extract:
             return [(r[0], r[1], r[2]) for r in rows]
+
+        # 降级: Python 侧 payload 过滤 (非 SQLite/MySQL 方言)
         filtered = []
         for r in rows:
             payload = json.loads(r[2]) if r[2] else {}
-            if all(payload.get(k) == v for k, v in filters.items()):
+            if all(payload.get(k) == v for k, v in filters.items() if v is not None):
                 filtered.append((r[0], r[1], r[2]))
         return filtered
 
@@ -169,6 +202,38 @@ class SQLAlchemyVectorStore(VectorStoreBase):
         if limit is not None:
             entries = entries[:limit]
         return entries
+
+    def update_vector(self, vector_id: str, vector: list[float], payload: dict[str, Any] | None = None) -> bool:
+        """原地更新 — DELETE + INSERT 两步（跨方言 upsert）。"""
+        with Session(self._engine) as session:
+            session.execute(text("DELETE FROM vector_entries WHERE id = :id").bindparams(id=vector_id))
+            session.execute(
+                text("INSERT INTO vector_entries (id, vector, payload) VALUES (:id, :vec, :payload)").bindparams(
+                    id=vector_id, vec=json.dumps(vector), payload=json.dumps(payload or {})
+                )
+            )
+            session.commit()
+        return True
+
+    def delete_collection(self) -> None:
+        """DROP TABLE。"""
+        with self._engine.connect() as conn:
+            conn.execute(text("DROP TABLE IF EXISTS vector_entries"))
+            conn.commit()
+
+    def get_collection_info(self) -> dict[str, Any]:
+        """SELECT COUNT(*)；表不存在时返回 count=0。"""
+        if not inspect(self._engine).has_table("vector_entries"):
+            return {"name": "vector_entries", "count": 0}
+        with self._engine.connect() as conn:
+            result = conn.execute(text("SELECT COUNT(*) FROM vector_entries"))
+            count = result.scalar() or 0
+        return {"name": "vector_entries", "count": count}
+
+    def reset_collection(self) -> None:
+        """DROP + CREATE。"""
+        self.delete_collection()
+        self._create_table()
 
     def close(self) -> None:
         self._engine.dispose()

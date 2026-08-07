@@ -25,7 +25,7 @@ class StubLLM(LLM):
     def __init__(self, response: str = ""):
         self._response = response or "Summary of conversation"
 
-    def complete(self, system_prompt: str, user_prompt: str) -> str:
+    def _complete(self, system_prompt: str, user_prompt: str) -> str:
         return self._response
 
 
@@ -136,7 +136,7 @@ class TestLLMSummary:
         """LLM 调用失败时回退拼接。"""
 
         class FailLLM(LLM):
-            def complete(self, system_prompt: str, user_prompt: str) -> str:
+            def _complete(self, system_prompt: str, user_prompt: str) -> str:
                 raise RuntimeError("LLM down")
 
         summarizer = Summarizer(memory.store, memory.typed_store, llm=FailLLM())

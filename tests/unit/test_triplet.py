@@ -30,7 +30,7 @@ class StubLLM(LLM):
     def __init__(self, response: str) -> None:
         self._response = response
 
-    def complete(self, system_prompt: str, user_prompt: str) -> str:
+    def _complete(self, system_prompt: str, user_prompt: str) -> str:
         return self._response
 
 

@@ -15,14 +15,20 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from pydantic import Field
 
 from septmuse.configs.vector_stores.base import BaseVectorStoreConfig
 
 
+def _default_persist_path() -> str:
+    return str(Path.home() / ".septmuse" / "chroma")
+
+
 class ChromaVectorConfig(BaseVectorStoreConfig):
     """Chroma 向量存储配置 (本地持久化)。"""
 
-    persist_path: str = Field(description="Chroma 持久化路径")
+    persist_path: str = Field(description="Chroma 持久化路径", default_factory=_default_persist_path)
     collection_name: str = Field(default="septmuse")
-    embedding_model_dims: int = Field(default=384)
+    embedding_model_dims: int = Field(default=512)

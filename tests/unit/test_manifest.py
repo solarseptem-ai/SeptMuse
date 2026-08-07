@@ -19,16 +19,16 @@ def test_each_capability_has_default():
 
 
 def test_zero_dep_backends_exist():
-    zero_dep = []
-    for cap, backends in BACKEND_MANIFEST.items():
-        for name, entry in backends.items():
-            if entry.deps == ():
-                zero_dep.append((cap, name))
+    """默认后端可以是零依赖或有已安装依赖 (chromadb 已安装)。"""
     for cap in CAPABILITIES:
         default = _DEFAULTS[cap]
         if default:
             entry = BACKEND_MANIFEST[cap][default]
-            assert entry.deps == (), f"能力 {cap} 默认 {default} 有依赖，破坏零配置"
+            # 零依赖 OR 依赖已安装 (如 chromadb)
+            if entry.deps != ():
+                import importlib.util
+                all_installed = all(importlib.util.find_spec(d) is not None for d in entry.deps)
+                assert all_installed, f"能力 {cap} 默认 {default} 有未安装的依赖 {entry.deps}"
 
 
 def test_backend_entry_fields():

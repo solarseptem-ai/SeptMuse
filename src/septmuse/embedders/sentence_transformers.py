@@ -36,6 +36,7 @@ class SentenceTransformerEmbedder(Embedder):
         except ImportError as e:
             raise ImportError("sentence-transformers 未安装。请运行: pip install septmuse (默认含此依赖)。") from e
 
+        self.backend_name = "st"
         logger.info("embedder_loading", model=model_name)
         self._model = SentenceTransformer(model_name)
         dim = self._model.get_sentence_embedding_dimension()
@@ -48,11 +49,11 @@ class SentenceTransformerEmbedder(Embedder):
     def dimension(self) -> int:
         return self._dim
 
-    def embed(self, text: str) -> list[float]:
+    def _embed(self, text: str, memory_action: str | None = None) -> list[float]:
         # normalize_embeddings=True 使向量归一化, 余弦相似 = 点积
         vec = self._model.encode(text, normalize_embeddings=True)
         return vec.tolist()
 
-    def embed_batch(self, texts: list[str]) -> list[list[float]]:
+    def _embed_batch(self, texts: list[str], memory_action: str | None = None) -> list[list[float]]:
         vecs = self._model.encode(texts, normalize_embeddings=True)
         return [v.tolist() for v in vecs]

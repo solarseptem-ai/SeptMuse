@@ -37,11 +37,27 @@ from septmuse.embedders.base import Embedder
 logger = get_logger(__name__)
 
 DEFAULT_EN_MODEL = "Xenova/all-MiniLM-L6-v2"
+BGE_ZH_MODEL = "Maiteka/bge-small-zh-v1.5-onnx"
 
-_MODEL_FILES = {
-    "onnx/model_quantized.onnx",
-    "tokenizer.json",
+# 默认文件结构 (Xenova 发布的模型: onnx/ 子目录)
+_DEFAULT_ONNX_FILE = "onnx/model_quantized.onnx"
+_DEFAULT_TOKENIZER_FILE = "tokenizer.json"
+
+# 非标准文件结构的模型 (发布者不同, 文件路径不同)
+_MODEL_FILE_OVERRIDES: dict[str, dict[str, str]] = {
+    "Maiteka/bge-small-zh-v1.5-onnx": {
+        "onnx": "model_qint8.onnx",
+        "tokenizer": "tokenizer.json",
+    },
 }
+
+
+def _get_model_files(model_name: str) -> tuple[str, str]:
+    """返回模型的 (onnx_file, tokenizer_file) 相对路径。"""
+    if model_name in _MODEL_FILE_OVERRIDES:
+        spec = _MODEL_FILE_OVERRIDES[model_name]
+        return spec["onnx"], spec["tokenizer"]
+    return _DEFAULT_ONNX_FILE, _DEFAULT_TOKENIZER_FILE
 
 
 def _model_cache_dir(model_name: str) -> Path:
@@ -51,14 +67,17 @@ def _model_cache_dir(model_name: str) -> Path:
     return Path(base) / safe
 
 
-def _ensure_model_files(model_name: str) -> Path:
-    """确保模型文件已下载到本地缓存, 返回缓存目录。"""
+def _ensure_model_files(model_name: str) -> tuple[Path, Path]:
+    """确保模型文件已下载到本地缓存, 返回 (onnx_path, tokenizer_path)。"""
     cache_dir = _model_cache_dir(model_name)
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    missing = [f for f in _MODEL_FILES if not (cache_dir / f).exists()]
+    onnx_file, tok_file = _get_model_files(model_name)
+    all_files = {onnx_file, tok_file}
+
+    missing = [f for f in all_files if not (cache_dir / f).exists()]
     if not missing:
-        return cache_dir
+        return cache_dir / onnx_file, cache_dir / tok_file
 
     try:
         from modelscope import snapshot_download
@@ -73,7 +92,7 @@ def _ensure_model_files(model_name: str) -> Path:
     )
     logger.info("onnx_model_files_cached", model=model_name, cache=str(cache_dir))
 
-    return cache_dir
+    return cache_dir / onnx_file, cache_dir / tok_file
 
 
 class OnnxEmbedder(Embedder):
@@ -84,27 +103,25 @@ class OnnxEmbedder(Embedder):
     模型从 ModelScope 下载 (国内 CDN, 无需 HuggingFace)。
     """
 
-    def __init__(self, model_name: str = DEFAULT_EN_MODEL) -> None:
+    def __init__(self, model_name: str = DEFAULT_EN_MODEL, max_length: int = 256) -> None:
         try:
             import onnxruntime as ort
             from tokenizers import Tokenizer
         except ImportError as e:
             raise ImportError("onnxruntime + tokenizers 未安装。请运行: pip install septmuse[onnx]") from e
 
+        self.backend_name = "onnx"
         self._model_name = model_name
-        cache_dir = _ensure_model_files(model_name)
+        onnx_path, tokenizer_path = _ensure_model_files(model_name)
 
-        onnx_path = cache_dir / "onnx" / "model_quantized.onnx"
-        tokenizer_path = cache_dir / "tokenizer.json"
-
-        logger.info("onnx_embedder_loading", model=model_name, cache=str(cache_dir))
+        logger.info("onnx_embedder_loading", model=model_name, cache=str(onnx_path.parent))
         self._session = ort.InferenceSession(
             str(onnx_path),
             providers=["CPUExecutionProvider"],
         )
         self._tokenizer = Tokenizer.from_file(str(tokenizer_path))
         self._tokenizer.enable_padding(pad_id=0, pad_token="[PAD]")
-        self._tokenizer.enable_truncation(max_length=256)
+        self._tokenizer.enable_truncation(max_length=max_length)
 
         # 从 ONNX 模型输出推断维度
         output_info = self._session.get_outputs()[0]
@@ -121,7 +138,7 @@ class OnnxEmbedder(Embedder):
     def dimension(self) -> int:
         return self._dim
 
-    def embed(self, text: str) -> list[float]:
+    def _embed(self, text: str, memory_action: str | None = None) -> list[float]:
         encoding = self._tokenizer.encode(text)
         feeds = self._build_feeds(encoding)
 
@@ -138,8 +155,49 @@ class OnnxEmbedder(Embedder):
             pooled = pooled / norm
         return pooled.tolist()
 
-    def embed_batch(self, texts: list[str]) -> list[list[float]]:
-        return [self.embed(t) for t in texts]
+    def _embed_batch(self, texts: list[str], memory_action: str | None = None) -> list[list[float]]:
+        """批量嵌入 — 真批量推理 (单次 session.run 处理整批)。
+
+        按 _BATCH_SIZE 分块, 每块: encode_batch → 单次 ONNX forward → 向量化 mean pool + L2 归一化。
+        比逐条 embed 快 10-50x (尤其批量索引/初始化场景)。
+        """
+        if not texts:
+            return []
+        _BATCH_SIZE = 32
+        results: list[list[float]] = []
+        for start in range(0, len(texts), _BATCH_SIZE):
+            chunk = texts[start : start + _BATCH_SIZE]
+            encodings = self._tokenizer.encode_batch(chunk)
+
+            # 构建 batched feed dict [batch, seq_len]
+            input_ids = np.array([enc.ids for enc in encodings], dtype=np.int64)
+            attention_mask = np.array([enc.attention_mask for enc in encodings], dtype=np.int64)
+            feeds: dict[str, np.ndarray] = {
+                "input_ids": input_ids,
+                "attention_mask": attention_mask,
+            }
+            if "token_type_ids" in self._input_names:
+                feeds["token_type_ids"] = np.array([enc.type_ids for enc in encodings], dtype=np.int64)
+
+            outputs = self._session.run(None, feeds)
+            last_hidden = outputs[0]  # [batch, seq_len, dim]
+
+            # 向量化 mean pooling (考虑 attention_mask)
+            mask = attention_mask.astype(np.float32)  # [batch, seq_len]
+            mask_sum = mask.sum(axis=1, keepdims=True)  # [batch, 1]
+            mask_sum = np.where(mask_sum == 0, 1.0, mask_sum)  # 防除零
+            pooled = (last_hidden * mask[:, :, None]).sum(axis=1) / mask_sum  # [batch, dim]
+
+            # 向量化 L2 归一化
+            norms = np.linalg.norm(pooled, axis=1, keepdims=True)  # [batch, 1]
+            norms = np.where(norms == 0, 1.0, norms)
+            pooled = pooled / norms
+
+            results.extend(pooled.tolist())
+
+        if len(results) != len(texts):
+            raise ValueError(f"embed_batch returned {len(results)} embeddings for {len(texts)} texts")
+        return results
 
     def _build_feeds(self, encoding) -> dict[str, np.ndarray]:
         """构建 ONNX 推理输入 (仅传模型期望的输入)。"""

@@ -53,6 +53,7 @@ class BudgetItem:
     text: str
     score: float = 0.0
     metadata: dict | None = None
+    id: str | None = None  # 原始 memory_id (裁剪后保留, 修 recall id 丢失 bug)
 
 
 @dataclass

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass
 from typing import Any
 
 from septmuse.core.logging import get_logger
@@ -100,6 +101,21 @@ def fact_to_triple(fact: str, user_id: str) -> tuple[str, str, str]:
     return user_id, "fact", f
 
 
+@dataclass
+class Decision:
+    """LLM 决策抽取的单条结果 (ADD/UPDATE/DELETE/NOOP)."""
+
+    text: str
+    event: str  # "ADD" | "UPDATE" | "DELETE" | "NOOP"
+    id: str | None = None
+    confidence: float = 1.0
+    linked_memory_ids: list[str] = None  # 跨记忆链接 ID (对齐 mem0 V3)
+
+    def __post_init__(self):
+        if self.linked_memory_ids is None:
+            self.linked_memory_ids = []
+
+
 class FactExtractor:
     """cognify 抽取流水线 (架构文档 §3.2.2)。
 
@@ -113,12 +129,16 @@ class FactExtractor:
         typed_store: TypedMemoryStore,
         verbatim_store: MemoryStore | None = None,
         use_additive_prompt: bool = True,
+        use_decision: bool = False,
+        episodic_store: Any = None,
     ) -> None:
         self.llm = llm
         self.embedder = embedder
         self.typed_store = typed_store
         self.verbatim_store = verbatim_store
+        self.use_decision = use_decision
         self.prompt = ADDITIVE_EXTRACTION_PROMPT if use_additive_prompt else FACT_EXTRACTION_PROMPT
+        self.episodic_store = episodic_store
 
     def extract_facts(
         self, messages: Any, existing_memories: list[dict[str, Any]] | None = None
@@ -141,6 +161,68 @@ class FactExtractor:
         logger.info("facts_extracted", count=len(facts), existing=len(existing_memories or []))
         return facts
 
+    def extract_with_decisions(
+        self,
+        messages: Any,
+        existing_memories: list[dict[str, Any]] | None = None,
+        last_k_messages: list[dict] | None = None,
+    ) -> list[Decision]:
+        """LLM 决策抽取, 返回带 event 的决策列表 (对齐 mem0 ADDITIVE).
+
+        解析失败降级为空列表 (不阻塞业务).
+        """
+        text = parse_messages(messages)
+        if not text.strip():
+            return []
+        from septmuse.prompts.extract import ADDITIVE_DECISION_PROMPT, build_extraction_user_prompt
+
+        user_prompt = build_extraction_user_prompt(
+            text, existing_memories, last_k_messages=last_k_messages or []
+        )
+        raw = self.llm.complete(ADDITIVE_DECISION_PROMPT, user_prompt)
+        return self._parse_decisions_response(raw)
+
+    @staticmethod
+    def _parse_decisions_response(raw: str) -> list[Decision]:
+        """解析 LLM 决策输出为 Decision 列表, 容错降级.
+
+        向后兼容: 纯字符串 fact (无 event 字段, 如 MockLLM/旧 prompt 输出) 视为 ADD 决策.
+        """
+        cleaned = re.sub(r"^```[a-zA-Z0-9]*\n|\n```$", "", raw.strip())
+        try:
+            data = json.loads(cleaned)
+        except json.JSONDecodeError:
+            logger.warning("decisions_parse_failed", raw=raw[:100])
+            return []
+        raw_facts = data.get("facts", []) if isinstance(data, dict) else []
+        decisions: list[Decision] = []
+        valid_events = {"ADD", "UPDATE", "DELETE", "NOOP"}
+        for f in raw_facts:
+            if isinstance(f, str):
+                # 向后兼容: 纯字符串 fact 视为 ADD (MockLLM / 旧 prompt 格式)
+                text = f.strip()
+                if text:
+                    decisions.append(Decision(text=text, event="ADD"))
+                continue
+            if not isinstance(f, dict):
+                continue
+            text = str(f.get("text", "")).strip()
+            event = str(f.get("event", "ADD")).upper()
+            if not text or event not in valid_events:
+                continue
+            raw_linked = f.get("linked_memory_ids", [])
+            linked_ids = [str(lid) for lid in raw_linked if lid] if isinstance(raw_linked, list) else []
+            decisions.append(
+                Decision(
+                    text=text,
+                    event=event,
+                    id=f.get("id"),
+                    confidence=float(f.get("confidence", 1.0)),
+                    linked_memory_ids=linked_ids,
+                )
+            )
+        return decisions
+
     def _retrieve_existing(
         self, text: str, user_id: str, top_k: int = 10
     ) -> list[dict[str, Any]]:
@@ -160,24 +242,102 @@ class FactExtractor:
             logger.warning("retrieve_existing_failed", error=str(e))
             return []
 
+    def _get_last_k_messages(self, user_id: str, limit: int = 5) -> list[dict]:
+        """取近期 episodic 事件作为对话上下文 (降级: 无 episodic_store 返回空)."""
+        if self.episodic_store is None:
+            return []
+        try:
+            events = self.episodic_store.get_timeline(user_id=user_id, limit=limit)
+            return [{"role": "assistant", "content": getattr(e, "content", str(e))} for e in events]
+        except Exception:
+            return []
+
     def extract_and_store(
         self,
         messages: Any,
         *,
         user_id: str,
         provenance: str = "inferred",
+        extra_metadata: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        """完整 cognify 流水线: 检索已有记忆 → 抽取 → 三元组 → 存储。
+        """完整 cognify 流水线: 检索已有 → 抽取 → 路由.
 
-        输出 linked_memory_ids (跨记忆链接)。
-        返回 [{"id", "memory", "triple", "event": "ADD", "linked_memory_ids": [...]}]。
+        use_decision=True 且有 LLM: 走决策路由 (ADD/UPDATE/DELETE/NOOP).
+        否则: 旧纯 ADD 路径 (extract_facts → add_fact).
+
+        extra_metadata: 透传给 verbatim store 的额外 metadata (expiration_date/attributed_to 等).
         """
         text = parse_messages(messages)
+
+        # 无决策模式降级: 旧纯 ADD 路径
+        if not self.use_decision or self.llm is None:
+            return self._legacy_extract_and_store(text, user_id, provenance, extra_metadata=extra_metadata)
+
+        # 决策路由
         existing = self._retrieve_existing(text, user_id)
-        facts = self.extract_facts(messages, existing_memories=existing)
+        last_k = self._get_last_k_messages(user_id)
+        decisions = self.extract_with_decisions(messages, existing_memories=existing, last_k_messages=last_k)
         results: list[dict[str, Any]] = []
         linked_memory_ids: list[str] = []
 
+        for d in decisions:
+            if d.event == "NOOP":
+                results.append({"id": d.id, "memory": d.text, "event": "NOOP", "linked_memory_ids": []})
+                continue
+            # 置信度守卫: DELETE/UPDATE < 0.7 降级 NOOP
+            if d.event in ("DELETE", "UPDATE") and d.confidence < 0.7:
+                logger.info("decision_low_confidence_downgrade", decision=d.event, confidence=d.confidence)
+                results.append({"id": d.id, "memory": d.text, "event": "NOOP", "linked_memory_ids": []})
+                continue
+            if d.event == "ADD":
+                fact = self._store_add_fact(d.text, user_id, provenance)
+                vid = self._store_verbatim_add(
+                    d.text, user_id, fact.id,
+                    linked_memory_ids=d.linked_memory_ids,
+                    extra_metadata=extra_metadata,
+                )
+                if vid:
+                    linked_memory_ids.append(vid)
+                results.append(
+                    {
+                        "id": fact.id,
+                        "memory": d.text,
+                        "triple": fact.as_triple(),
+                        "event": "ADD",
+                        "linked_memory_ids": d.linked_memory_ids + ([vid] if vid else []),
+                    }
+                )
+            elif d.event == "UPDATE" and d.id:
+                fact = self._store_update_fact(d.id, d.text, user_id)
+                if fact:
+                    self._store_verbatim_update(d.id, d.text, user_id)
+                    results.append(
+                        {
+                            "id": fact.id,
+                            "memory": d.text,
+                            "triple": fact.as_triple(),
+                            "event": "UPDATE",
+                            "linked_memory_ids": [d.id],
+                        }
+                    )
+                else:
+                    results.append({"id": d.id, "memory": d.text, "event": "NOOP", "linked_memory_ids": []})
+            elif d.event == "DELETE" and d.id:
+                self._store_delete_fact(d.id)
+                self._store_verbatim_delete(d.id)
+                results.append({"id": d.id, "memory": d.text, "event": "DELETE", "linked_memory_ids": []})
+
+        logger.info("cognify_done", user_id=user_id, decisions=len(results), linked=len(linked_memory_ids))
+        return results
+
+    def _legacy_extract_and_store(
+        self, text: str, user_id: str, provenance: str, *, extra_metadata: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
+        """旧纯 ADD 路径 (无决策模式降级用)."""
+        existing = self._retrieve_existing(text, user_id)
+        facts = self.extract_facts(text, existing_memories=existing)
+        results: list[dict[str, Any]] = []
+        linked_memory_ids: list[str] = []
         for fact in facts:
             subject, predicate, object_ = fact_to_triple(fact, user_id)
             fact_obj = self.typed_store.add_fact(
@@ -192,11 +352,14 @@ class FactExtractor:
             )
             verbatim_id = None
             if self.verbatim_store is not None:
+                vm: dict[str, Any] = {"source": "cognify", "fact_id": fact_obj.id}
+                if extra_metadata:
+                    vm.update(extra_metadata)
                 verbatim_id = self.verbatim_store.add(
                     fact,
                     self.embedder.embed(fact),
                     user_id=user_id,
-                    metadata={"source": "cognify", "fact_id": fact_obj.id},
+                    metadata=vm,
                 )
             if verbatim_id:
                 linked_memory_ids.append(verbatim_id)
@@ -209,9 +372,73 @@ class FactExtractor:
                     "linked_memory_ids": linked_memory_ids.copy(),
                 }
             )
-
-        logger.info("cognify_done", user_id=user_id, facts_stored=len(results), linked=len(linked_memory_ids))
         return results
+
+    def _store_add_fact(self, fact_text: str, user_id: str, provenance: str) -> Any:
+        """ADD 决策: 三元组解析 + 存 SemanticFact."""
+        subject, predicate, object_ = fact_to_triple(fact_text, user_id)
+        return self.typed_store.add_fact(
+            subject,
+            predicate,
+            object_,
+            user_id=user_id,
+            confidence=0.7,
+            provenance=provenance,
+            tags=[],
+            embedding=self.embedder.embed(f"{subject} {predicate} {object_}"),
+        )
+
+    def _store_verbatim_add(
+        self, fact_text: str, user_id: str, fact_id: str,
+        *,
+        linked_memory_ids: list[str] | None = None,
+        extra_metadata: dict[str, Any] | None = None,
+    ) -> str | None:
+        """ADD 决策: verbatim 存原文 (跨记忆链接)."""
+        if self.verbatim_store is None:
+            return None
+        metadata: dict[str, Any] = {"source": "cognify", "fact_id": fact_id}
+        if linked_memory_ids:
+            metadata["linked_memory_ids"] = linked_memory_ids
+        if extra_metadata:
+            metadata.update(extra_metadata)
+        return self.verbatim_store.add(
+            fact_text,
+            self.embedder.embed(fact_text),
+            user_id=user_id,
+            metadata=metadata,
+        )
+
+    def _store_update_fact(self, fact_id: str, fact_text: str, user_id: str) -> Any:
+        """UPDATE 决策: 三元组解析 + 更新 SemanticFact."""
+        subject, predicate, object_ = fact_to_triple(fact_text, user_id)
+        return self.typed_store.update_fact(
+            fact_id,
+            subject,
+            predicate,
+            object_,
+            embedding=self.embedder.embed(f"{subject} {predicate} {object_}"),
+            confidence=0.85,
+        )
+
+    def _store_verbatim_update(self, fact_id: str, fact_text: str, user_id: str) -> None:
+        """UPDATE 决策: verbatim 更新原文."""
+        if self.verbatim_store is None:
+            return
+        self.verbatim_store.update(fact_id, fact_text, self.embedder.embed(fact_text))
+
+    def _store_delete_fact(self, fact_id: str) -> None:
+        """DELETE 决策: 软删除 SemanticFact."""
+        self.typed_store.soft_delete_fact(fact_id)
+
+    def _store_verbatim_delete(self, fact_id: str) -> None:
+        """DELETE 决策: verbatim 软删除 (吞错, 不阻塞)."""
+        if self.verbatim_store is None:
+            return
+        try:
+            self.verbatim_store.delete(fact_id)
+        except Exception as e:
+            logger.warning("verbatim_delete_failed", fact_id=fact_id, error=str(e))
 
     @staticmethod
     def _parse_facts_response(raw: str) -> list[str]:

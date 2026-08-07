@@ -1,0 +1,454 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2400 1450" font-family="'Segoe UI','Microsoft YaHei','Noto Sans CJK SC',sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M1 1 L9 5 L1 9 Z" fill="#64748b"/>
+    </marker>
+    <marker id="arrBrand" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M1 1 L9 5 L1 9 Z" fill="#818cf8"/>
+    </marker>
+    <filter id="sh" x="-3%" y="-3%" width="106%" height="106%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="2400" height="1450" fill="#0f172a"/>
+
+  <!-- ===================== TITLE ===================== -->
+  <text x="1200" y="45" text-anchor="middle" font-size="32" font-weight="700" fill="#f1f5f9">SeptMuse 记忆系统架构</text>
+  <text x="1200" y="72" text-anchor="middle" font-size="15" fill="#94a3b8">三维正交：内容类型 × 存储形态 × 横切关注点  ·  零配置 Python Agent 记忆系统</text>
+
+  <!-- 3 dimension badges -->
+  <g transform="translate(560, 92)">
+    <rect width="400" height="30" rx="15" fill="#1e293b" stroke="#6366f1" stroke-width="1"/>
+    <text x="200" y="20" text-anchor="middle" font-size="13" fill="#a5b4fc">内容类型：工作 / 情节 / 语义 / 程序</text>
+  </g>
+  <g transform="translate(1000, 92)">
+    <rect width="400" height="30" rx="15" fill="#1e293b" stroke="#22d3ee" stroke-width="1"/>
+    <text x="200" y="20" text-anchor="middle" font-size="13" fill="#67e8f9">存储形态：Block / 向量 / 图 / 文件 / 激活</text>
+  </g>
+  <g transform="translate(1440, 92)">
+    <rect width="400" height="30" rx="15" fill="#1e293b" stroke="#f9a8d4" stroke-width="1"/>
+    <text x="200" y="20" text-anchor="middle" font-size="13" fill="#f9a8d4">关注点：捕获 / 检索 / 治理 / 演化 / 共享</text>
+  </g>
+
+  <!-- ===================== LAYER 1: API ENTRY ===================== -->
+  <g transform="translate(0, 145)">
+    <text x="120" y="20" font-size="14" font-weight="600" fill="#64748b" letter-spacing="1">API 入口层</text>
+
+    <!-- CLI -->
+    <g transform="translate(560, 0)">
+      <rect width="360" height="90" rx="10" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="180" y="30" text-anchor="middle" font-size="16" font-weight="600" fill="#60a5fa">CLI · argparse</text>
+      <text x="180" y="52" text-anchor="middle" font-size="13" fill="#cbd5e1">~20 命令  ·  cli/main.py</text>
+      <text x="180" y="72" text-anchor="middle" font-size="12" fill="#94a3b8">init add search serve mcp cognify reflect</text>
+    </g>
+
+    <!-- REST -->
+    <g transform="translate(1020, 0)">
+      <rect width="360" height="90" rx="10" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="180" y="30" text-anchor="middle" font-size="16" font-weight="600" fill="#60a5fa">REST · FastAPI</text>
+      <text x="180" y="52" text-anchor="middle" font-size="13" fill="#cbd5e1">21 端点  ·  :8000/docs</text>
+      <text x="180" y="72" text-anchor="middle" font-size="12" fill="#94a3b8">/memories  /search  /capture  /agents</text>
+    </g>
+
+    <!-- MCP -->
+    <g transform="translate(1480, 0)">
+      <rect width="360" height="90" rx="10" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="180" y="30" text-anchor="middle" font-size="16" font-weight="600" fill="#60a5fa">MCP · FastMCP</text>
+      <text x="180" y="52" text-anchor="middle" font-size="13" fill="#cbd5e1">18 工具  ·  3 传输</text>
+      <text x="180" y="72" text-anchor="middle" font-size="12" fill="#94a3b8">stdio  ·  SSE  ·  Streamable HTTP</text>
+    </g>
+  </g>
+
+  <!-- Arrow L1 -> L2 -->
+  <line x1="1200" y1="235" x2="1200" y2="265" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- ===================== LAYER 2: FACADE ===================== -->
+  <g transform="translate(0, 265)">
+    <!-- Boundary -->
+    <rect x="340" y="0" width="1720" height="120" rx="12" fill="#1e293b" fill-opacity="0.4" stroke="#6366f1" stroke-width="1" stroke-dasharray="6,4"/>
+    <text x="120" y="20" font-size="14" font-weight="600" fill="#64748b" letter-spacing="1">Facade 层</text>
+    <text x="120" y="38" font-size="12" fill="#94a3b8">零配置入口</text>
+
+    <!-- Memory -->
+    <g transform="translate(400, 15)">
+      <rect width="340" height="90" rx="10" fill="#1e293b" stroke="#6366f1" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="170" y="30" text-anchor="middle" font-size="16" font-weight="600" fill="#a5b4fc">Memory</text>
+      <text x="170" y="52" text-anchor="middle" font-size="13" fill="#cbd5e1">memory/main.py  ·  8 核心方法</text>
+      <text x="170" y="72" text-anchor="middle" font-size="12" fill="#94a3b8">add  search  get  delete  invalidate</text>
+    </g>
+
+    <!-- ExperimentalMemory (focal) -->
+    <g transform="translate(920, 15)">
+      <rect width="440" height="90" rx="10" fill="#312e81" stroke="#818cf8" stroke-width="2" filter="url(#sh)"/>
+      <text x="220" y="30" text-anchor="middle" font-size="16" font-weight="600" fill="#c7d2fe">ExperimentalMemory</text>
+      <text x="220" y="52" text-anchor="middle" font-size="13" fill="#a5b4fc">继承 Memory  ·  +35 扩展方法</text>
+      <text x="220" y="72" text-anchor="middle" font-size="12" fill="#818cf8">cognify  reflect  compress  meta_route  dream</text>
+    </g>
+
+    <!-- AsyncMemory -->
+    <g transform="translate(1540, 15)">
+      <rect width="340" height="90" rx="10" fill="#1e293b" stroke="#6366f1" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="170" y="30" text-anchor="middle" font-size="16" font-weight="600" fill="#a5b4fc">AsyncMemory</text>
+      <text x="170" y="52" text-anchor="middle" font-size="13" fill="#cbd5e1">async_main.py  ·  aiosqlite</text>
+      <text x="170" y="72" text-anchor="middle" font-size="12" fill="#94a3b8">真 async 基础 API  ·  to_thread 桥接</text>
+    </g>
+
+    <!-- Config badge -->
+    <g transform="translate(370, 95)">
+      <rect width="200" height="20" rx="10" fill="#312e81" opacity="0.6"/>
+      <text x="100" y="14" text-anchor="middle" font-size="11" fill="#c7d2fe">MemoryConfig · pydantic-settings</text>
+    </g>
+  </g>
+
+  <!-- Arrow L2 -> L3 -->
+  <line x1="1200" y1="385" x2="1200" y2="415" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- ===================== LAYER 3: CONCERNS ===================== -->
+  <g transform="translate(0, 415)">
+    <!-- Boundary -->
+    <rect x="80" y="0" width="2240" height="135" rx="12" fill="#1e293b" fill-opacity="0.3" stroke="#22d3ee" stroke-width="1" stroke-dasharray="6,4"/>
+    <text x="120" y="20" font-size="14" font-weight="600" fill="#64748b" letter-spacing="1">横切关注点层</text>
+
+    <!-- 5 concern boxes -->
+    <g transform="translate(120, 30)">
+      <rect width="400" height="90" rx="10" fill="#0f172a" stroke="#22d3ee" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="200" y="28" text-anchor="middle" font-size="15" font-weight="600" fill="#67e8f9">捕获 Capture</text>
+      <text x="200" y="50" text-anchor="middle" font-size="12" fill="#cbd5e1">SHA256 去重 → 隐私脱敏 → 嵌入</text>
+      <text x="200" y="70" text-anchor="middle" font-size="12" fill="#94a3b8">CapturePipeline  ·  PrivacyFilter</text>
+    </g>
+
+    <g transform="translate(560, 30)">
+      <rect width="400" height="90" rx="10" fill="#0f172a" stroke="#22d3ee" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="200" y="28" text-anchor="middle" font-size="15" font-weight="600" fill="#67e8f9">抽取 Extraction</text>
+      <text x="200" y="50" text-anchor="middle" font-size="12" fill="#cbd5e1">LLM 事实抽取 → 三元组 → 实体</text>
+      <text x="200" y="70" text-anchor="middle" font-size="12" fill="#94a3b8">FactExtractor  ·  CognifyPipeline</text>
+    </g>
+
+    <g transform="translate(1000, 30)">
+      <rect width="400" height="90" rx="10" fill="#0f172a" stroke="#22d3ee" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="200" y="28" text-anchor="middle" font-size="15" font-weight="600" fill="#67e8f9">检索 Retrieval</text>
+      <text x="200" y="50" text-anchor="middle" font-size="12" fill="#cbd5e1">向量 + BM25 + 实体boost → RRF</text>
+      <text x="200" y="70" text-anchor="middle" font-size="12" fill="#94a3b8">HybridRetriever  ·  7 Recipes  ·  BFS</text>
+    </g>
+
+    <g transform="translate(1440, 30)">
+      <rect width="400" height="90" rx="10" fill="#0f172a" stroke="#22d3ee" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="200" y="28" text-anchor="middle" font-size="15" font-weight="600" fill="#67e8f9">治理 Governance</text>
+      <text x="200" y="50" text-anchor="middle" font-size="12" fill="#cbd5e1">状态机 + 4层权限 + 审计日志</text>
+      <text x="200" y="70" text-anchor="middle" font-size="12" fill="#94a3b8">MemoryState  ·  RBAC  ·  AccessLog</text>
+    </g>
+
+    <g transform="translate(1880, 30)">
+      <rect width="400" height="90" rx="10" fill="#0f172a" stroke="#22d3ee" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="200" y="28" text-anchor="middle" font-size="15" font-weight="600" fill="#67e8f9">演化 Evolution</text>
+      <text x="200" y="50" text-anchor="middle" font-size="12" fill="#cbd5e1">冲突解决 + 会话蒸馏 + 压缩</text>
+      <text x="200" y="70" text-anchor="middle" font-size="12" fill="#94a3b8">ConflictResolver  ·  Reflector  ·  Zettel</text>
+    </g>
+  </g>
+
+  <!-- Arrow L3 -> L4 with split labels -->
+  <line x1="1200" y1="550" x2="1200" y2="580" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
+  <g transform="translate(1080, 568)">
+    <rect width="100" height="20" rx="10" fill="#1e293b"/>
+    <text x="50" y="14" text-anchor="middle" font-size="11" fill="#818cf8">add() 写入</text>
+  </g>
+  <g transform="translate(1220, 568)">
+    <rect width="120" height="20" rx="10" fill="#1e293b"/>
+    <text x="60" y="14" text-anchor="middle" font-size="11" fill="#818cf8">search() 检索</text>
+  </g>
+
+  <!-- ===================== LAYER 4: STORAGE ===================== -->
+  <g transform="translate(0, 580)">
+    <!-- Boundary -->
+    <rect x="80" y="0" width="2240" height="200" rx="12" fill="#1e293b" fill-opacity="0.3" stroke="#0d9488" stroke-width="1" stroke-dasharray="6,4"/>
+    <text x="120" y="20" font-size="14" font-weight="600" fill="#64748b" letter-spacing="1">存储层</text>
+    <text x="120" y="38" font-size="12" fill="#94a3b8">共享 engine · 双写一致性</text>
+
+    <!-- 5 store boxes -->
+    <g transform="translate(120, 30)">
+      <rect width="400" height="65" rx="8" fill="#0f172a" stroke="#0d9488" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="200" y="26" text-anchor="middle" font-size="15" font-weight="600" fill="#5eead4">ORMMemoryStore</text>
+      <text x="200" y="48" text-anchor="middle" font-size="12" fill="#94a3b8">主存储 · 双写 vector + keyword · 双时态</text>
+    </g>
+
+    <g transform="translate(560, 30)">
+      <rect width="400" height="65" rx="8" fill="#0f172a" stroke="#0d9488" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="200" y="26" text-anchor="middle" font-size="15" font-weight="600" fill="#5eead4">VectorStore</text>
+      <text x="200" y="48" text-anchor="middle" font-size="12" fill="#94a3b8">SQLAlchemy · Pgvector · Chroma · Qdrant</text>
+    </g>
+
+    <g transform="translate(1000, 30)">
+      <rect width="400" height="65" rx="8" fill="#0f172a" stroke="#0d9488" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="200" y="26" text-anchor="middle" font-size="15" font-weight="600" fill="#5eead4">KeywordIndex</text>
+      <text x="200" y="48" text-anchor="middle" font-size="12" fill="#94a3b8">SQLite BM25 · Postgres FTS · MySQL</text>
+    </g>
+
+    <g transform="translate(1440, 30)">
+      <rect width="400" height="65" rx="8" fill="#0f172a" stroke="#0d9488" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="200" y="26" text-anchor="middle" font-size="15" font-weight="600" fill="#5eead4">GraphStore</text>
+      <text x="200" y="48" text-anchor="middle" font-size="12" fill="#94a3b8">SQLite · AGE · Neo4j  ·  有向边</text>
+    </g>
+
+    <g transform="translate(1880, 30)">
+      <rect width="400" height="65" rx="8" fill="#0f172a" stroke="#0d9488" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="200" y="26" text-anchor="middle" font-size="15" font-weight="600" fill="#5eead4">EntityStore</text>
+      <text x="200" y="48" text-anchor="middle" font-size="12" fill="#94a3b8">三段式 upsert · 精确→语义→新建</text>
+    </g>
+
+    <!-- TypedMemoryStore strip -->
+    <g transform="translate(120, 115)">
+      <rect width="2160" height="65" rx="8" fill="#134e4a" fill-opacity="0.3" stroke="#0d9488" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="20" y="25" font-size="13" font-weight="600" fill="#5eead4">TypedMemoryStore</text>
+      <text x="20" y="48" font-size="11" fill="#94a3b8">类型化记忆</text>
+
+      <g transform="translate(180, 12)">
+        <rect width="150" height="40" rx="6" fill="#0f172a" stroke="#0d9488" stroke-width="0.8"/>
+        <text x="75" y="17" text-anchor="middle" font-size="12" font-weight="500" fill="#5eead4">SemanticFact</text>
+        <text x="75" y="32" text-anchor="middle" font-size="10" fill="#94a3b8">语义事实</text>
+      </g>
+      <g transform="translate(350, 12)">
+        <rect width="150" height="40" rx="6" fill="#0f172a" stroke="#0d9488" stroke-width="0.8"/>
+        <text x="75" y="17" text-anchor="middle" font-size="12" font-weight="500" fill="#5eead4">EpisodicEvent</text>
+        <text x="75" y="32" text-anchor="middle" font-size="10" fill="#94a3b8">情节事件</text>
+      </g>
+      <g transform="translate(520, 12)">
+        <rect width="160" height="40" rx="6" fill="#0f172a" stroke="#0d9488" stroke-width="0.8"/>
+        <text x="80" y="17" text-anchor="middle" font-size="12" font-weight="500" fill="#5eead4">ProceduralRule</text>
+        <text x="80" y="32" text-anchor="middle" font-size="10" fill="#94a3b8">程序规则</text>
+      </g>
+      <g transform="translate(700, 12)">
+        <rect width="140" height="40" rx="6" fill="#0f172a" stroke="#0d9488" stroke-width="0.8"/>
+        <text x="70" y="17" text-anchor="middle" font-size="12" font-weight="500" fill="#5eead4">CausalEdge</text>
+        <text x="70" y="32" text-anchor="middle" font-size="10" fill="#94a3b8">因果边</text>
+      </g>
+      <g transform="translate(860, 12)">
+        <rect width="160" height="40" rx="6" fill="#0f172a" stroke="#0d9488" stroke-width="0.8"/>
+        <text x="80" y="17" text-anchor="middle" font-size="12" font-weight="500" fill="#5eead4">MemoryStrength</text>
+        <text x="80" y="32" text-anchor="middle" font-size="10" fill="#94a3b8">记忆强度</text>
+      </g>
+      <g transform="translate(1040, 12)">
+        <rect width="120" height="40" rx="6" fill="#0f172a" stroke="#0d9488" stroke-width="0.8"/>
+        <text x="60" y="17" text-anchor="middle" font-size="12" font-weight="500" fill="#5eead4">Block</text>
+        <text x="60" y="32" text-anchor="middle" font-size="10" fill="#94a3b8">工作记忆块</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- Arrow L4 -> L5 -->
+  <line x1="1200" y1="780" x2="1200" y2="810" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- ===================== LAYER 5: DATABASE ===================== -->
+  <g transform="translate(0, 810)">
+    <text x="120" y="20" font-size="14" font-weight="600" fill="#64748b" letter-spacing="1">数据库层</text>
+
+    <g transform="translate(120, 0)">
+      <rect width="2160" height="70" rx="10" fill="#1e293b" stroke="#a16207" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="20" y="28" font-size="15" font-weight="600" fill="#fbbf24">SQLite / MySQL / PostgreSQL</text>
+      <text x="20" y="50" font-size="12" fill="#94a3b8">SQLModel ORM 跨方言  ·  MigrationRunner 幂等迁移</text>
+
+      <!-- Table tags -->
+      <g transform="translate(320, 15)">
+        <rect width="110" height="22" rx="11" fill="#422006" stroke="#a16207" stroke-width="0.8"/>
+        <text x="55" y="16" text-anchor="middle" font-size="11" fill="#fbbf24">memories</text>
+      </g>
+      <g transform="translate(445, 15)">
+        <rect width="90" height="22" rx="11" fill="#422006" stroke="#a16207" stroke-width="0.8"/>
+        <text x="45" y="16" text-anchor="middle" font-size="11" fill="#fbbf24">history</text>
+      </g>
+      <g transform="translate(550, 15)">
+        <rect width="120" height="22" rx="11" fill="#422006" stroke="#a16207" stroke-width="0.8"/>
+        <text x="60" y="16" text-anchor="middle" font-size="11" fill="#fbbf24">access_logs</text>
+      </g>
+      <g transform="translate(685, 15)">
+        <rect width="100" height="22" rx="11" fill="#422006" stroke="#a16207" stroke-width="0.8"/>
+        <text x="50" y="16" text-anchor="middle" font-size="11" fill="#fbbf24">entities</text>
+      </g>
+      <g transform="translate(800, 15)">
+        <rect width="140" height="22" rx="11" fill="#422006" stroke="#a16207" stroke-width="0.8"/>
+        <text x="70" y="16" text-anchor="middle" font-size="11" fill="#fbbf24">entity_relations</text>
+      </g>
+      <g transform="translate(955, 15)">
+        <rect width="130" height="22" rx="11" fill="#422006" stroke="#a16207" stroke-width="0.8"/>
+        <text x="65" y="16" text-anchor="middle" font-size="11" fill="#fbbf24">memory_links</text>
+      </g>
+
+      <!-- State machine mini -->
+      <g transform="translate(1180, 15)">
+        <rect width="120" height="22" rx="11" fill="#422006" stroke="#a16207" stroke-width="0.8"/>
+        <text x="60" y="16" text-anchor="middle" font-size="11" fill="#fbbf24">state 状态机</text>
+      </g>
+      <g transform="translate(1320, 15)">
+        <rect width="100" height="22" rx="11" fill="#422006" stroke="#a16207" stroke-width="0.8"/>
+        <text x="50" y="16" text-anchor="middle" font-size="11" fill="#fbbf24">双时态</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- ===================== LAYER 6: PROVIDERS ===================== -->
+  <g transform="translate(0, 910)">
+    <!-- Boundary -->
+    <rect x="80" y="0" width="2240" height="260" rx="12" fill="#1e293b" fill-opacity="0.3" stroke="#ec4899" stroke-width="1" stroke-dasharray="6,4"/>
+    <text x="120" y="20" font-size="14" font-weight="600" fill="#64748b" letter-spacing="1">Provider 生态</text>
+    <text x="120" y="38" font-size="12" fill="#94a3b8">可插拔 · 环境变量驱动 · 吞错降级</text>
+
+    <!-- Embedders column -->
+    <g transform="translate(120, 30)">
+      <rect width="500" height="210" rx="10" fill="#0f172a" stroke="#ec4899" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="250" y="28" text-anchor="middle" font-size="15" font-weight="600" fill="#f9a8d4">Embedders</text>
+      <line x1="20" y1="40" x2="480" y2="40" stroke="#ec4899" stroke-width="0.5" opacity="0.3"/>
+      <!-- tags -->
+      <g transform="translate(20, 52)">
+        <rect width="90" height="24" rx="12" fill="#831843" opacity="0.5"/><text x="45" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">bge-zh ★</text>
+      </g>
+      <g transform="translate(120, 52)">
+        <rect width="70" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="35" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">hash</text>
+      </g>
+      <g transform="translate(200, 52)">
+        <rect width="70" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="35" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">onnx</text>
+      </g>
+      <g transform="translate(280, 52)">
+        <rect width="90" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="45" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">onnx-zh</text>
+      </g>
+      <g transform="translate(380, 52)">
+        <rect width="60" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="30" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">auto</text>
+      </g>
+      <g transform="translate(20, 84)">
+        <rect width="80" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="40" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">openai</text>
+      </g>
+      <g transform="translate(110, 84)">
+        <rect width="120" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="60" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">sentence-trans</text>
+      </g>
+      <g transform="translate(240, 84)">
+        <rect width="120" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="60" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">CachedEmbedder</text>
+      </g>
+      <text x="20" y="135" font-size="12" fill="#cbd5e1">默认 bge-zh (512dim, ONNX, ~95MB)</text>
+      <text x="20" y="155" font-size="12" fill="#94a3b8">onnxruntime 不可用时降级 HashEmbedder</text>
+      <text x="20" y="178" font-size="11" fill="#64748b">embedders/resolver.py · CachedEmbedder LRU-256</text>
+    </g>
+
+    <!-- LLMs column -->
+    <g transform="translate(660, 30)">
+      <rect width="500" height="210" rx="10" fill="#0f172a" stroke="#ec4899" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="250" y="28" text-anchor="middle" font-size="15" font-weight="600" fill="#f9a8d4">LLMs</text>
+      <line x1="20" y1="40" x2="480" y2="40" stroke="#ec4899" stroke-width="0.5" opacity="0.3"/>
+      <g transform="translate(20, 52)">
+        <rect width="80" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="40" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">openai</text>
+      </g>
+      <g transform="translate(110, 52)">
+        <rect width="80" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="40" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">ollama</text>
+      </g>
+      <g transform="translate(200, 52)">
+        <rect width="100" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="50" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">anthropic</text>
+      </g>
+      <g transform="translate(310, 52)">
+        <rect width="100" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="50" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">dashscope</text>
+      </g>
+      <g transform="translate(420, 52)">
+        <rect width="60" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="30" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">groq</text>
+      </g>
+      <g transform="translate(20, 84)">
+        <rect width="90" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="45" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">deepseek</text>
+      </g>
+      <g transform="translate(120, 84)">
+        <rect width="80" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="40" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">gemini</text>
+      </g>
+      <g transform="translate(210, 84)">
+        <rect width="80" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="40" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">litellm</text>
+      </g>
+      <text x="20" y="135" font-size="12" fill="#cbd5e1">complete(system, user) → str</text>
+      <text x="20" y="155" font-size="12" fill="#94a3b8">None = verbatim 模式（不抽取事实）</text>
+      <text x="20" y="178" font-size="11" fill="#64748b">llms/__init__.py · _resolve_llm(config)</text>
+    </g>
+
+    <!-- Rerankers column -->
+    <g transform="translate(1200, 30)">
+      <rect width="500" height="210" rx="10" fill="#0f172a" stroke="#ec4899" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="250" y="28" text-anchor="middle" font-size="15" font-weight="600" fill="#f9a8d4">Rerankers</text>
+      <line x1="20" y1="40" x2="480" y2="40" stroke="#ec4899" stroke-width="0.5" opacity="0.3"/>
+      <g transform="translate(20, 52)">
+        <rect width="70" height="24" rx="12" fill="#831843" opacity="0.5"/><text x="35" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">noop ★</text>
+      </g>
+      <g transform="translate(100, 52)">
+        <rect width="60" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="30" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">mmr</text>
+      </g>
+      <g transform="translate(170, 52)">
+        <rect width="130" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="65" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">cross_encoder</text>
+      </g>
+      <g transform="translate(310, 52)">
+        <rect width="60" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="30" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">llm</text>
+      </g>
+      <g transform="translate(380, 52)">
+        <rect width="100" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="50" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">batch_llm</text>
+      </g>
+      <g transform="translate(20, 84)">
+        <rect width="80" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="40" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">cohere</text>
+      </g>
+      <text x="20" y="135" font-size="12" fill="#cbd5e1">reranker(打分) × strategy(内容) 正交</text>
+      <text x="20" y="155" font-size="12" fill="#94a3b8">score 统一 [0,1] · 失败降级 noop</text>
+      <text x="20" y="178" font-size="11" fill="#64748b">rerankers/ · RerankerStrategyFactory</text>
+    </g>
+
+    <!-- Search Recipes column -->
+    <g transform="translate(1740, 30)">
+      <rect width="500" height="210" rx="10" fill="#0f172a" stroke="#ec4899" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="250" y="28" text-anchor="middle" font-size="15" font-weight="600" fill="#f9a8d4">7 Search Recipes</text>
+      <line x1="20" y1="40" x2="480" y2="40" stroke="#ec4899" stroke-width="0.5" opacity="0.3"/>
+      <g transform="translate(20, 52)">
+        <rect width="120" height="24" rx="12" fill="#831843" opacity="0.5"/><text x="60" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">HYBRID_RRF ★</text>
+      </g>
+      <g transform="translate(150, 52)">
+        <rect width="160" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="80" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">RRF_ENTITY</text>
+      </g>
+      <g transform="translate(320, 52)">
+        <rect width="160" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="80" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">CROSS_ENCODER</text>
+      </g>
+      <g transform="translate(20, 84)">
+        <rect width="120" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="60" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">RRF_MMR</text>
+      </g>
+      <g transform="translate(150, 84)">
+        <rect width="100" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="50" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">GRAPH_BFS</text>
+      </g>
+      <g transform="translate(260, 84)">
+        <rect width="110" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="55" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">PROGRESSIVE</text>
+      </g>
+      <g transform="translate(380, 84)">
+        <rect width="100" height="24" rx="12" fill="#831843" opacity="0.3"/><text x="50" y="17" text-anchor="middle" font-size="11" fill="#f9a8d4">FORGETTING</text>
+      </g>
+      <text x="20" y="135" font-size="12" fill="#cbd5e1">Memory.search(recipe="HYBRID_RRF_MMR")</text>
+      <text x="20" y="155" font-size="12" fill="#94a3b8">一键切换 hybrid / reranker / explain</text>
+      <text x="20" y="178" font-size="11" fill="#64748b">retrieval/recipes.py · get_recipe(name)</text>
+    </g>
+  </g>
+
+  <!-- ===================== KEY PRINCIPLES ===================== -->
+  <g transform="translate(0, 1200)">
+    <text x="1200" y="20" text-anchor="middle" font-size="14" font-weight="600" fill="#64748b" letter-spacing="1">关键设计原则</text>
+
+    <g transform="translate(120, 35)">
+      <rect width="500" height="55" rx="10" fill="#1e293b" stroke="#3b82f6" stroke-width="1"/>
+      <text x="20" y="24" font-size="14" font-weight="600" fill="#60a5fa">零配置即用</text>
+      <text x="20" y="44" font-size="12" fill="#94a3b8">pip install → SQLite + bge-zh，无 API key</text>
+    </g>
+    <g transform="translate(660, 35)">
+      <rect width="500" height="55" rx="10" fill="#1e293b" stroke="#10b981" stroke-width="1"/>
+      <text x="20" y="24" font-size="14" font-weight="600" fill="#34d399">吞错降级</text>
+      <text x="20" y="44" font-size="12" fill="#94a3b8">LLM / Reranker / Embedder 失败不崩，自动降级</text>
+    </g>
+    <g transform="translate(1200, 35)">
+      <rect width="500" height="55" rx="10" fill="#1e293b" stroke="#a16207" stroke-width="1"/>
+      <text x="20" y="24" font-size="14" font-weight="600" fill="#fbbf24">score 统一 [0,1]</text>
+      <text x="20" y="44" font-size="12" fill="#94a3b8">cosine / BM25 / RRF k=60，越高越相似</text>
+    </g>
+    <g transform="translate(1740, 35)">
+      <rect width="500" height="55" rx="10" fill="#1e293b" stroke="#6366f1" stroke-width="1"/>
+      <text x="20" y="24" font-size="14" font-weight="600" fill="#a5b4fc">engine 共享</text>
+      <text x="20" y="44" font-size="12" fill="#94a3b8">所有 Store 从 store.engine 派生，同一连接池</text>
+    </g>
+  </g>
+
+  <!-- Footer -->
+  <text x="1200" y="1330" text-anchor="middle" font-size="12" fill="#475569">基于实际源码绘制  ·  SeptMuse  ·  2026-08-05</text>
+</svg>

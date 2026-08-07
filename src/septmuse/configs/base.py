@@ -47,7 +47,7 @@ class MemoryConfig(BaseSettings):
     """SeptMuse 记忆系统配置 (顶层组合, 借鉴 mem0 MemoryConfig)。
 
     每个子系统一个子配置, 通过 default_config() 从环境变量组装。
-    零配置默认: SQLite + HashEmbedder + RegexExtractor + NoopReranker + verbatim。
+    零配置默认: SQLite + bge-zh (OnnxEmbedder) + RegexExtractor + NoopReranker + verbatim。
 
     配置优先级: init kwargs > 环境变量 > YAML > 代码默认。
     旧版扁平环境变量 (如 SEPTMUSE_EMBEDDER) 通过 _flat_env_aliases 兼容。
@@ -71,10 +71,11 @@ class MemoryConfig(BaseSettings):
         default_factory=BaseEntityExtractorConfig, description="实体抽取配置"
     )
 
-    top_k: int = Field(default=5, description="默认检索 top_k")
+    top_k: int = Field(default=7, description="默认检索 top_k")
     threshold: float = Field(default=0.1, description="默认相似阈值")
     search_recipe: str = Field(default="HYBRID_RRF", description="检索配方名")
     infer: bool = Field(default=False, description="是否 LLM 抽取事实; False=原文存")
+    forgetting_half_life_days: float = Field(default=7.0, description="遗忘曲线半衰期 (天); None=原公式, inf=永不衰减")
 
     # ── 便捷属性: 委托给子配置, 供 Memory facade 和 services 层使用 ──
 
@@ -161,6 +162,7 @@ class MemoryConfig(BaseSettings):
             "SEPTMUSE_DB_PATH": ("database", "db_path"),
             "SEPTMUSE_EMBEDDER": ("embedder", "backend"),
             "SEPTMUSE_VECTOR_BACKEND": ("vector_store", "backend"),
+            "SEPTMUSE_EMBEDDING_DIMS": ("vector_store", "embedding_model_dims"),
             "SEPTMUSE_KEYWORD_BACKEND": ("keyword_index", "backend"),
             "SEPTMUSE_GRAPH_BACKEND": ("graph_store", "backend"),
             "SEPTMUSE_RERANKER": ("reranker", "backend"),

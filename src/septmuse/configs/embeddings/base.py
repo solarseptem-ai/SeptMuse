@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 class BaseEmbedderConfig(BaseModel):
     """嵌入通用配置。"""
 
-    backend: str = Field(default="hash")
+    backend: str = Field(default="bge-zh")
     model: str | None = Field(default=None, description="模型名")
     embedding_dims: int | None = Field(default=None, description="嵌入维度, None=自动检测")
     api_key: str | None = Field(default=None)

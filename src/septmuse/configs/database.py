@@ -45,6 +45,6 @@ class DatabaseConfig(BaseModel):
     connection_max_overflow: int = Field(default=10, description="连接池溢出上限 (PG 模式)")
     connect_timeout: float = Field(default=30.0, description="连接超时秒数")
     sqlite_pragmas: dict[str, Any] = Field(
-        default_factory=lambda: {"journal_mode": "WAL", "synchronous": "NORMAL"},
-        description="SQLite PRAGMA 设置 (WAL 模式提升并发读写)",
+        default_factory=lambda: {"journal_mode": "WAL", "synchronous": "NORMAL", "busy_timeout": 5000},
+        description="SQLite PRAGMA 设置 (WAL 模式提升并发读写, busy_timeout 毫秒级等待)",
     )

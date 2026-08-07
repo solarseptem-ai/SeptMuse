@@ -18,7 +18,10 @@
 
 from __future__ import annotations
 
+import time
 from abc import ABC, abstractmethod
+
+from septmuse.observability.collector import MetricsCollector
 
 
 class Embedder(ABC):
@@ -31,11 +34,40 @@ class Embedder(ABC):
         ...
 
     @abstractmethod
-    def embed(self, text: str) -> list[float]:
-        """嵌入单条文本, 返回归一化向量 (便于余弦点积)。"""
+    def _embed(self, text: str, memory_action: str | None = None) -> list[float]:
+        """嵌入单条文本, 返回归一化向量。子类实现。"""
         ...
 
-    @abstractmethod
-    def embed_batch(self, texts: list[str]) -> list[list[float]]:
-        """批量嵌入。"""
-        ...
+    def embed(self, text: str, memory_action: str | None = None) -> list[float]:
+        """嵌入单条文本（带可观测性埋点）。"""
+        collector = MetricsCollector.get()
+        start = time.perf_counter()
+        try:
+            return self._embed(text, memory_action)
+        finally:
+            collector.observe(
+                "embed_duration_seconds",
+                time.perf_counter() - start,
+                labels={"backend": self._backend_name()},
+            )
+
+    def _embed_batch(self, texts: list[str], memory_action: str | None = None) -> list[list[float]]:
+        """批量嵌入 — 默认逐条调用 _embed(), 子类可 override 实现真批量推理。"""
+        return [self._embed(t, memory_action) for t in texts]
+
+    def embed_batch(self, texts: list[str], memory_action: str | None = None) -> list[list[float]]:
+        """批量嵌入（带可观测性埋点）。"""
+        collector = MetricsCollector.get()
+        start = time.perf_counter()
+        try:
+            return self._embed_batch(texts, memory_action)
+        finally:
+            collector.observe(
+                "embed_batch_duration_seconds",
+                time.perf_counter() - start,
+                labels={"backend": self._backend_name()},
+            )
+
+    def _backend_name(self) -> str:
+        """返回后端名称（用于指标标签）。子类应设置 self.backend_name。"""
+        return getattr(self, "backend_name", type(self).__name__.lower())

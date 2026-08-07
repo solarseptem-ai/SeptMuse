@@ -40,6 +40,7 @@ class AutoOnnxEmbedder(Embedder):
     """语言检测自动选模型 (init 时一次, 不 per-query 切换)。"""
 
     def __init__(self, *, sample_text: str | None = None, lang: str | None = None) -> None:
+        self.backend_name = "auto_onnx"
         # 1. 显式参数 > 2. 环境变量 > 3. 样本文本检测 > 4. 默认 'zh'
         if lang is not None:
             self._lang = lang
@@ -57,14 +58,14 @@ class AutoOnnxEmbedder(Embedder):
         # 委托给 OnnxEmbedder (同一模型, 整个 session 不切换)
         from septmuse.embedders.onnx import OnnxEmbedder
 
-        self._inner = OnnxEmbedder(model_name=model_name)
+        self._inner = OnnxEmbedder(model_name=model_name, max_length=256)
 
     @property
     def dimension(self) -> int:
         return self._inner.dimension
 
-    def embed(self, text: str) -> list[float]:
-        return self._inner.embed(text)
+    def _embed(self, text: str, memory_action: str | None = None) -> list[float]:
+        return self._inner._embed(text, memory_action=memory_action)
 
-    def embed_batch(self, texts: list[str]) -> list[list[float]]:
-        return self._inner.embed_batch(texts)
+    def _embed_batch(self, texts: list[str], memory_action: str | None = None) -> list[list[float]]:
+        return self._inner._embed_batch(texts, memory_action=memory_action)

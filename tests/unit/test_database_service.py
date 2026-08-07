@@ -139,3 +139,58 @@ def test_resolve_async_db_url_adds_driver():
         assert "aiosqlite" in async_url
     finally:
         del os.environ["SEPTMUSE_DB_URL"]
+
+
+# ======================================================================
+# P0-Task 5: WAL mode + busy_timeout + StaticPool + 连接池
+# ======================================================================
+
+
+def test_sqlite_wal_pragma_set(db_service):
+    """SQLite WAL mode PRAGMA 在连接时设置。"""
+    with db_service.engine.connect() as conn:
+        mode = conn.execute(text("PRAGMA journal_mode")).fetchone()
+        assert mode[0].lower() == "wal"
+
+
+def test_sqlite_busy_timeout_pragma_set(db_service):
+    """SQLite busy_timeout PRAGMA 默认 5000ms。"""
+    with db_service.engine.connect() as conn:
+        timeout = conn.execute(text("PRAGMA busy_timeout")).fetchone()
+        assert timeout[0] == 5000
+
+
+def test_sqlite_synchronous_pragma_set(db_service):
+    """SQLite synchronous PRAGMA 设为 NORMAL (WAL 配套, 1=NORMAL)。"""
+    with db_service.engine.connect() as conn:
+        sync = conn.execute(text("PRAGMA synchronous")).fetchone()
+        assert sync[0] == 1  # 0=OFF, 1=NORMAL, 2=FULL
+
+
+def test_memory_sqlite_uses_static_pool(monkeypatch):
+    """:memory: SQLite 用 StaticPool 共享单连接 (跨线程并发检索)。"""
+    monkeypatch.delenv("SEPTMUSE_DB_URL", raising=False)
+    config = MemoryConfig(db_path=":memory:")
+    svc = DatabaseService(config=config)
+    from sqlalchemy.pool import StaticPool
+
+    assert isinstance(svc.engine.pool, StaticPool)
+    svc.engine.dispose()
+
+
+def test_custom_pragmas_override_defaults(tmp_path, monkeypatch):
+    """自定义 sqlite_pragmas 覆盖默认值。"""
+    monkeypatch.delenv("SEPTMUSE_DB_URL", raising=False)
+    custom_pragmas = {"journal_mode": "DELETE", "synchronous": "FULL", "busy_timeout": 10000}
+    config = MemoryConfig(
+        database=DatabaseConfig(db_path=str(tmp_path / "custom.db"), sqlite_pragmas=custom_pragmas)
+    )
+    svc = DatabaseService(config=config)
+    with svc.engine.connect() as conn:
+        mode = conn.execute(text("PRAGMA journal_mode")).fetchone()
+        sync = conn.execute(text("PRAGMA synchronous")).fetchone()
+        timeout = conn.execute(text("PRAGMA busy_timeout")).fetchone()
+    assert mode[0].lower() == "delete"
+    assert sync[0] == 2  # 2=FULL
+    assert timeout[0] == 10000
+    svc.engine.dispose()

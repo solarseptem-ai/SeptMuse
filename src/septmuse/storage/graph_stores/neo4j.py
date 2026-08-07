@@ -135,3 +135,69 @@ class Neo4jGraphStore(GraphStore):
 
     def close(self) -> None:
         self._driver.close()
+
+    # ── 节点管理 (新增) ──
+
+    def add_node(self, node_id: str, properties: dict[str, Any] | None = None) -> None:
+        with self._driver.session() as session:
+            session.run(
+                "MERGE (n:Memory {id: $id}) SET n += $props",
+                id=node_id,
+                props=properties or {},
+            )
+
+    def get_node(self, node_id: str) -> dict[str, Any] | None:
+        with self._driver.session() as session:
+            result = session.run("MATCH (n:Memory {id: $id}) RETURN n", id=node_id)
+            record = result.single()
+            if record is None:
+                return None
+            return {"id": node_id, "properties": dict(record["n"])}
+
+    def delete_node(self, node_id: str, *, cascade: bool = True) -> bool:
+        with self._driver.session() as session:
+            if cascade:
+                result = session.run(
+                    "MATCH (n:Memory {id: $id}) DETACH DELETE n RETURN count(n) AS deleted",
+                    id=node_id,
+                )
+            else:
+                result = session.run(
+                    "MATCH (n:Memory {id: $id}) DELETE n RETURN count(n) AS deleted",
+                    id=node_id,
+                )
+            return result.single()["deleted"] > 0
+
+    # ── 入边查询 (新增) ──
+
+    def get_in_edges(self, node_id: str) -> list[GraphEdge]:
+        with self._driver.session() as session:
+            result = session.run(
+                """
+                MATCH (s:Memory)-[e:MemoryLink]->(t:Memory {id: $node_id})
+                RETURN e.id, e.relation, e.score, s.id, $node_id
+                """,
+                node_id=node_id,
+            )
+            return [
+                GraphEdge(
+                    id=record["e.id"],
+                    source_id=record["s.id"],
+                    target_id=record["$node_id"],
+                    relation=record["e.relation"],
+                    score=record["e.score"],
+                )
+                for record in result
+            ]
+
+    # ── 图统计 (新增) ──
+
+    def get_stats(self) -> dict[str, Any]:
+        with self._driver.session() as session:
+            node_result = session.run("MATCH (n:Memory) RETURN count(n) AS count")
+            node_count = node_result.single()["count"]
+            edge_result = session.run("MATCH ()-[r:MemoryLink]->() RETURN count(r) AS count")
+            edge_count = edge_result.single()["count"]
+        max_edges = node_count * (node_count - 1) if node_count > 1 else 1
+        density = (edge_count / max_edges) if max_edges > 0 else 0.0
+        return {"node_count": node_count, "edge_count": edge_count, "density": round(density, 4)}

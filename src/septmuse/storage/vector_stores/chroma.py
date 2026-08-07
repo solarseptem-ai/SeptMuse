@@ -52,6 +52,7 @@ class ChromaVectorStore(VectorStoreBase):
         self.collection = self.client.get_or_create_collection(
             name=collection_name,
             embedding_function=None,
+            metadata={"hnsw:space": "cosine"},
         )
         logger.info(
             "chroma_vector_store_ready",
@@ -73,11 +74,18 @@ class ChromaVectorStore(VectorStoreBase):
             raise ValueError(f"payloads ({len(payloads)}) and ids ({len(ids)}) length mismatch")
         if not vectors:
             return
+        # Chroma 元数据只能是 str/int/float/bool, 过滤 None 值, 空 dict 补 _id 兜底
+        chroma_metadatas = []
+        for i, p in enumerate(payloads):
+            clean = {k: v for k, v in p.items() if v is not None}
+            if not clean:
+                clean = {"_id": ids[i]}
+            chroma_metadatas.append(clean)
         documents = [json.dumps(p, ensure_ascii=False) for p in payloads]
-        self.collection.add(
+        self.collection.upsert(
             ids=ids,
             embeddings=vectors,
-            metadatas=payloads,
+            metadatas=chroma_metadatas,
             documents=documents,
         )
 
@@ -87,10 +95,14 @@ class ChromaVectorStore(VectorStoreBase):
         top_k: int = 5,
         filters: dict[str, Any] | None = None,
     ) -> list[VectorSearchResult]:
+        # Chroma where 只支持单 key 或 $and/$or, 多 key 需转 $and
+        chroma_where = None
+        if filters and len(filters) > 0:
+            chroma_where = filters if len(filters) == 1 else {"$and": [{k: v} for k, v in filters.items()]}
         results = self.collection.query(
             query_embeddings=[query_vector],
             n_results=top_k,
-            where=filters if filters else None,
+            where=chroma_where,
         )
         ids = (results.get("ids") or [[]])[0]
         distances = (results.get("distances") or [[]])[0]
@@ -116,12 +128,14 @@ class ChromaVectorStore(VectorStoreBase):
         ids = result.get("ids", [])
         if not ids:
             return None
-        embeddings = result.get("embeddings") or []
-        metadatas = result.get("metadatas") or []
+        embeddings_raw = result.get("embeddings")
+        embeddings = list(embeddings_raw) if embeddings_raw is not None else []
+        metadatas_raw = result.get("metadatas")
+        metadatas = list(metadatas_raw) if metadatas_raw is not None else []
         return VectorEntry(
             id=str(ids[0]),
-            vector=list(embeddings[0]) if embeddings and embeddings[0] is not None else [],
-            payload=metadatas[0] if metadatas else None,
+            vector=list(embeddings[0]) if len(embeddings) > 0 and embeddings[0] is not None else [],
+            payload=metadatas[0] if len(metadatas) > 0 else None,
         )
 
     def list_vectors(
@@ -129,14 +143,20 @@ class ChromaVectorStore(VectorStoreBase):
         filters: dict[str, Any] | None = None,
         limit: int | None = None,
     ) -> list[VectorEntry]:
+        # Chroma where 只支持单 key 或 $and/$or
+        chroma_where = None
+        if filters and len(filters) > 0:
+            chroma_where = filters if len(filters) == 1 else {"$and": [{k: v} for k, v in filters.items()]}
         result = self.collection.get(
-            where=filters if filters else None,
+            where=chroma_where,
             limit=limit,
             include=["embeddings", "metadatas"],
         )
         ids = result.get("ids", [])
-        embeddings = result.get("embeddings") or []
-        metadatas = result.get("metadatas") or []
+        embeddings_raw = result.get("embeddings")
+        embeddings = list(embeddings_raw) if embeddings_raw is not None else []
+        metadatas_raw = result.get("metadatas")
+        metadatas = list(metadatas_raw) if metadatas_raw is not None else []
         entries: list[VectorEntry] = []
         for i, vid in enumerate(ids):
             vec = list(embeddings[i]) if i < len(embeddings) and embeddings[i] is not None else []
@@ -148,6 +168,39 @@ class ChromaVectorStore(VectorStoreBase):
                 )
             )
         return entries
+
+    def update_vector(self, vector_id: str, vector: list[float], payload: dict[str, Any] | None = None) -> bool:
+        """Chroma collection.upsert 原地更新。"""
+        chroma_meta = {k: v for k, v in (payload or {}).items() if v is not None} or {"_id": vector_id}
+        doc = json.dumps(payload or {}, ensure_ascii=False)
+        self.collection.upsert(
+            ids=[vector_id],
+            embeddings=[vector],
+            metadatas=[chroma_meta],
+            documents=[doc],
+        )
+        return True
+
+    def delete_collection(self) -> None:
+        """删除整个 collection。"""
+        self.client.delete_collection(name=self.collection_name)
+
+    def get_collection_info(self) -> dict[str, Any]:
+        """collection 元信息。"""
+        try:
+            count = self.collection.count()
+        except Exception:
+            count = 0
+        return {"name": self.collection_name, "count": count}
+
+    def reset_collection(self) -> None:
+        """重置 collection。"""
+        self.delete_collection()
+        self.collection = self.client.get_or_create_collection(
+            name=self.collection_name,
+            embedding_function=None,
+            metadata={"hnsw:space": "cosine"},
+        )
 
     def close(self) -> None:
         logger.info("chroma_vector_store_closed", collection=self.collection_name)

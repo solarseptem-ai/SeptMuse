@@ -54,6 +54,17 @@ class PipelineResult:
     errors: list[str] = field(default_factory=list)
 
 
+@dataclass
+class PreprocessResult:
+    """预处理结果 (去重+脱敏, 不写 store)。"""
+
+    allowed: bool = False
+    stored_text: str = ""
+    text_hash: str | None = None
+    redacted: bool = False
+    reason: str | None = None
+
+
 class CapturePipeline:
     """捕获流水线 (架构文档 §5.1)。
 
@@ -82,6 +93,40 @@ class CapturePipeline:
         self.llm = llm
         self.privacy = privacy_filter or PrivacyFilter()
         self.validator = WriteValidator(dedup_window=dedup_window or DedupWindow())
+
+    def preprocess(
+        self,
+        text: str,
+        *,
+        user_id: str | None = None,
+        agent_id: str | None = None,
+    ) -> PreprocessResult:
+        """只做去重+脱敏, 不嵌入不写 store (避免与 Memory.add 双写)。
+
+        Steps:
+            1. SHA256 去重 (DedupWindow, per-user scope)
+            2. 隐私脱敏 (PrivacyFilter)
+        返回 PreprocessResult; allowed=True 时 caller 可自行 Memory.add(stored_text)。
+        """
+        result = PreprocessResult(allowed=False)
+        if not text or not text.strip():
+            result.reason = "empty text"
+            return result
+
+        # Step 1: SHA256 去重 (validate 内部会 add 到窗口, 二次同文本被拒)
+        validation = self.validator.validate(text, user_id=user_id, agent_id=agent_id)
+        if not validation.allowed:
+            result.reason = validation.reason or "duplicate"
+            result.text_hash = validation.text_hash or None
+            return result
+        result.text_hash = validation.text_hash
+
+        # Step 2: 隐私脱敏
+        cleaned = self.privacy.redact(text)
+        result.redacted = cleaned != text
+        result.stored_text = cleaned
+        result.allowed = True
+        return result
 
     def capture(
         self,

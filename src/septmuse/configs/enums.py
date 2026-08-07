@@ -55,6 +55,17 @@ class EmbedderBackend(str, Enum):
     AUTO = "auto"
     ST = "st"
     OPENAI = "openai"
+    MOCK = "mock"
+    OLLAMA = "ollama"
+    TOGETHER = "together"
+    LMSTUDIO = "lmstudio"
+    AZURE_OPENAI = "azure_openai"
+    GEMINI = "gemini"
+    VERTEXAI = "vertexai"
+    HUGGINGFACE = "huggingface"
+    AWS_BEDROCK = "aws_bedrock"
+    FASTEMBED = "fastembed"
+    LANGCHAIN = "langchain"
 
 
 class LLMBackend(str, Enum):

@@ -69,7 +69,9 @@ class SemanticFact(SQLModel, table=True):
     tags: list[str] = Field(default=[], sa_column=Column(JSON))
 
     # 向量共存 (平面B: 同一事实可向量+图+文件)
-    embedding: bytes | None = Field(default=None, description="嵌入向量 (JSON bytes)")
+    # DEPRECATED: 向量存到向量引擎 (Qdrant collection 'septmuse_facts'), 此列仅向后兼容旧数据。
+    # TypedMemoryStore 有 vector_store 时不写入此列, search_facts 走向量引擎 ANN。
+    embedding: bytes | None = Field(default=None, description="嵌入向量 (JSON bytes) [DEPRECATED: 向量存向量引擎]")
 
     created_at: datetime = Field(default_factory=_utcnow, description="创建时间 UTC")
     updated_at: datetime = Field(default_factory=_utcnow, description="更新时间 UTC")

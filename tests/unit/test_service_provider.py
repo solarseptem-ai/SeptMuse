@@ -21,8 +21,8 @@ def test_list_backends_returns_all():
 
 
 def test_default_backend():
-    assert vector_store_provider.default_backend() == "sqlite"
-    assert embedder_provider.default_backend() == "hash"
+    assert vector_store_provider.default_backend() == "qdrant"
+    assert embedder_provider.default_backend() == "bge-zh"
     assert llm_provider.default_backend() == ""
 
 

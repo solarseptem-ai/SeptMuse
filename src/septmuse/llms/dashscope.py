@@ -41,6 +41,8 @@ class DashScopeLLM(LLM):
     自定义: DashScopeLLM(api_key="sk-ds-...", model="qwen-plus")。
     """
 
+    provider_name = "dashscope"
+
     def __init__(
         self,
         api_key: str | None = None,
@@ -60,7 +62,7 @@ class DashScopeLLM(LLM):
         self._dashscope = dashscope
         logger.info("dashscope_llm_ready", model=model)
 
-    def complete(self, system_prompt: str, user_prompt: str) -> str:
+    def _complete(self, system_prompt: str, user_prompt: str) -> str:
         """调用 DashScope Generation API (对齐 LLM ABC)。"""
         try:
             response = self._dashscope.Generation.call(

@@ -34,6 +34,8 @@ logger = get_logger(__name__)
 class DeepSeekLLM(LLM):
     """DeepSeek LLM provider（OpenAI 兼容 API）。零配置: 从 DEEPSEEK_API_KEY 环境变量读取 key。"""
 
+    provider_name = "deepseek"
+
     def __init__(
         self,
         api_key: str | None = None,
@@ -54,7 +56,7 @@ class DeepSeekLLM(LLM):
         )
         logger.info("deepseek_llm_ready", model=model)
 
-    def complete(self, system_prompt: str, user_prompt: str) -> str:
+    def _complete(self, system_prompt: str, user_prompt: str) -> str:
         """调用 DeepSeek Chat Completions (对齐 LLM ABC)。"""
         try:
             response = self._client.chat.completions.create(

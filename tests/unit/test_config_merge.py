@@ -3,11 +3,13 @@
 from septmuse.configs.base import MemoryConfig
 
 
-def test_zero_config_defaults():
+def test_zero_config_defaults(monkeypatch):
     """无 env 无 yaml 时用代码默认。"""
+    monkeypatch.delenv("SEPTMUSE_EMBEDDER", raising=False)
+    monkeypatch.delenv("SEPTMUSE_EMBEDDING_DIMS", raising=False)
     config = MemoryConfig()
-    assert config.embedder.backend == "hash"
-    assert config.vector_store.backend == "sqlite"
+    assert config.embedder.backend == "bge-zh"
+    assert config.vector_store.backend == "qdrant"
 
 
 def test_yaml_overrides_default(tmp_path, monkeypatch):

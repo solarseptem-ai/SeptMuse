@@ -18,7 +18,6 @@
 
 from __future__ import annotations
 
-import math
 import os
 from pathlib import Path
 
@@ -58,11 +57,22 @@ def _ensure_reranker_model(model_name: str) -> Path:
 class CrossEncoderReranker(BaseReranker):
     """ONNX cross-encoder reranker。"""
 
-    def __init__(self, model_name: str = _DEFAULT_RERANKER_MODEL, model_cache_dir: str | None = None, batch_size: int = 32, max_length: int = 512, **kwargs) -> None:
+    def __init__(
+        self,
+        model_name: str = _DEFAULT_RERANKER_MODEL,
+        model_cache_dir: str | None = None,
+        batch_size: int = 32,
+        max_length: int = 512,
+        normalize: bool = True,
+        device: str | None = None,
+        **kwargs,
+    ) -> None:
         self._model_name = model_name
         self._custom_cache_dir = model_cache_dir
         self._batch_size = batch_size
         self._max_length = max_length
+        self._normalize = normalize
+        self._device = device  # None=自动检测, "cuda"/"cpu" 强制
         self._session = None
         self._tokenizer = None
         self._input_names: list[str] = []
@@ -89,7 +99,16 @@ class CrossEncoderReranker(BaseReranker):
                 self._degraded = True
                 return
             logger.info("cross_encoder_loading", model=self._model_name, cache=str(cache_dir))
-            self._session = ort.InferenceSession(str(onnx_path), providers=["CPUExecutionProvider"])
+            # device: None=自动检测 cuda 可用性, "cuda"/"cpu" 强制指定
+            if self._device is None:
+                available = ort.get_available_providers()
+                self._device = "cuda" if "CUDAExecutionProvider" in available else "cpu"
+            providers = (
+                ["CUDAExecutionProvider", "CPUExecutionProvider"]
+                if self._device == "cuda"
+                else ["CPUExecutionProvider"]
+            )
+            self._session = ort.InferenceSession(str(onnx_path), providers=providers)
             self._tokenizer = Tokenizer.from_file(str(tokenizer_path))
             self._tokenizer.enable_padding(pad_id=0, pad_token="[PAD]")
             self._tokenizer.enable_truncation(max_length=self._max_length)
@@ -99,22 +118,15 @@ class CrossEncoderReranker(BaseReranker):
             logger.warning("cross_encoder_reranker_degraded", reason=str(e))
             self._degraded = True
 
-    def _build_feeds(self, encoding) -> dict[str, np.ndarray]:
+    def _build_batch_feeds(self, encodings) -> dict[str, np.ndarray]:
+        """构建批量 ONNX 推理输入 [batch, seq_len]。"""
         feeds: dict[str, np.ndarray] = {
-            "input_ids": np.array([encoding.ids], dtype=np.int64),
-            "attention_mask": np.array([encoding.attention_mask], dtype=np.int64),
+            "input_ids": np.array([enc.ids for enc in encodings], dtype=np.int64),
+            "attention_mask": np.array([enc.attention_mask for enc in encodings], dtype=np.int64),
         }
         if "token_type_ids" in self._input_names:
-            feeds["token_type_ids"] = np.array([encoding.type_ids], dtype=np.int64)
+            feeds["token_type_ids"] = np.array([enc.type_ids for enc in encodings], dtype=np.int64)
         return feeds
-
-    def _score_pair(self, query: str, document: str) -> float:
-        assert self._session is not None and self._tokenizer is not None
-        encoding = self._tokenizer.encode(query, document)
-        feeds = self._build_feeds(encoding)
-        outputs = self._session.run(None, feeds)
-        logit = float(outputs[0].squeeze())
-        return 1.0 / (1.0 + math.exp(-logit))
 
     def rerank(self, query: str, documents: list[str], *, top_k: int | None = None) -> list[tuple[int, float]]:
         if not documents:
@@ -123,14 +135,27 @@ class CrossEncoderReranker(BaseReranker):
         if self._degraded or self._session is None:
             limit = top_k or len(documents)
             return [(i, 0.5) for i in range(min(limit, len(documents)))]
+
         scored: list[tuple[int, float]] = []
-        for i, doc in enumerate(documents):
+        for start in range(0, len(documents), self._batch_size):
+            batch_docs = documents[start : start + self._batch_size]
             try:
-                score = self._score_pair(query, doc)
+                # 批量编码 (query, doc) pairs + 单次 ONNX forward
+                encodings = [self._tokenizer.encode(query, doc) for doc in batch_docs]
+                feeds = self._build_batch_feeds(encodings)
+                outputs = self._session.run(None, feeds)
+                logits = outputs[0]
+                if logits.ndim > 1:
+                    logits = logits.squeeze(-1)  # [batch, 1] → [batch]
+                # normalize=True: sigmoid 归一化到 [0,1]; False: 原始 logit
+                scores = 1.0 / (1.0 + np.exp(-logits)) if self._normalize else logits
+                for i, score in enumerate(scores):
+                    scored.append((start + i, float(score)))
             except Exception as e:
-                logger.warning("cross_encoder_score_failed", doc_index=i, error=str(e))
-                score = 0.5
-            scored.append((i, score))
+                logger.warning("cross_encoder_batch_failed", batch_start=start, error=str(e))
+                for i in range(len(batch_docs)):
+                    scored.append((start + i, 0.5))
+
         scored.sort(key=lambda x: x[1], reverse=True)
         if top_k:
             scored = scored[:top_k]

@@ -34,6 +34,8 @@ logger = get_logger(__name__)
 class GeminiLLM(LLM):
     """Google Gemini LLM provider。零配置: 从 GEMINI_API_KEY 环境变量读取 key。"""
 
+    provider_name = "gemini"
+
     def __init__(self, api_key: str | None = None, model: str = "gemini-1.5-flash", **kwargs: Any) -> None:
         try:
             import google.generativeai as genai
@@ -46,7 +48,7 @@ class GeminiLLM(LLM):
         self._model = genai.GenerativeModel(model)
         logger.info("gemini_llm_ready", model=model)
 
-    def complete(self, system_prompt: str, user_prompt: str) -> str:
+    def _complete(self, system_prompt: str, user_prompt: str) -> str:
         """调用 Gemini generate_content (对齐 LLM ABC)。"""
         try:
             response = self._model.generate_content(f"{system_prompt}\n\n{user_prompt}")
