@@ -1020,8 +1020,9 @@ class Memory:
             with contextlib.suppress(Exception):
                 self.summarizer.compress(user_id=user_id)
 
+        forgetting = kwargs.pop("forgetting", True)
         memories = self.search(
-            query, user_id=user_id, session_id=session_id, top_k=top_k, recipe=recipe, **kwargs
+            query, user_id=user_id, session_id=session_id, top_k=top_k, recipe=recipe, forgetting=forgetting, **kwargs
         )
 
         from types import SimpleNamespace
