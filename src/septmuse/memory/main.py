@@ -1021,6 +1021,8 @@ class Memory:
                 self.summarizer.compress(user_id=user_id)
 
         forgetting = kwargs.pop("forgetting", True)
+        kwargs.pop("inject_prompt", None)  # recall() has its own prompt assembly; search() inject_prompt not supported
+        kwargs.pop("token_budget", None)   # recall() has its own token budget logic; search() token_budget not supported
         memories = self.search(
             query, user_id=user_id, session_id=session_id, top_k=top_k, recipe=recipe, forgetting=forgetting, **kwargs
         )
