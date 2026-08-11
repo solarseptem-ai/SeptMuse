@@ -55,3 +55,19 @@ def test_search_no_llm_forgetting_works(memory):
     memory.add("some fact", user_id="alice", infer=False)
     results = memory.search("some", user_id="alice", forgetting=True)
     assert len(results) > 0
+
+
+def test_search_hyde_noop(memory):
+    """search(hyde=True) 不报错, 返回与默认一致。"""
+    memory.add("test fact", user_id="alice", infer=False)
+    results = memory.search("test", user_id="alice", hyde=True)
+    assert isinstance(results, list)
+    assert len(results) > 0
+
+
+def test_search_query_rewrite_noop(memory):
+    """search(query_rewrite=True) 不报错, 返回与默认一致。"""
+    memory.add("test fact", user_id="alice", infer=False)
+    results = memory.search("test", user_id="alice", query_rewrite=True)
+    assert isinstance(results, list)
+    assert len(results) > 0
