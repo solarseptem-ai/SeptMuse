@@ -112,3 +112,38 @@ def test_recall_tool_no_user_id():
 
     result = asyncio.run(recall("test", user_id=""))
     assert result.startswith("Error:")
+
+
+def test_improve_tool_basic(mock_memory):
+    """improve 工具：基本调用返回 JSON。"""
+    with patch("septmuse.api.mcp.tools.get_memory_safe", return_value=mock_memory):
+        import asyncio
+
+        from septmuse.api.mcp.tools import improve
+
+        result = asyncio.run(improve(user_id="alice"))
+        parsed = json.loads(result)
+        assert parsed["dream"]["links_created"] == 3
+        assert parsed["rules"] == 2
+        mock_memory.improve.assert_called_once_with(user_id="alice", limit=20)
+
+
+def test_improve_tool_no_user_id():
+    """improve 工具：缺 user_id 返回 Error。"""
+    import asyncio
+
+    from septmuse.api.mcp.tools import improve
+
+    result = asyncio.run(improve(user_id=""))
+    assert result.startswith("Error:")
+
+
+def test_improve_tool_no_memory():
+    """improve 工具：Memory 不可用返回 Error。"""
+    with patch("septmuse.api.mcp.tools.get_memory_safe", return_value=None):
+        import asyncio
+
+        from septmuse.api.mcp.tools import improve
+
+        result = asyncio.run(improve(user_id="alice"))
+        assert result.startswith("Error:")

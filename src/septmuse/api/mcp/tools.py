@@ -462,4 +462,33 @@ async def recall(
         return f"Error in recall: {e}"
 
 
-logger.info("mcp_tools_registered", count=20)
+@mcp.tool(
+    description="记忆管家：整理记忆→蒸馏教训→解决冲突→图谱生长→覆盖分析。在对话结束或空闲时调用，让SeptMuse整理和强化记忆。tasks可选指定子任务(distill/resolve_conflicts/grow_graph/analyze_coverage)，不传跑全部。"
+)
+async def improve(user_id: str = "", tasks: str = "") -> str:
+    """记忆管家演化入口。
+
+    Args:
+        user_id: 用户 ID（空则从 contextvar 读取）
+        tasks: 指定子任务，逗号分隔（如 "distill,resolve_conflicts"）。空=全部
+
+    Returns:
+        JSON: {dream, rules, coverage, conflicts}
+    """
+    uid = _resolve_user_id(user_id)
+    if not uid:
+        return "Error: user_id not provided (传 user_id 参数或设 SEPTMUSE_USER_ID 环境变量)"
+
+    mem = get_memory_safe()
+    if not mem:
+        return "Error: Memory system is currently unavailable. Please try again later."
+
+    try:
+        result = mem.improve(user_id=uid, limit=20)
+        # Phase 4: 按 tasks 过滤子任务
+        return json.dumps(result, ensure_ascii=False, default=str)
+    except Exception as e:
+        return f"Error in improve: {e}"
+
+
+logger.info("mcp_tools_registered", count=21)
