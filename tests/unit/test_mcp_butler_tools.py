@@ -147,3 +147,38 @@ def test_improve_tool_no_memory():
 
         result = asyncio.run(improve(user_id="alice"))
         assert result.startswith("Error:")
+
+
+def test_forget_tool_by_memory_id(mock_memory):
+    """forget 工具：按 memory_id 遗忘。"""
+    with patch("septmuse.api.mcp.tools.get_memory_safe", return_value=mock_memory):
+        import asyncio
+
+        from septmuse.api.mcp.tools import forget
+
+        result = asyncio.run(forget(user_id="alice", memory_id="mem-001"))
+        parsed = json.loads(result)
+        assert parsed["event"] == "FORGET"
+        assert parsed["invalidated_at"] is not None
+        mock_memory.forget.assert_called_once_with("mem-001", user_id="alice")
+
+
+def test_forget_tool_no_user_id():
+    """forget 工具：缺 user_id 返回 Error。"""
+    import asyncio
+
+    from septmuse.api.mcp.tools import forget
+
+    result = asyncio.run(forget(user_id="", memory_id="mem-001"))
+    assert result.startswith("Error:")
+
+
+def test_forget_tool_no_memory_id(mock_memory):
+    """forget 工具：缺 memory_id 返回 Error。"""
+    with patch("septmuse.api.mcp.tools.get_memory_safe", return_value=mock_memory):
+        import asyncio
+
+        from septmuse.api.mcp.tools import forget
+
+        result = asyncio.run(forget(user_id="alice", memory_id=""))
+        assert result.startswith("Error:")

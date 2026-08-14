@@ -52,7 +52,7 @@ def _run(coro):
 class TestToolRegistration:
     def test_tools_registered_count(self):
         tools_map = mcp._tool_manager._tools
-        assert len(tools_map) == 21
+        assert len(tools_map) == 22
 
     def test_required_tool_names(self):
         names = set(mcp._tool_manager._tools.keys())
@@ -78,6 +78,7 @@ class TestToolRegistration:
             "remember",
             "recall",
             "improve",
+            "forget",
         }
         assert expected == names
 

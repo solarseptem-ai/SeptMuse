@@ -491,4 +491,35 @@ async def improve(user_id: str = "", tasks: str = "") -> str:
         return f"Error in improve: {e}"
 
 
-logger.info("mcp_tools_registered", count=21)
+@mcp.tool(
+    description="记忆管家：遗忘指定记忆（先invalidate标记失效，再软删除）。memory_id=要遗忘的记忆ID。用于清理过时信息或用户要求忘记的内容。"
+)
+async def forget(user_id: str = "", memory_id: str = "") -> str:
+    """记忆管家遗忘入口。
+
+    Args:
+        user_id: 用户 ID（空则从 contextvar 读取）
+        memory_id: 要遗忘的记忆 ID（必填）
+
+    Returns:
+        JSON: {event, invalidated_at, deleted_at}
+    """
+    uid = _resolve_user_id(user_id)
+    if not uid:
+        return "Error: user_id not provided (传 user_id 参数或设 SEPTMUSE_USER_ID 环境变量)"
+
+    if not memory_id:
+        return "Error: memory_id is required"
+
+    mem = get_memory_safe()
+    if not mem:
+        return "Error: Memory system is currently unavailable. Please try again later."
+
+    try:
+        result = mem.forget(memory_id, user_id=uid)
+        return json.dumps(result, ensure_ascii=False, default=str)
+    except Exception as e:
+        return f"Error in forget: {e}"
+
+
+logger.info("mcp_tools_registered", count=22)
