@@ -527,7 +527,15 @@ def create_app(memory=None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        scheduler = None
+        if sync_memory is not None:
+            from septmuse.evolution.scheduler import EvolutionScheduler
+
+            scheduler = EvolutionScheduler(sync_memory)
+            scheduler.start()
         yield
+        if scheduler is not None:
+            scheduler.stop(timeout=10)
         for scope in ("memory", "async_memory"):
             mem = getattr(app.state, scope, None)
             engine = getattr(getattr(mem, "store", None), "engine", None)

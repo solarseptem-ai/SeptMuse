@@ -791,6 +791,21 @@ class Memory:
             self._dedup = SemanticDeduplicator(self.embedder, self.store, llm=self.llm)
         return self._dedup
 
+    @property
+    def _catchup_queue(self) -> Any:
+        if not hasattr(self, "_cu_queue"):
+            from septmuse.evolution.catchup import LLMCatchUpQueue
+
+            self._cu_queue = LLMCatchUpQueue(self.store.engine)
+        return self._cu_queue
+
+    def _enqueue_catchup(self, task_type: str, memory_id: str, *, user_id: str, payload: dict | None = None) -> None:
+        """LLM 不可用时入 catch-up 队列, 恢复后补跑。吞错不阻塞业务。"""
+        try:
+            self._catchup_queue.enqueue(task_type, memory_id, user_id=user_id, payload=payload)
+        except Exception as e:
+            logger.warning("catchup_enqueue_failed", task_type=task_type, error=str(e))
+
     def remember(
         self,
         text: str,
@@ -897,6 +912,9 @@ class Memory:
                 result["fact_ids"] = [e.get("id", "") for e in extracted if isinstance(e, dict)]
             except Exception as e:
                 logger.warning("remember_extract_failed", error=str(e))
+        else:
+            # LLM 不可用 → 入 catch-up 队列, 恢复后补跑
+            self._enqueue_catchup("fact_extraction", verbatim_id, user_id=user_id, payload={"text": stored_text})
 
         # [5.5] 冲突检测 (前移自 improve, 不解决只标注)
         if self.typed_store is not None and self.llm is not None:

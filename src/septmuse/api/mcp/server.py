@@ -94,8 +94,23 @@ def run_stdio() -> None:
         user_id_var.set(env_uid)
         logger.info("mcp_stdio_user_from_env", user_id=env_uid)
 
+    # 启动后台演化调度器
+    scheduler = None
+    mem = get_memory_safe()
+    if mem is not None:
+        from septmuse.evolution.scheduler import EvolutionScheduler
+
+        scheduler = EvolutionScheduler(mem)
+        scheduler.start()
+        logger.info("mcp_stdio_evolution_started")
+
     logger.info("mcp_stdio_starting")
-    mcp.run()
+    try:
+        mcp.run()
+    finally:
+        if scheduler is not None:
+            scheduler.stop(timeout=10)
+            logger.info("mcp_stdio_evolution_stopped")
 
 
 if __name__ == "__main__":
