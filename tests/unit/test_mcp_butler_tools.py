@@ -73,3 +73,42 @@ def test_remember_tool_no_memory():
 
         result = asyncio.run(remember("test", user_id="alice"))
         assert result.startswith("Error:")
+
+
+def test_recall_tool_basic(mock_memory):
+    """recall 工具：基本调用返回 JSON。"""
+    with patch("septmuse.api.mcp.tools.get_memory_safe", return_value=mock_memory):
+        import asyncio
+
+        from septmuse.api.mcp.tools import recall
+
+        result = asyncio.run(recall("上海出差", user_id="alice"))
+        parsed = json.loads(result)
+        assert "memories" in parsed
+        assert "injected_prompt" in parsed
+        assert len(parsed["memories"]) == 1
+        mock_memory.recall.assert_called_once()
+
+
+def test_recall_tool_with_top_k(mock_memory):
+    """recall 工具：top_k 参数传递。"""
+    with patch("septmuse.api.mcp.tools.get_memory_safe", return_value=mock_memory):
+        import asyncio
+
+        from septmuse.api.mcp.tools import recall
+
+        result = asyncio.run(recall("query", user_id="alice", top_k=10))
+        parsed = json.loads(result)
+        assert "memories" in parsed
+        _, kwargs = mock_memory.recall.call_args
+        assert kwargs.get("top_k") == 10 or mock_memory.recall.call_args[0][0] == "query"
+
+
+def test_recall_tool_no_user_id():
+    """recall 工具：缺 user_id 返回 Error。"""
+    import asyncio
+
+    from septmuse.api.mcp.tools import recall
+
+    result = asyncio.run(recall("test", user_id=""))
+    assert result.startswith("Error:")

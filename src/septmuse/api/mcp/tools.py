@@ -415,4 +415,51 @@ async def remember(text: str, user_id: str = "", agent_id: str = "", session_id:
         return f"Error in remember: {e}"
 
 
-logger.info("mcp_tools_registered", count=19)
+@mcp.tool(
+    description="记忆管家：智能检索记忆→压缩摘要→token裁剪→注入prompt→策略推荐。返回即用上下文包（摘要+记忆列表+冲突标注+行动建议）。agent需要回忆相关信息时调用，取代简单search。"
+)
+async def recall(
+    query: str,
+    user_id: str = "",
+    agent_id: str = "",
+    session_id: str = "",
+    top_k: int = 5,
+    token_budget: int = 2000,
+) -> str:
+    """记忆管家召回入口。
+
+    Args:
+        query: 查询文本
+        user_id: 用户 ID（空则从 contextvar 读取）
+        agent_id: agent ID（可选）
+        session_id: 会话 ID（可选）
+        top_k: 返回记忆数上限（默认 5）
+        token_budget: token 预算上限（默认 2000）
+
+    Returns:
+        JSON: {memories, injected_prompt, route, strategy, used_tokens}
+        Phase 2 将新增: summary, conflicts
+    """
+    uid = _resolve_user_id(user_id)
+    if not uid:
+        return "Error: user_id not provided (传 user_id 参数或设 SEPTMUSE_USER_ID 环境变量)"
+
+    mem = get_memory_safe()
+    if not mem:
+        return "Error: Memory system is currently unavailable. Please try again later."
+
+    try:
+        result = mem.recall(
+            query,
+            user_id=uid,
+            session_id=session_id or None,
+            top_k=top_k,
+            inject_prompt=True,
+            token_budget=token_budget,
+        )
+        return json.dumps(result, ensure_ascii=False, default=str)
+    except Exception as e:
+        return f"Error in recall: {e}"
+
+
+logger.info("mcp_tools_registered", count=20)
