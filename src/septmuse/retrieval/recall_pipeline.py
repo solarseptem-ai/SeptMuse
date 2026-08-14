@@ -33,6 +33,7 @@ class RecallPipeline:
         working_memory: Any | None = None,
         summarizer: Any | None = None,
         typed_store: Any | None = None,
+        llm: Any | None = None,
     ) -> None:
         self._search = search_pipeline
         self._meta = meta
@@ -40,6 +41,7 @@ class RecallPipeline:
         self._working_memory = working_memory
         self._summarizer = summarizer
         self._typed_store = typed_store
+        self._llm = llm
 
     def recall(
         self,
@@ -88,6 +90,24 @@ class RecallPipeline:
         else:
             budget_result = SimpleNamespace(texts=[item.text for item in items], used_tokens=0)
 
+        # [4.5] summarize
+        from septmuse.retrieval.recall_summarizer import RecallSummarizer
+
+        summarizer = RecallSummarizer(memories, llm=self._llm)
+        summary = summarizer.summarize()
+
+        # [4.6] conflict annotation
+        conflicts: list[dict[str, Any]] = []
+        if self._typed_store is not None:
+            from septmuse.retrieval.conflict_annotator import ConflictAnnotator
+
+            try:
+                facts = self._typed_store.get_all_facts(user_id=user_id)
+                annotator = ConflictAnnotator(llm=self._llm)
+                conflicts = annotator.annotate(memories, facts)
+            except Exception as e:
+                logger.warning("recall_conflict_annotate_failed", error=str(e))
+
         # [5] prompt assembly (with working_memory prefix)
         wm_prompt = ""
         if self._working_memory is not None:
@@ -122,4 +142,6 @@ class RecallPipeline:
             "injected_prompt": injected_prompt,
             "route": route_result,
             "strategy": strategy,
+            "summary": summary,
+            "conflicts": conflicts,
         }

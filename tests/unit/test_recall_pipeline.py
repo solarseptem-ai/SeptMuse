@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+from unittest.mock import MagicMock
 
 from septmuse.retrieval.recall_pipeline import RecallPipeline
 
@@ -234,10 +235,38 @@ class TestRecallPipelineReturnStructure:
     def test_return_has_all_keys(self) -> None:
         pipeline = _make_pipeline()
         result = pipeline.recall("query", user_id="alice")
-        assert set(result.keys()) == {"memories", "injected_prompt", "route", "strategy"}
+        assert set(result.keys()) == {"memories", "injected_prompt", "route", "strategy", "summary", "conflicts"}
 
     def test_memories_is_list(self) -> None:
         pipeline = _make_pipeline()
         result = pipeline.recall("query", user_id="alice")
         assert isinstance(result["memories"], list)
         assert len(result["memories"]) == 3
+
+
+def test_recall_returns_summary_and_conflicts():
+    """recall 返回包含 summary 和 conflicts 字段。"""
+    mock_search = MagicMock()
+    mock_search.search.return_value = [
+        {"id": "m1", "memory": "用户喜欢咖啡", "score": 0.9, "metadata": {}, "created_at": "2026-01-01T00:00:00Z"},
+    ]
+    pipeline = RecallPipeline(mock_search)
+    result = pipeline.recall("咖啡", user_id="alice")
+
+    assert "summary" in result
+    assert "conflicts" in result
+    assert isinstance(result["summary"], str)
+    assert isinstance(result["conflicts"], list)
+
+
+def test_recall_summary_fallback_no_llm():
+    """无 LLM 时 summary 是降级拼接（非空）。"""
+    mock_search = MagicMock()
+    mock_search.search.return_value = [
+        {"id": "m1", "memory": "用户喜欢咖啡", "score": 0.9, "metadata": {}, "created_at": "2026-01-01T00:00:00Z"},
+    ]
+    pipeline = RecallPipeline(mock_search)
+    result = pipeline.recall("咖啡", user_id="alice")
+
+    assert result["summary"] != ""
+    assert "咖啡" in result["summary"]

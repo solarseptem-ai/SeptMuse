@@ -243,8 +243,11 @@ class Memory:
             from septmuse.capture.pipeline import CapturePipeline
 
             return CapturePipeline(
-                self.store, self.embedder,
-                typed_store=self.typed_store, llm=self.llm, dedup_window=self._dedup_window,
+                self.store,
+                self.embedder,
+                typed_store=self.typed_store,
+                llm=self.llm,
+                dedup_window=self._dedup_window,
             )
 
         def make_token_budget() -> Any:
@@ -260,9 +263,7 @@ class Memory:
         def make_evolution() -> Any:
             from septmuse.memory.evolution import EvolutionEngine
 
-            return EvolutionEngine(
-                self.store, self.graph_store, self.embedder, self.typed_store, self.llm
-            )
+            return EvolutionEngine(self.store, self.graph_store, self.embedder, self.typed_store, self.llm)
 
         def make_forgetting() -> Any:
             from septmuse.retrieval.forgetting import ForgettingRetriever
@@ -310,14 +311,10 @@ class Memory:
 
             return QdrantVectorStore(
                 collection_name="septmuse_facts",
-                embedding_model_dims=getattr(
-                    vs, "_dim", self.config.vector_store.embedding_model_dims or 512
-                ),
+                embedding_model_dims=getattr(vs, "_dim", self.config.vector_store.embedding_model_dims or 512),
                 path=os.getenv("SEPTMUSE_QDRANT_PATH"),
                 host=os.getenv("SEPTMUSE_QDRANT_HOST"),
-                port=int(os.getenv("SEPTMUSE_QDRANT_PORT", "6333"))
-                if os.getenv("SEPTMUSE_QDRANT_HOST")
-                else None,
+                port=int(os.getenv("SEPTMUSE_QDRANT_PORT", "6333")) if os.getenv("SEPTMUSE_QDRANT_HOST") else None,
                 url=os.getenv("SEPTMUSE_QDRANT_URL"),
                 api_key=os.getenv("SEPTMUSE_QDRANT_API_KEY"),
                 enable_bm25=getattr(vs, "_enable_bm25", True),
@@ -555,6 +552,7 @@ class Memory:
                 working_memory=self.working_memory,
                 summarizer=self.summarizer,
                 typed_store=self.typed_store,
+                llm=self.llm,
             )
         return self._recall_pipeline
 
@@ -610,7 +608,11 @@ class Memory:
         )
 
     def get_all(
-        self, *, user_id: str, session_id: str | None = None, filters: dict[str, Any] | None = None,
+        self,
+        *,
+        user_id: str,
+        session_id: str | None = None,
+        filters: dict[str, Any] | None = None,
         show_expired: bool = False,
     ) -> dict[str, Any]:
         """列出全部记忆。"""
@@ -778,7 +780,13 @@ class Memory:
         Returns:
             {"captured": bool, "raw_id": str|None, "fact_ids": list, "memory_id": str}
         """
-        result: dict[str, Any] = {"captured": False, "raw_id": None, "fact_ids": [], "memory_ids": [], "memory_id": None}
+        result: dict[str, Any] = {
+            "captured": False,
+            "raw_id": None,
+            "fact_ids": [],
+            "memory_ids": [],
+            "memory_id": None,
+        }
 
         if not text or not text.strip():
             return result
