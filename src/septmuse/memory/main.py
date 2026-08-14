@@ -767,6 +767,30 @@ class Memory:
     # V2 编排 API (remember / recall / improve / forget)
     # ------------------------------------------------------------------
 
+    @property
+    def _importance_assessor(self) -> Any:
+        if not hasattr(self, "_importance"):
+            from septmuse.capture.importance import ImportanceAssessor
+
+            self._importance = ImportanceAssessor(llm=self.llm)
+        return self._importance
+
+    @property
+    def _classifier(self) -> Any:
+        if not hasattr(self, "_clf"):
+            from septmuse.capture.classifier import MemoryClassifier
+
+            self._clf = MemoryClassifier(llm=self.llm)
+        return self._clf
+
+    @property
+    def _deduplicator(self) -> Any:
+        if not hasattr(self, "_dedup"):
+            from septmuse.capture.dedup import SemanticDeduplicator
+
+            self._dedup = SemanticDeduplicator(self.embedder, self.store, llm=self.llm)
+        return self._dedup
+
     def remember(
         self,
         text: str,
@@ -786,6 +810,10 @@ class Memory:
             "fact_ids": [],
             "memory_ids": [],
             "memory_id": None,
+            "importance": 0.0,
+            "types": [],
+            "duplicate": None,
+            "conflicts": [],
         }
 
         if not text or not text.strip():
@@ -794,6 +822,42 @@ class Memory:
         if self.capture is None:
             logger.warning("remember_capture_unavailable", user_id=user_id)
             return result
+
+        # [0] 价值评估
+        importance = self._importance_assessor.assess(text)
+        result["importance"] = importance.score
+
+        if importance.score < 0.3:
+            raw_event = self.episodic.add_raw_log(
+                text,
+                user_id=user_id,
+                session_id=session_id or "default",
+                agent_id=agent_id,
+            )
+            result["raw_id"] = raw_event.id
+            result["captured"] = False
+            logger.info("remember_low_importance_skipped", user_id=user_id, score=importance.score)
+            return result
+
+        # [0.5] 类型分类
+        types = self._classifier.classify(text)
+        result["types"] = types
+
+        # [0.6] 语义去重
+        dup = self._deduplicator.find_duplicate(text, user_id=user_id)
+        result["duplicate"] = None
+        if dup is not None:
+            result["duplicate"] = {
+                "memory_id": dup.memory_id,
+                "similarity": dup.similarity,
+                "method": dup.method,
+            }
+            logger.info(
+                "remember_semantic_dup_found",
+                user_id=user_id,
+                dup_id=dup.memory_id,
+                similarity=dup.similarity,
+            )
 
         preprocess = self.capture.preprocess(text, user_id=user_id, agent_id=agent_id)
         if not preprocess.allowed:
@@ -833,6 +897,17 @@ class Memory:
                 result["fact_ids"] = [e.get("id", "") for e in extracted if isinstance(e, dict)]
             except Exception as e:
                 logger.warning("remember_extract_failed", error=str(e))
+
+        # [5.5] 冲突检测 (前移自 improve, 不解决只标注)
+        if self.typed_store is not None and self.llm is not None:
+            try:
+                from septmuse.evolution.conflict import ConflictResolver
+
+                resolver = ConflictResolver(self.typed_store, store=self.store, llm=self.llm)
+                detected = resolver.detect_conflicts(user_id=user_id)
+                result["conflicts"] = [{"topic": f"{c['key'][0]} {c['key'][1]}", "facts": c["facts"]} for c in detected]
+            except Exception as e:
+                logger.warning("remember_conflict_detect_failed", error=str(e))
 
         if agent_id is not None and self.working_memory is not None:
             with contextlib.suppress(Exception):

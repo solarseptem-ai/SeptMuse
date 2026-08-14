@@ -86,7 +86,7 @@ class TestRemember:
 
     def test_remember_with_agent_id(self, v2):
         """带 agent_id 的 remember 更新工作 block。"""
-        result = v2.remember("hello world", user_id="alice", agent_id="bot1", session_id="s1")
+        result = v2.remember("hello world 42", user_id="alice", agent_id="bot1", session_id="s1")
         assert result["captured"] is True
 
 
@@ -138,10 +138,7 @@ class TestImprove:
         v2.remember("test memory content", user_id="alice", session_id="s1")
         v2.improve(user_id="alice")
         facts = v2.semantic.get_all_facts(user_id="alice")
-        coverage_facts = [
-            f for f in facts
-            if "meta" in (f.tags or []) and "coverage" in (f.tags or [])
-        ]
+        coverage_facts = [f for f in facts if "meta" in (f.tags or []) and "coverage" in (f.tags or [])]
         assert len(coverage_facts) > 0
 
     def test_improve_zero_llm_skips_reflect(self, v2):
@@ -156,7 +153,7 @@ class TestForget:
 
     def test_forget_invalidates_then_deletes(self, v2):
         """forget 先 invalidate 再 delete (决策 5)。"""
-        result = v2.remember("to be forgotten", user_id="alice", session_id="s1")
+        result = v2.remember("to be forgotten 42", user_id="alice", session_id="s1")
         memory_id = result["memory_id"]
         forget_result = v2.forget(memory_id, user_id="alice")
         assert forget_result["event"] == "FORGET"
@@ -177,7 +174,7 @@ class TestZeroLLMDegradation:
 
     def test_zero_llm_all_methods_no_crash(self, v2):
         """零 LLM 模式下 4 个编排方法都不崩溃。"""
-        r1 = v2.remember("zero llm test", user_id="alice", session_id="s1")
+        r1 = v2.remember("zero llm test 42", user_id="alice", session_id="s1")
         assert r1["captured"] is True
 
         r2 = v2.recall("zero", user_id="alice")
