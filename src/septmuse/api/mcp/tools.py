@@ -473,8 +473,7 @@ async def recall(
         token_budget: token 预算上限（默认 2000）
 
     Returns:
-        JSON: {memories, injected_prompt, route, strategy, used_tokens}
-        Phase 2 将新增: summary, conflicts
+        JSON: {memories, injected_prompt, route, strategy, summary, conflicts}
     """
     uid = _resolve_user_id(user_id)
     if not uid:

@@ -25,6 +25,8 @@ def mock_memory():
         "route": "semantic",
         "strategy": "MAINTAIN",
         "used_tokens": 50,
+        "summary": "",
+        "conflicts": [],
     }
     m.improve.return_value = {
         "dream": {"links_created": 3, "processed": 5},
@@ -185,3 +187,34 @@ def test_forget_tool_no_memory_id(mock_memory):
 
         result = asyncio.run(forget(user_id="alice", memory_id=""))
         assert result.startswith("Error:")
+
+
+def test_recall_returns_summary_and_conflicts(mock_memory):
+    """recall MCP 工具返回包含 summary 和 conflicts。"""
+    mock_memory.recall.return_value = {
+        "memories": [{"id": "m1", "memory": "hello", "score": 0.9}],
+        "injected_prompt": "<memory>hello</memory>",
+        "route": None,
+        "strategy": None,
+        "summary": "用户喜欢咖啡",
+        "conflicts": [
+            {
+                "topic": "咖啡偏好",
+                "current": "喜欢",
+                "contradicting": "不喜欢",
+                "contradicting_memory_id": "m2",
+                "suggestion": "建议询问",
+            }
+        ],
+    }
+    with patch("septmuse.api.mcp.tools.get_memory_safe", return_value=mock_memory):
+        import asyncio
+
+        from septmuse.api.mcp.tools import recall
+
+        result = asyncio.run(recall("咖啡", user_id="alice"))
+        parsed = json.loads(result)
+        assert "summary" in parsed
+        assert parsed["summary"] == "用户喜欢咖啡"
+        assert "conflicts" in parsed
+        assert len(parsed["conflicts"]) == 1
