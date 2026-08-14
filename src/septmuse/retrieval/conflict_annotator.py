@@ -31,13 +31,13 @@ class ConflictAnnotator:
         llm: LLM 实例（可选，None 时只做规则匹配）
     """
 
-    def __init__(self, llm: "LLM | None" = None) -> None:
+    def __init__(self, llm: LLM | None = None) -> None:
         self._llm = llm
 
     def annotate(
         self,
         memories: list[dict[str, Any]],
-        facts: list["SemanticFact"],
+        facts: list[SemanticFact],
     ) -> list[dict[str, Any]]:
         """在事实列表中找矛盾并返回冲突标注。
 
@@ -72,9 +72,8 @@ class ConflictAnnotator:
                 fact1 = f"{earliest.subject} {earliest.predicate} {earliest.object}"
                 fact2 = f"{newer_fact.subject} {newer_fact.predicate} {newer_fact.object}"
 
-                if self._llm is not None:
-                    if not self._llm_says_conflict(fact1, fact2):
-                        continue
+                if self._llm is not None and not self._llm_says_conflict(fact1, fact2):
+                    continue
 
                 conflicts.append(
                     {
