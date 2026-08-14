@@ -375,4 +375,44 @@ async def list_entities(user_id: str = "", entity_type: str = "", limit: int = 1
         return f"Error listing entities: {e}"
 
 
-logger.info("mcp_tools_registered", count=18)
+# ---------------------------------------------------------------------------
+# V2 编排 API 工具 (记忆管家 — remember/recall/improve/forget)
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool(
+    description="记忆管家：自动捕获文本→抽取事实→分类存储→更新工作记忆。agent只需传入对话文本，SeptMuse自主决定存什么、怎么分类。每次用户透露个人信息、偏好、计划或重要事实时调用。"
+)
+async def remember(text: str, user_id: str = "", agent_id: str = "", session_id: str = "") -> str:
+    """记忆管家写入入口。
+
+    Args:
+        text: 要记忆的文本（对话片段、用户陈述等）
+        user_id: 用户 ID（空则从 contextvar 读取）
+        agent_id: agent ID（可选）
+        session_id: 会话 ID（可选，用于会话隔离）
+
+    Returns:
+        JSON: {captured, raw_id, fact_ids, memory_ids, memory_id}
+    """
+    uid = _resolve_user_id(user_id)
+    if not uid:
+        return "Error: user_id not provided (传 user_id 参数或设 SEPTMUSE_USER_ID 环境变量)"
+
+    mem = get_memory_safe()
+    if not mem:
+        return "Error: Memory system is currently unavailable. Please try again later."
+
+    try:
+        result = mem.remember(
+            text,
+            user_id=uid,
+            session_id=session_id or None,
+            agent_id=agent_id or None,
+        )
+        return json.dumps(result, ensure_ascii=False, default=str)
+    except Exception as e:
+        return f"Error in remember: {e}"
+
+
+logger.info("mcp_tools_registered", count=19)
