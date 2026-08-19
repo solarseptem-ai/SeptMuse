@@ -19,7 +19,7 @@ import os
 from typing import Any
 
 from septmuse.core.logging import get_logger
-from septmuse.llms.base import LLM
+from septmuse.llms.base import LLM, _robust_json_parse
 
 logger = get_logger(__name__)
 
@@ -62,3 +62,25 @@ class OllamaLLM(LLM):
         except Exception as e:
             logger.error("ollama_complete_failed", error=str(e))
             raise
+
+    def complete_json(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        schema: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """使用 Ollama format=json 返回结构化输出。"""
+        try:
+            response = self._client.chat(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                format="json",
+            )
+            content = response["message"]["content"]
+            return _robust_json_parse(content)
+        except Exception:
+            logger.debug("ollama_json_mode_failed", model=self.model)
+        return super().complete_json(system_prompt, user_prompt)

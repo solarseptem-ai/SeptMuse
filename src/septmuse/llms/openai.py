@@ -19,7 +19,7 @@ import os
 from typing import Any
 
 from septmuse.core.logging import get_logger
-from septmuse.llms.base import LLM
+from septmuse.llms.base import LLM, _robust_json_parse
 
 logger = get_logger(__name__)
 
@@ -94,3 +94,28 @@ class OpenAILLM(LLM):
         except Exception as e:
             logger.error("openai_complete_failed", error=str(e))
             raise
+
+    def complete_json(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        schema: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """使用 OpenAI JSON mode 返回结构化输出。"""
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        try:
+            response = self._client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                response_format={"type": "json_object"},
+                stream=False,
+            )
+            content = response.choices[0].message.content
+            if content is not None:
+                return _robust_json_parse(content)
+        except Exception:
+            logger.debug("openai_json_mode_failed", model=self.model)
+        return super().complete_json(system_prompt, user_prompt)
