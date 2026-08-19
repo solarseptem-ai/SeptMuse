@@ -7,12 +7,9 @@
 from __future__ import annotations
 
 from septmuse.core.logging import get_logger
+from septmuse.prompts.hyde import HYDE_PROMPT
 
 logger = get_logger(__name__)
-
-HYDE_SYSTEM_PROMPT = "You are a helpful assistant. Given a question, write a 1-2 sentence direct answer that addresses it. Be specific and factual. Do not add preamble."
-
-HYDE_USER_TEMPLATE = "Question: {query}\n\nWrite a 1-2 sentence hypothetical answer:"
 
 
 def generate_hypothetical_document(query: str, llm: object | None) -> str | None:
@@ -28,8 +25,8 @@ def generate_hypothetical_document(query: str, llm: object | None) -> str | None
     if llm is None:
         return None
     try:
-        prompt = HYDE_USER_TEMPLATE.format(query=query)
-        result = llm.complete(HYDE_SYSTEM_PROMPT, prompt)
+        prompt = HYDE_PROMPT.format(query=query)
+        result = llm.complete("", prompt)
         if result and result.strip():
             return result.strip()
         return None
