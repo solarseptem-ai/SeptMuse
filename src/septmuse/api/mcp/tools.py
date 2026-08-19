@@ -72,8 +72,12 @@ async def add_memories(content: str, user_id: str = "", infer: bool = False, ses
         return f"Error adding to memory: {e}"
 
 
-@mcp.tool(description="搜索记忆召回相关内容。query=查询文本, user_id=用户ID, top_k=返回数量(默认5), session_id=会话过滤, filters=字段过滤字典。用户提问时调用以召回长期记忆。")
-async def search_memory(query: str, user_id: str = "", top_k: int = 5, session_id: str = "", filters: dict | None = None):
+@mcp.tool(
+    description="搜索记忆召回相关内容。query=查询文本, user_id=用户ID, top_k=返回数量(默认5), session_id=会话过滤, filters=字段过滤字典。用户提问时调用以召回长期记忆。"
+)
+async def search_memory(
+    query: str, user_id: str = "", top_k: int = 5, session_id: str = "", filters: dict | None = None
+):
     """搜索记忆。
 
     session_id: 仅搜该会话的记忆 (空字符串=不限)。
@@ -95,7 +99,9 @@ async def search_memory(query: str, user_id: str = "", top_k: int = 5, session_i
         return f"Error searching memory: {e}"
 
 
-@mcp.tool(description="列出用户全部记忆。user_id=用户ID(缺省读contextvar)。需要查看用户所有已存储记忆时调用,不做语义搜索。")
+@mcp.tool(
+    description="列出用户全部记忆。user_id=用户ID(缺省读contextvar)。需要查看用户所有已存储记忆时调用,不做语义搜索。"
+)
 async def list_memories(user_id: str = ""):
     """列出全部记忆。"""
     uid = _resolve_user_id(user_id)
@@ -113,7 +119,9 @@ async def list_memories(user_id: str = ""):
         return f"Error getting memories: {e}"
 
 
-@mcp.tool(description="按ID批量删除记忆(软删除,标记state=deleted)。memory_ids=记忆ID列表, user_id=用户ID。用户要求删除特定记忆时调用,记忆不会被物理删除。")
+@mcp.tool(
+    description="按ID批量删除记忆(软删除,标记state=deleted)。memory_ids=记忆ID列表, user_id=用户ID。用户要求删除特定记忆时调用,记忆不会被物理删除。"
+)
 async def delete_memories(memory_ids: list[str], user_id: str = ""):
     """按 ID 删除。"""
     uid = _resolve_user_id(user_id)
@@ -134,7 +142,9 @@ async def delete_memories(memory_ids: list[str], user_id: str = ""):
     return f"Successfully deleted {deleted}/{len(memory_ids)} memories"
 
 
-@mcp.tool(description="删除用户全部记忆(软删除)。user_id=用户ID。用户要求清空所有记忆时调用,危险操作不可恢复,建议先确认。")
+@mcp.tool(
+    description="删除用户全部记忆(软删除)。user_id=用户ID。用户要求清空所有记忆时调用,危险操作不可恢复,建议先确认。"
+)
 async def delete_all_memories(user_id: str = ""):
     """删除全部。"""
     uid = _resolve_user_id(user_id)
@@ -162,7 +172,9 @@ async def delete_all_memories(user_id: str = ""):
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool(description="记录成功交互的推理经验。observation=观察, thoughts=思考, action=行动, outcome=结果, user_id=用户ID。任务成功完成时调用以沉淀经验用于后续复用。")
+@mcp.tool(
+    description="记录成功交互的推理经验。observation=观察, thoughts=思考, action=行动, outcome=结果, user_id=用户ID。任务成功完成时调用以沉淀经验用于后续复用。"
+)
 async def remember_episode(observation: str, thoughts: str, action: str, outcome: str, user_id: str = ""):
     """记录推理经验 (架构文档 §3.2.1)。
 
@@ -190,7 +202,9 @@ async def remember_episode(observation: str, thoughts: str, action: str, outcome
         return f"Error recording episode: {e}"
 
 
-@mcp.tool(description="反事实因果查询:若某事件未发生,结果是否仍成立。cause_event_id=原因事件ID, hypothesized_effect=假设结果, user_id=用户ID。需要分析因果关系或做假设推理时调用。")
+@mcp.tool(
+    description="反事实因果查询:若某事件未发生,结果是否仍成立。cause_event_id=原因事件ID, hypothesized_effect=假设结果, user_id=用户ID。需要分析因果关系或做假设推理时调用。"
+)
 async def causal_query(cause_event_id: str, hypothesized_effect: str, user_id: str = ""):
     """因果查询 (架构文档 §6.1)。"""
     uid = _resolve_user_id(user_id)
@@ -206,7 +220,9 @@ async def causal_query(cause_event_id: str, hypothesized_effect: str, user_id: s
         return f"Error in causal query: {e}"
 
 
-@mcp.tool(description="触发主动复述强化低强度高价值记忆。user_id=用户ID, memory_id=指定记忆(空则批量复述候选)。记忆强度衰减时调用以回升强度防止遗忘。")
+@mcp.tool(
+    description="触发主动复述强化低强度高价值记忆。user_id=用户ID, memory_id=指定记忆(空则批量复述候选)。记忆强度衰减时调用以回升强度防止遗忘。"
+)
 async def rehearse(user_id: str = "", memory_id: str = ""):
     """主动复述 (架构文档 §6.2)。memory_id 为空时批量复述候选。"""
     uid = _resolve_user_id(user_id)
@@ -229,7 +245,9 @@ async def rehearse(user_id: str = "", memory_id: str = ""):
         return f"Error in rehearse: {e}"
 
 
-@mcp.tool(description="生成元认知覆盖报告:agent记住了什么/记不住什么。user_id=用户ID。需要自省记忆覆盖情况、发现知识盲区时调用,返回强弱领域和覆盖分数。")
+@mcp.tool(
+    description="生成元认知覆盖报告:agent记住了什么/记不住什么。user_id=用户ID。需要自省记忆覆盖情况、发现知识盲区时调用,返回强弱领域和覆盖分数。"
+)
 async def coverage_report(user_id: str = ""):
     """覆盖报告 (架构文档 §6.3)。"""
     uid = _resolve_user_id(user_id)
@@ -250,7 +268,9 @@ async def coverage_report(user_id: str = ""):
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool(description="更新已有记忆的内容或metadata。memory_id=记忆ID, content=新内容(空则不改), user_id=用户ID, metadata=JSON字符串(空则不改)。记忆内容需修正或补充时调用。")
+@mcp.tool(
+    description="更新已有记忆的内容或metadata。memory_id=记忆ID, content=新内容(空则不改), user_id=用户ID, metadata=JSON字符串(空则不改)。记忆内容需修正或补充时调用。"
+)
 async def update_memory(memory_id: str, content: str = "", user_id: str = "", metadata: str = ""):
     """更新记忆。metadata 传 JSON 字符串或空。"""
     uid = _resolve_user_id(user_id)
@@ -267,7 +287,9 @@ async def update_memory(memory_id: str, content: str = "", user_id: str = "", me
         return f"Error updating memory: {e}"
 
 
-@mcp.tool(description="更新工作记忆Block的值(整体替换)。agent_id=agent标识, label=block标签, value=新值, user_id=用户ID。需要修改agent工作记忆整体内容时调用。")
+@mcp.tool(
+    description="更新工作记忆Block的值(整体替换)。agent_id=agent标识, label=block标签, value=新值, user_id=用户ID。需要修改agent工作记忆整体内容时调用。"
+)
 async def update_block(agent_id: str, label: str, value: str, user_id: str = ""):
     """更新 block value。"""
     mem = get_memory_safe()
@@ -280,7 +302,9 @@ async def update_block(agent_id: str, label: str, value: str, user_id: str = "")
         return f"Error updating block: {e}"
 
 
-@mcp.tool(description="追加内容到工作记忆Block末尾。agent_id=agent标识, label=block标签, content=追加文本, user_id=用户ID。需要向工作记忆增量补充信息时调用。")
+@mcp.tool(
+    description="追加内容到工作记忆Block末尾。agent_id=agent标识, label=block标签, content=追加文本, user_id=用户ID。需要向工作记忆增量补充信息时调用。"
+)
 async def core_memory_append(agent_id: str, label: str, content: str, user_id: str = ""):
     """追加 block 内容。"""
     mem = get_memory_safe()
@@ -293,7 +317,9 @@ async def core_memory_append(agent_id: str, label: str, content: str, user_id: s
         return f"Error appending to block: {e}"
 
 
-@mcp.tool(description="替换工作记忆Block中的内容片段。agent_id=agent标识, label=block标签, old_content=待替换片段, new_content=新片段, user_id=用户ID。需精确修改工作记忆中某段文字时调用。")
+@mcp.tool(
+    description="替换工作记忆Block中的内容片段。agent_id=agent标识, label=block标签, old_content=待替换片段, new_content=新片段, user_id=用户ID。需精确修改工作记忆中某段文字时调用。"
+)
 async def core_memory_replace(agent_id: str, label: str, old_content: str, new_content: str, user_id: str = ""):
     """替换 block 内容片段。"""
     mem = get_memory_safe()
@@ -306,7 +332,9 @@ async def core_memory_replace(agent_id: str, label: str, old_content: str, new_c
         return f"Error replacing block content: {e}"
 
 
-@mcp.tool(description="列出agent的工作记忆Block列表。agent_id=agent标识, user_id=用户ID。需要查看agent当前工作记忆全部block内容时调用。")
+@mcp.tool(
+    description="列出agent的工作记忆Block列表。agent_id=agent标识, user_id=用户ID。需要查看agent当前工作记忆全部block内容时调用。"
+)
 async def get_blocks(agent_id: str, user_id: str = ""):
     """列出 block。"""
     mem = get_memory_safe()
@@ -319,7 +347,9 @@ async def get_blocks(agent_id: str, user_id: str = ""):
         return f"Error getting blocks: {e}"
 
 
-@mcp.tool(description="查看记忆的变更历史(ADD/UPDATE/DELETE记录)。memory_id=记忆ID, user_id=用户ID。需要审计记忆修改轨迹或排查数据变更时调用。")
+@mcp.tool(
+    description="查看记忆的变更历史(ADD/UPDATE/DELETE记录)。memory_id=记忆ID, user_id=用户ID。需要审计记忆修改轨迹或排查数据变更时调用。"
+)
 async def get_memory_history(memory_id: str, user_id: str = ""):
     """查看记忆历史。"""
     mem = get_memory_safe()
@@ -332,7 +362,9 @@ async def get_memory_history(memory_id: str, user_id: str = ""):
         return f"Error getting history: {e}"
 
 
-@mcp.tool(description="标记记忆不再为真(双时态:设置invalid_at+expired_at,不删除记忆)。memory_id=记忆ID, user_id=用户ID, invalid_at=失效时间。事实过期或被推翻时调用,保留历史轨迹。")
+@mcp.tool(
+    description="标记记忆不再为真(双时态:设置invalid_at+expired_at,不删除记忆)。memory_id=记忆ID, user_id=用户ID, invalid_at=失效时间。事实过期或被推翻时调用,保留历史轨迹。"
+)
 async def invalidate_memory(memory_id: str, user_id: str = "", invalid_at: str = ""):
     """标记事实失效 (双时态建模)。"""
     mem = get_memory_safe()
@@ -345,7 +377,9 @@ async def invalidate_memory(memory_id: str, user_id: str = "", invalid_at: str =
         return f"Error invalidating memory: {e}"
 
 
-@mcp.tool(description="搜索实体(精确匹配+向量相似度)。query=查询文本, user_id=用户ID(必填), top_k=返回数量(默认5)。需要查找人物、地点、概念等实体时调用。")
+@mcp.tool(
+    description="搜索实体(精确匹配+向量相似度)。query=查询文本, user_id=用户ID(必填), top_k=返回数量(默认5)。需要查找人物、地点、概念等实体时调用。"
+)
 async def search_entities(query: str, user_id: str = "", top_k: int = 5):
     """搜索实体。"""
     mem = get_memory_safe()
@@ -360,7 +394,9 @@ async def search_entities(query: str, user_id: str = "", top_k: int = 5):
         return f"Error searching entities: {e}"
 
 
-@mcp.tool(description="列出用户全部未删除实体。user_id=用户ID(必填), entity_type=类型过滤(空则全部), limit=返回上限(默认100)。需要浏览用户所有实体清单时调用。")
+@mcp.tool(
+    description="列出用户全部未删除实体。user_id=用户ID(必填), entity_type=类型过滤(空则全部), limit=返回上限(默认100)。需要浏览用户所有实体清单时调用。"
+)
 async def list_entities(user_id: str = "", entity_type: str = "", limit: int = 100):
     """列出实体。"""
     mem = get_memory_safe()

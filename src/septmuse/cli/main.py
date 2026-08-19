@@ -157,6 +157,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_serve.add_argument("--host", default="127.0.0.1", help="绑定地址")
     p_serve.add_argument("--port", type=int, default=8000, help="端口")
     p_serve.add_argument("--with-rest", action="store_true", help="额外挂载 REST API")
+    p_serve.add_argument("--workers", type=int, default=1, help="worker 进程数 (多 worker 需配合 PostgreSQL)")
     p_serve.add_argument("--db-path", default=None, help="SQLite 路径")
     p_serve.set_defaults(func=_cmd_serve)
 
@@ -236,6 +237,12 @@ def _build_parser() -> argparse.ArgumentParser:
     p_al.add_argument("--limit", type=int, default=100, help="返回数")
     p_al.add_argument("--db-path", default=None, help="SQLite 路径")
     p_al.set_defaults(func=_cmd_access_logs)
+
+    # backup — SQLite 备份
+    p_backup = sub.add_parser("backup", help="备份 SQLite 数据库 (VACUUM INTO)")
+    p_backup.add_argument("--output", default=None, help="输出文件路径 (默认 <db_path>.backup-<timestamp>.db)")
+    p_backup.add_argument("--db-path", default=None, help="SQLite 路径")
+    p_backup.set_defaults(func=_cmd_backup)
 
     return parser
 
@@ -364,6 +371,34 @@ def _cmd_block_list(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_backup(args: argparse.Namespace) -> int:
+    """备份 SQLite 数据库 (VACUUM INTO 一致性快照)。"""
+    db_path = _resolve_db_path(args.db_path)
+
+    if os.getenv("SEPTMUSE_DB_URL") and not db_path.endswith(".db"):
+        print("backup 命令仅支持 SQLite。PostgreSQL 请用 pg_dump，MySQL 请用 mysqldump。", file=sys.stderr)
+        return 1
+
+    if args.output:
+        output = args.output
+    else:
+        from datetime import datetime
+
+        ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+        output = f"{db_path}.backup-{ts}.db"
+
+    from sqlalchemy import create_engine, text
+
+    engine = create_engine(f"sqlite:///{db_path}")
+    try:
+        with engine.connect() as conn:
+            conn.execute(text(f"VACUUM INTO '{output}'"))
+        print(f"backup: {output}")
+    finally:
+        engine.dispose()
+    return 0
+
+
 def _cmd_serve(args: argparse.Namespace) -> int:
     """启动 HTTP/SSE MCP server (uvicorn + FastAPI)。"""
     try:
@@ -379,8 +414,29 @@ def _cmd_serve(args: argparse.Namespace) -> int:
 
     from septmuse.api.mcp.server import setup_mcp_server
 
+    workers = max(1, args.workers)
+
+    if workers > 1:
+        if not os.getenv("SEPTMUSE_DB_URL"):
+            print(
+                "WARNING: SQLite + 多 worker 可能导致写冲突。生产环境请用 PostgreSQL (SEPTMUSE_DB_URL)。",
+                file=sys.stderr,
+            )
+        if not args.with_rest:
+            print("WARNING: 多 worker 仅支持 --with-rest 模式，回退到 1 worker。", file=sys.stderr)
+            workers = 1
+
+    if workers > 1:
+        print(f"septmuse serve: http://{args.host}:{args.port} ({workers} workers)")
+        uvicorn.run("septmuse.api.rest:app", host=args.host, port=args.port, workers=workers)
+        return 0
+
     app = FastAPI(title="SeptMuse MCP Server")
     setup_mcp_server(app)
+
+    from septmuse.api.rate_limit import setup_rate_limit
+
+    setup_rate_limit(app)
 
     if args.with_rest:
         from septmuse.api.rest import register_routes

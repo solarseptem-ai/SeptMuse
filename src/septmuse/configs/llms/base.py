@@ -27,6 +27,7 @@ class BaseLLMConfig(BaseModel):
 
     backend: str = Field(default="", description="provider 后端标识, 如 openai/ollama/anthropic/dashscope")
     model: str | None = Field(default=None, description="模型名")
+    base_url: str | None = Field(default=None, description="OpenAI 兼容端点, 如 http://localhost:7521/v1")
     temperature: float = Field(default=0.1, description="采样温度")
     api_key: str | None = Field(default=None, description="API key")
     max_tokens: int = Field(default=2000, description="最大 token 数")

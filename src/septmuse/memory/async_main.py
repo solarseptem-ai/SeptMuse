@@ -13,6 +13,7 @@ from typing import Any
 from septmuse.configs.base import MemoryConfig
 from septmuse.configs.defaults import default_config
 from septmuse.core.logging import get_logger
+from septmuse.core.messages import normalize_messages as _normalize_messages
 from septmuse.embedders.base import Embedder
 from septmuse.embedders.cached import CachedEmbedder
 from septmuse.embedders.resolver import resolve_embedder
@@ -20,21 +21,6 @@ from septmuse.llms.base import LLM
 from septmuse.storage.async_base import AsyncMemoryStore
 
 logger = get_logger(__name__)
-
-
-def _normalize_messages(messages: Any) -> list[str]:
-    """消息标准化（复用 sync 版逻辑）。"""
-    if isinstance(messages, str):
-        return [messages]
-    if isinstance(messages, list):
-        texts: list[str] = []
-        for msg in messages:
-            if isinstance(msg, dict):
-                texts.append(msg.get("content", ""))
-            elif isinstance(msg, str):
-                texts.append(msg)
-        return [t for t in texts if t.strip()]
-    return []
 
 
 class AsyncMemory:

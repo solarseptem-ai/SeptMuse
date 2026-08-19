@@ -1,0 +1,1217 @@
+{
+  "question_id": "conv0_q125",
+  "conversation_idx": 0,
+  "category": 4,
+  "category_name": "single-hop",
+  "question": "Where did Oliver hide his bone once?",
+  "ground_truth_answer": "In Melanie's slipper",
+  "user_id": "locomo_0_a65c10d4",
+  "reference_date": "9:55 am on 22 October, 2023",
+  "retrieval": {
+    "search_query": "Where did Oliver hide his bone once?",
+    "search_results": [
+      {
+        "memory": "Caroline: I was out walking in my neighborhood when I came across this cool rainbow sidewalk for Pride Month. It was so vibrant and welcoming, I had to take a picture! It reminds us that love and acceptance are everywhere—even where we least expect it.",
+        "score": 0.01429864253393665,
+        "id": "mem-de709471-a0f8-4c17-a004-d7318ce66405",
+        "created_at": "2026-08-07T06:41:36.272043+00:00"
+      },
+      {
+        "memory": "Melanie: Wow, Caroline! That's huge! How did it feel to be around so much love and acceptance?",
+        "score": 0.013831811263318113,
+        "id": "mem-39ffa5ca-8d07-498f-a42c-2595be77015a",
+        "created_at": "2026-08-07T06:41:25.913310+00:00"
+      },
+      {
+        "memory": "Caroline: Hi Melanie! Hope you're doing good. Guess what I did this week? I took the first step towards becoming a mom - I applied to adoption agencies! It's a big decision, but I think I'm ready to give all my love to a child. I got lots of help from this adoption advice/assistance group I attended. It was great! [Sharing image - query: adoption brochures application forms external adoption advice assistance group. The image shows: a photo of a sign with a picture of a guinea pig]",
+        "score": 0.012391975308641974,
+        "id": "mem-a6c89043-838b-4463-a826-747ec9ec027f",
+        "created_at": "2026-08-07T06:41:33.221214+00:00"
+      },
+      {
+        "memory": "Caroline: Hey Mel! How're ya doin'? Recently, I had a not-so-great experience on a hike. I ran into a group of religious conservatives who said something that really upset me. It made me think how much work we still have to do for LGBTQ rights. It's been so helpful to have people around me who accept and support me, so I know I'll be ok!",
+        "score": 0.011475409836065573,
+        "id": "mem-943c2cd5-077e-4014-85d0-562de67d6407",
+        "created_at": "2026-08-07T06:41:31.565777+00:00"
+      },
+      {
+        "memory": "Caroline: That's great, Mel! Taking time for yourself is so important. You're doing an awesome job looking after yourself and your family!",
+        "score": 0.01129032258064516,
+        "id": "mem-f3daaea2-845e-4987-9487-4dda6c998007",
+        "created_at": "2026-08-07T06:41:15.632126+00:00"
+      },
+      {
+        "memory": "Melanie: Wow, that sounds great - I agree, they're awesome. Here's a photo of my horse painting I did recently. [Sharing image - query: horse painting. The image shows: a photo of a horse painted on a wooden wall]",
+        "score": 0.011267232237539766,
+        "id": "mem-0d157f5e-2e8a-479d-971d-068e206509de",
+        "created_at": "2026-08-07T06:41:33.767602+00:00"
+      },
+      {
+        "memory": "Melanie: Thanks, Caroline! I'm excited to see where pottery takes me. Anything coming up you're looking forward to?",
+        "score": 0.011212121212121211,
+        "id": "mem-50a9ac00-a988-4405-a7b9-6ce9399225bb",
+        "created_at": "2026-08-07T06:41:20.264071+00:00"
+      },
+      {
+        "memory": "Caroline: Yes, I did. It was amazing! I felt so accepted and happy, just being around people who accepted and celebrated me. It's definitely a top memory. [Sharing image - query: lgbtq+ pride parade vibrant flags smiling faces. The image shows: a photo of a group of people holding up signs and smiling]",
+        "score": 0.011156045181982986,
+        "id": "mem-b0f32b2a-59e8-4749-bd74-9cb7587bf1d7",
+        "created_at": "2026-08-07T06:41:25.713585+00:00"
+      },
+      {
+        "memory": "Caroline: I struggled with mental health, and support I got was really helpful. It made me realize how important it is for others to have a support system. So, I started looking into counseling and mental health career options, so I could help other people on their own journeys like I was helped.",
+        "score": 0.01111111111111111,
+        "id": "mem-704101a1-5b02-495c-91aa-658eaa45aa00",
+        "created_at": "2026-08-07T06:41:22.314331+00:00"
+      },
+      {
+        "memory": "Melanie: You're doing something amazing! Creating a family for those kids is so lovely. You'll be an awesome mom! Good luck!",
+        "score": 0.0109375,
+        "id": "mem-0836c4d2-d48d-407c-8805-d6e435530508",
+        "created_at": "2026-08-07T06:41:16.252431+00:00"
+      },
+      {
+        "memory": "Melanie: Wow, Caroline, you're doing an awesome job of inspiring others with your journey. It's great to be part of it and see how you're positively affecting so many. Talking about inclusivity and acceptance is crucial, and you're so brave to speak up for the trans community. Keep up the great work!",
+        "score": 0.010606060606060605,
+        "id": "mem-896e2053-f647-424e-9f30-ea3c098c71e8",
+        "created_at": "2026-08-07T06:41:16.673072+00:00"
+      },
+      {
+        "memory": "Caroline: Ah, they're adorable! What are their names? Pets sure do bring so much joy to us!",
+        "score": 0.01044776119402985,
+        "id": "mem-2af83136-bc4d-4ab1-9d17-9fd2e5c330b2",
+        "created_at": "2026-08-07T06:41:23.045176+00:00"
+      },
+      {
+        "memory": "Caroline: Wow, your kids had so much fun at the park! Being outdoors can be really enjoyable. A lot happened since our last chat. I've been chasing my ambitions and had the chance to volunteer at an LGBTQ+ youth center. It was so gratifying to talk to similar young people. It made me remember how essential it is to be kind and show support.",
+        "score": 0.010294117647058823,
+        "id": "mem-99eb0f78-dbff-4889-88a8-f5eee900a75f",
+        "created_at": "2026-08-07T06:41:37.392933+00:00"
+      },
+      {
+        "memory": "Caroline: I'm definitely carrying on volunteering at the youth center. It's an important part of my life and I've made strong connections with people there. I really believe in community and supporting each other. So I wanna keep making a difference.",
+        "score": 0.010144927536231883,
+        "id": "mem-ba2a00e4-8507-4419-b48f-28de561f48d2",
+        "created_at": "2026-08-07T06:41:37.795233+00:00"
+      },
+      {
+        "memory": "Melanie: Wow, that's cool, Caroline! What happened that was so awesome? Did you hear any inspiring stories?",
+        "score": 0.010072115384615384,
+        "id": "mem-218c5680-bea4-4722-b278-aed6fd331020",
+        "created_at": "2026-08-07T06:41:14.376117+00:00"
+      },
+      {
+        "memory": "Caroline: Thanks, Melanie! Been a long road, but I'm proud of how far I've come. How're you doing finding peace?",
+        "score": 0.01,
+        "id": "mem-46a988ff-63a9-40ec-8506-39df37f21ac8",
+        "created_at": "2026-08-07T06:41:26.271957+00:00"
+      },
+      {
+        "memory": "Caroline: Woohoo Melanie! I passed the adoption agency interviews last Friday! I'm so excited and thankful. This is a big move towards my goal of having a family.",
+        "score": 0.009859154929577464,
+        "id": "mem-e2f409d5-39c8-47ff-93a6-d8d833c9a0c1",
+        "created_at": "2026-08-07T06:41:44.533864+00:00"
+      },
+      {
+        "memory": "Caroline: Glad it helped ya, Melanie!",
+        "score": 0.00958904109589041,
+        "id": "mem-b5f652ba-97db-49b1-93a5-6a02dcf51b75",
+        "created_at": "2026-08-07T06:41:23.775827+00:00"
+      },
+      {
+        "memory": "Melanie: Wow, that's gorgeous! Where did you find it?",
+        "score": 0.00945989133908597,
+        "id": "mem-9279ecb7-4e7d-4b93-a18a-62a374950a0e",
+        "created_at": "2026-08-07T06:41:36.194508+00:00"
+      },
+      {
+        "memory": "Caroline: Yeah, I'm really lucky to have them. They've been there through everything, I've known these friends for 4 years, since I moved from my home country. Their love and help have been so important especially after that tough breakup. I'm super thankful. Who supports you, Mel?",
+        "score": 0.009459459459459458,
+        "id": "mem-62ffc73f-91d1-48b2-b64b-2092426053a4",
+        "created_at": "2026-08-07T06:41:17.337719+00:00"
+      },
+      {
+        "memory": "Caroline: Wow! Did you see that band?",
+        "score": 0.009353692499759914,
+        "id": "mem-7e42279a-ae4e-442e-99fa-f8b56189f588",
+        "created_at": "2026-08-07T06:41:38.075413+00:00"
+      },
+      {
+        "memory": "Caroline: Hey Mel, great to chat with you again! So much has happened since we last spoke - I went to an LGBTQ conference two days ago and it was really special. I got the chance to meet and connect with people who've gone through similar journeys. It was such a welcoming environment and I felt totally accepted. I'm really thankful for this amazing community - it's shown me how important it is to fight for trans rights and spread awareness.",
+        "score": 0.009333333333333332,
+        "id": "mem-b59db7dd-cf37-4503-81d1-8f0c1688bb11",
+        "created_at": "2026-08-07T06:41:21.848783+00:00"
+      },
+      {
+        "memory": "Caroline: He's so cute! What’s the funniest thing Oliver's done? And sure, check out this pic of him eating parsley! Veggies are his fave! [Sharing image - query: oscar munching parsley playpen. The image shows: a photography of a guinea in a cage with hay and hay]",
+        "score": 0.009325889164598842,
+        "id": "mem-688449c3-ab56-497b-a16f-0a633e83d0b3",
+        "created_at": "2026-08-07T06:41:33.532484+00:00"
+      },
+      {
+        "memory": "Melanie: I love it. Showing off our true selves is the best thing ever.",
+        "score": 0.009210526315789473,
+        "id": "mem-938d1ece-4b70-4117-9eaf-1b900a6f68fa",
+        "created_at": "2026-08-07T06:41:42.479251+00:00"
+      },
+      {
+        "memory": "Melanie: Wow, what an experience! How did it make you feel?",
+        "score": 0.00920263788968825,
+        "id": "mem-f7bf95f5-3f16-4027-8f30-cb4756ce93b3",
+        "created_at": "2026-08-07T06:41:25.789164+00:00"
+      },
+      {
+        "memory": "Melanie: I'm feeling inspired by autumn so I'm planning a few. You got any cool art projects coming up?",
+        "score": 0.00909090909090909,
+        "id": "mem-5034d514-0dec-4a6b-9bb0-6d22f1211d42",
+        "created_at": "2026-08-07T06:41:36.942781+00:00"
+      },
+      {
+        "memory": "Melanie: Oliver's hilarious! He hid his bone in my slipper once! Cute, right? Almost as silly as when I got to feed a horse a carrot.  [Sharing image - query: oscar carrot in mouth. The image shows: a photo of a person holding a carrot in front of a horse]",
+        "score": 0.009060044621204771,
+        "id": "mem-a3f3fc58-e512-4a14-ae71-eda78fab1f17",
+        "created_at": "2026-08-07T06:41:33.609416+00:00"
+      },
+      {
+        "memory": "Melanie: Caroline, so glad you got the support! Your experience really brought you to where you need to be. You're gonna make a huge difference! This book I read last year reminds me to always pursue my dreams, just like you are doing!🌟 [Sharing image - query: painted canvas follow your dreams. The image shows: a photography of a book cover with a gold coin on it]",
+        "score": 0.009023066485753052,
+        "id": "mem-51dced43-743d-4dfe-acab-157a7532894a",
+        "created_at": "2026-08-07T06:41:22.377844+00:00"
+      },
+      {
+        "memory": "Melanie: That must have been tough for you, Caroline. Respect for finding acceptance and helping others with what you've been through. You're so strong and inspiring.",
+        "score": 0.008974358974358974,
+        "id": "mem-941df14e-b618-4fd3-bc7f-48b756f2bda3",
+        "created_at": "2026-08-07T06:41:45.062361+00:00"
+      },
+      {
+        "memory": "Melanie: I'm so happy for you, Caroline. You found your true self and now you're helping others. You're so inspiring!",
+        "score": 0.008860759493670885,
+        "id": "mem-21ea02b5-e6fa-4dec-9dac-0abe08c86e2d",
+        "created_at": "2026-08-07T06:41:45.216414+00:00"
+      },
+      {
+        "memory": "Caroline: We're putting together a talent show for the kids next month. I'm looking forward to seeing how much fun everyone has and how proud they'll feel of their talents!",
+        "score": 0.008749999999999999,
+        "id": "mem-f5254b67-f7f5-4d89-83ba-e9b9858a4fe2",
+        "created_at": "2026-08-07T06:41:37.935198+00:00"
+      },
+      {
+        "memory": "Melanie: Luna and Oliver! They are so sweet and playful - they really liven up the house! Just got some new shoes, too! [Sharing image - query: purple running shoe. The image shows: a photo of a person wearing pink sneakers on a white rug]",
+        "score": 0.00856469355683604,
+        "id": "mem-0623f959-93ff-4f24-9cee-3e8d57ec64a5",
+        "created_at": "2026-08-07T06:41:23.108321+00:00"
+      },
+      {
+        "memory": "Caroline: Since we last spoke, some big things have happened. Last week I went to an LGBTQ+ pride parade. Everyone was so happy and it made me feel like I belonged. It showed me how much our community has grown, it was amazing!",
+        "score": 0.008536585365853657,
+        "id": "mem-f568ff97-90a1-4f84-a785-76c5ab353980",
+        "created_at": "2026-08-07T06:41:19.462830+00:00"
+      },
+      {
+        "memory": "Caroline: Oh man, sorry to hear that, Melanie. I hope you're okay. Pottery's a great way to relax, so it must have been tough taking a break. Need any help?",
+        "score": 0.008433734939759036,
+        "id": "mem-5beb86cc-d575-4263-bd08-5ca2bb4e624d",
+        "created_at": "2026-08-07T06:41:41.369039+00:00"
+      },
+      {
+        "memory": "Melanie: Thanks, Caroline. It's still a work in progress, but I'm doing my best. My kids are so excited about summer break! We're thinking about going camping next month. Any fun plans for the summer?",
+        "score": 0.008333333333333333,
+        "id": "mem-b1a75133-ccdb-46ca-aefd-2bfa96acd559",
+        "created_at": "2026-08-07T06:41:15.693875+00:00"
+      },
+      {
+        "memory": "Caroline: Melanie, those bowls are amazing! They each have such cool designs. I love that you chose pottery for your art. Painting and drawing have helped me express my feelings and explore my gender identity. Creating art was really important to me during my transition - it helped me understand and accept myself. I'm so grateful.",
+        "score": 0.008235294117647058,
+        "id": "mem-37bd38c0-3da6-4403-91cd-4686e2a3e676",
+        "created_at": "2026-08-07T06:41:39.827083+00:00"
+      },
+      {
+        "memory": "Caroline: That bowl is gorgeous! The black and white design looks so fancy. Did you make it?",
+        "score": 0.008186813186813186,
+        "id": "mem-946ba1b0-f42c-4e63-b046-f9cd397c6b3f",
+        "created_at": "2026-08-07T06:41:19.924368+00:00"
+      },
+      {
+        "memory": "Caroline: Thanks, Melanie! I painted this after I visited a LGBTQ center. I wanted to capture everyone's unity and strength.",
+        "score": 0.00813953488372093,
+        "id": "mem-e675e1aa-cce7-49f8-8793-f82f10f53eec",
+        "created_at": "2026-08-07T06:41:28.290213+00:00"
+      },
+      {
+        "memory": "Melanie: I wanted a peaceful blue streaks to show tranquility. Blue calms me, so I wanted the painting to have a serene vibe while still having lots of vibrant colors.",
+        "score": 0.008045977011494253,
+        "id": "mem-902e33b9-d7fd-426c-9322-607d67813b90",
+        "created_at": "2026-08-07T06:41:41.885446+00:00"
+      },
+      {
+        "memory": "Caroline: Cool, thanks Mel! Can't wait. I'll keep ya posted. Bye!",
+        "score": 0.007954545454545454,
+        "id": "mem-97cc1e88-7d5c-40d0-8903-4f37bd13506f",
+        "created_at": "2026-08-07T06:41:20.497834+00:00"
+      },
+      {
+        "memory": "Caroline: It taught me self-acceptance and how to find support. It also showed me that tough times don't last - hope and love exist. Pets bring so much joy too, though.",
+        "score": 0.007865168539325841,
+        "id": "mem-0abff38e-5940-4309-b634-9f05e7fac16d",
+        "created_at": "2026-08-07T06:41:22.749318+00:00"
+      },
+      {
+        "memory": "Caroline: The kids look so cute, Mel! I bet they bring lots of joy. How did they handle the accident?",
+        "score": 0.007800969850305713,
+        "id": "mem-51b205a7-6565-46ea-87ba-a4848e6962a2",
+        "created_at": "2026-08-07T06:41:43.102829+00:00"
+      },
+      {
+        "memory": "Melanie: Thanks, Caroline! I'm really lucky to have my family; they bring so much joy and love.",
+        "score": 0.0077777777777777776,
+        "id": "mem-9fae16ae-7339-4c5e-a47f-980a0ded411f",
+        "created_at": "2026-08-07T06:41:30.218359+00:00"
+      },
+      {
+        "memory": "Melanie: Wow, did you make that? It looks so real!",
+        "score": 0.0077566647759500845,
+        "id": "mem-62ebf73f-5316-4e39-a75b-66a6b9ec1045",
+        "created_at": "2026-08-07T06:41:36.661339+00:00"
+      },
+      {
+        "memory": "Caroline: I totally agree, Melanie. Taking care of ourselves is so important - even if it's not always easy. Great that you're prioritizing self-care.",
+        "score": 0.007692307692307692,
+        "id": "mem-db595e38-170d-4322-84d7-a7065c4e2705",
+        "created_at": "2026-08-07T06:41:15.508033+00:00"
+      },
+      {
+        "memory": "Melanie: Yeah, Here's one I did last week. It's inspired by the sunsets. The colors make me feel calm. What have you been up to lately, artistically? [Sharing image - query: landscape painting vibrant purple sunset autumn. The image shows: a photo of a painting of a sunset with a pink sky]",
+        "score": 0.007671703296703296,
+        "id": "mem-3c2c7ee1-4318-4590-b2ed-65b598813543",
+        "created_at": "2026-08-07T06:41:41.600872+00:00"
+      },
+      {
+        "memory": "Caroline: That's so funny! I used to go horseback riding with my dad when I was a kid, we'd go through the fields, feeling the wind. It was so special. I've always had a love for horses!",
+        "score": 0.007526881720430107,
+        "id": "mem-68657ca0-4648-40a7-b1b4-cdd3e17d5b59",
+        "created_at": "2026-08-07T06:41:33.688601+00:00"
+      },
+      {
+        "memory": "Melanie: Yeah, you're right, Caroline. Family's super important to me. Especially after the accident, I've thought a lot about how much I need them. They mean the world to me and I'm so thankful to have them. Thankfully, they enjoyed the Grand Canyon a lot! [Sharing image - query: grand canyon family photo. The image shows: a photo of two children standing on a rocky cliff overlooking a canyon]",
+        "score": 0.007446808510638297,
+        "id": "mem-4cddf15f-f38e-46bb-9d45-8e6f68497b01",
+        "created_at": "2026-08-07T06:41:43.025403+00:00"
+      },
+      {
+        "memory": "Melanie: Thanks, Caroline! I painted it because it was calming. I've done an abstract painting too, take a look! I love how art lets us get our emotions out. [Sharing image - query: abstract painting vibrant colors. The image shows: a photo of a painting on a wall with a blue background]",
+        "score": 0.007368421052631579,
+        "id": "mem-3a55e815-b2b0-4eeb-b68b-69cc034df4a2",
+        "created_at": "2026-08-07T06:41:41.759211+00:00"
+      },
+      {
+        "memory": "Melanie: It was one of those moments where I felt tiny and in awe of the universe. Reminds me how awesome life is - so many little moments like that. [Sharing image that shows: a photo of a beach with footprints in the sand and a blue sky]",
+        "score": 0.0073107380424453595,
+        "id": "mem-18f7b036-b7ca-473d-afd1-f237d4f30554",
+        "created_at": "2026-08-07T06:41:29.772617+00:00"
+      },
+      {
+        "memory": "Caroline: Nah, I haven't. I've been busy painting - here's something I just finished. [Sharing image - query: vibrant sunset beach painting. The image shows: a photo of a painting of a sunset on a small easel]",
+        "score": 0.007291666666666666,
+        "id": "mem-99a6d459-d1df-4de8-b610-827b0c7d64ef",
+        "created_at": "2026-08-07T06:41:34.964586+00:00"
+      },
+      {
+        "memory": "Caroline: Finding a community where I'm accepted, loved and supported has really meant a lot to me. It's made a huge difference to have people who get what I'm going through. Stuff like this mural are really special to me! [Sharing image - query: rainbow flag painting unity acceptance. The image shows: a photo of a building with a large eagle painted on it]",
+        "score": 0.007217261904761904,
+        "id": "mem-6d819abe-2810-4dae-92bb-53a4d0985887",
+        "created_at": "2026-08-07T06:41:35.557778+00:00"
+      },
+      {
+        "memory": "Melanie: Thanks for the tip, Caroline. Doing research and readying myself emotionally makes sense. I'll do that. BTW, recently I had a setback. Last month I got hurt and had to take a break from pottery, which I use for self-expression and peace.",
+        "score": 0.007216494845360824,
+        "id": "mem-1299b399-a375-427d-a600-d34eb77482e2",
+        "created_at": "2026-08-07T06:41:41.291312+00:00"
+      },
+      {
+        "memory": "Caroline: Since our last chat, I've been looking into counseling or mental health work more. I'm passionate about helping people and making a positive impact. It's tough, but really rewarding too. Anything new happening with you?",
+        "score": 0.007142857142857143,
+        "id": "mem-7b834dac-d3a0-442b-80d9-9ecdc6222b52",
+        "created_at": "2026-08-07T06:41:20.792807+00:00"
+      },
+      {
+        "memory": "Caroline: I haven't done pottery yet, but I'm game for trying new art. I might try it sometime! Check out this piece I made! [Sharing image - query: canvas colourful brush strokes. The image shows: a photo of a painting on a easel with a red and blue background]",
+        "score": 0.00707070707070707,
+        "id": "mem-0d23e559-9425-4115-a14f-eb0e2250cb85",
+        "created_at": "2026-08-07T06:41:39.967045+00:00"
+      },
+      {
+        "memory": "Melanie: Wow, looks awesome! Did you join in?",
+        "score": 0.0070416197975253095,
+        "id": "mem-8a18409e-884a-4b2d-87ea-6ccf50ff4c8f",
+        "created_at": "2026-08-07T06:41:25.652606+00:00"
+      },
+      {
+        "memory": "Caroline: Yay! Next month I'm having an LGBTQ art show with my paintings - can't wait!",
+        "score": 0.006999999999999999,
+        "id": "mem-4fc2d9be-94e7-4135-86a9-d39f876316b5",
+        "created_at": "2026-08-07T06:41:27.992384+00:00"
+      },
+      {
+        "memory": "Melanie: Yeah, it's normal to be both excited and nervous with a big decision. And thanks for asking, they're good- we got another cat named Bailey too. Here's a pic of Oliver. Can you show me one of Oscar? [Sharing image - query: pets Luna Oliver playing frisbee backyard. The image shows: a photo of a black dog laying in the grass with a frisbee]",
+        "score": 0.0069000507356671735,
+        "id": "mem-6b80fdbd-7bba-4975-8bf8-f89d938f8730",
+        "created_at": "2026-08-07T06:41:33.451747+00:00"
+      },
+      {
+        "memory": "Caroline: Cool! What did it look like?",
+        "score": 0.006876238713939661,
+        "id": "mem-b8d52edf-7d2f-4137-aa48-cbe0036f458e",
+        "created_at": "2026-08-07T06:41:29.540884+00:00"
+      },
+      {
+        "memory": "Caroline: That pic is cool! Representing inclusivity and diversity in my art is important to me. I also use it to speak up for the LGBTQ+ community and push for acceptance. Here's a recent painting! [Sharing image - query: painting vibrant colors diverse representation. The image shows: a photo of a painting with a painting brush and paint on it]",
+        "score": 0.006862745098039216,
+        "id": "mem-38b90d41-eacb-42f7-bdd9-7bae52f839b3",
+        "created_at": "2026-08-07T06:41:30.820741+00:00"
+      },
+      {
+        "memory": "Caroline: Thanks, Mel! Glad you like it. It's a symbol of togetherness, to celebrate differences and be that much closer. I'd love to make something like this next! [Sharing image - query: painting rainbow flag unity acceptance. The image shows: a photo of a painted sidewalk with a rainbow design on it]",
+        "score": 0.006796116504854369,
+        "id": "mem-b7563fc2-a02d-43ab-92cc-6ee858e1c707",
+        "created_at": "2026-08-07T06:41:36.117064+00:00"
+      },
+      {
+        "memory": "Caroline: Thanks, Mel! Your backing really means a lot. I felt super powerful giving my talk. I shared my own journey, the struggles I had and how much I've developed since coming out. It was wonderful to see how the audience related to what I said and how it inspired them to be better allies. Conversations about gender identity and inclusion are so necessary and I'm thankful for being able to give a voice to the trans community.",
+        "score": 0.00673076923076923,
+        "id": "mem-964fac0f-ce65-4559-916a-f96b2d907507",
+        "created_at": "2026-08-07T06:41:16.596400+00:00"
+      },
+      {
+        "memory": "Melanie: Thanks, Caroline! It was Matt Patterson, he is so talented! His voice and songs were amazing. What's up with you? Anything interesting going on?",
+        "score": 0.006657398826073524,
+        "id": "mem-fccce00a-ed9d-466e-9e48-77d60dc9bbef",
+        "created_at": "2026-08-07T06:41:30.433471+00:00"
+      },
+      {
+        "memory": "Melanie: Wow, Caroline, that's so cool! Art can be so healing and a way to really connect with who you are. It's awesome that beauty can be found in the imperfections. We're all individual and wonderfully imperfect. Thanks for sharing it with me!",
+        "score": 0.00660377358490566,
+        "id": "mem-65424a29-92e3-43c4-9ab8-c1897fb35db0",
+        "created_at": "2026-08-07T06:41:31.348557+00:00"
+      },
+      {
+        "memory": "Melanie: Seeing my kids' faces so happy at the beach was the best! We don't go often, usually only once or twice a year. But those times are always special to spend time together and chill. [Sharing image that shows: a photo of a sand castle on the beach with a blue sky]",
+        "score": 0.006564102564102564,
+        "id": "mem-2948d3db-72ff-497b-9e7b-77af1f07497d",
+        "created_at": "2026-08-07T06:41:29.108528+00:00"
+      },
+      {
+        "memory": "Melanie: Wow, that's awesome! How did it feel being part of that community? [Sharing image that shows: a photo of a band performing on stage with a sign that says all are welcome]",
+        "score": 0.006542566393646065,
+        "id": "mem-fd643274-3b99-4338-a063-61ba6ad5b325",
+        "created_at": "2026-08-07T06:41:30.587389+00:00"
+      },
+      {
+        "memory": "Melanie: I've been running farther to de-stress, which has been great for my headspace.",
+        "score": 0.006542056074766355,
+        "id": "mem-3998313c-a08c-4ae2-a2b1-b79580405850",
+        "created_at": "2026-08-07T06:41:23.404183+00:00"
+      },
+      {
+        "memory": "Melanie: It was an awesome time, Caroline! We explored nature, roasted marshmallows around the campfire and even went on a hike. The view from the top was amazing! The 2 younger kids love nature. It was so special having these moments together as a family - I'll never forget it!",
+        "score": 0.006481481481481481,
+        "id": "mem-bae29e78-e9d2-420d-b9e7-d04bfe4332e5",
+        "created_at": "2026-08-07T06:41:18.654820+00:00"
+      },
+      {
+        "memory": "Melanie: Wow, Caroline! That sounds awesome. This pic's from last night - looks like everyone was having a blast! Reminds me it's important to cultivate a loving and accepting environment for our kids. How do you stay inclusive in your work as an artist? [Sharing image - query: outdoor concert family loving accepting environment. The image shows: a photo of a group of people sitting on chairs watching a band]",
+        "score": 0.006422018348623853,
+        "id": "mem-1eed6284-9b51-47e1-b718-8294ffb8cfae",
+        "created_at": "2026-08-07T06:41:30.742228+00:00"
+      },
+      {
+        "memory": "Melanie: That sounds awesome! What did you take away from it to use in your life?",
+        "score": 0.006394767538743542,
+        "id": "mem-dadcc81f-13ef-42ce-885e-525b33312b48",
+        "created_at": "2026-08-07T06:41:22.687931+00:00"
+      },
+      {
+        "memory": "Caroline: Totally agree, Mel. Relaxing and expressing ourselves is key. Well, I'm off to go do some research.",
+        "score": 0.006363636363636363,
+        "id": "mem-5b89a5de-7e06-4d99-97b1-9072c420af1b",
+        "created_at": "2026-08-07T06:41:15.200487+00:00"
+      },
+      {
+        "memory": "Caroline: The pride event was awesome! It was so encouraging to be surrounded by so much love and acceptance. [Sharing image - query: lgbt pride event. The image shows: a photo of a woman holding a rainbow umbrella in the air]",
+        "score": 0.006306306306306306,
+        "id": "mem-79a67456-b701-47ef-b136-fd958c718214",
+        "created_at": "2026-08-07T06:41:27.712998+00:00"
+      },
+      {
+        "memory": "Melanie: Wow, Caro, that painting is amazing! You've made so much progress. I'm super proud of you for being your true self. What effect has the journey had on your relationships?",
+        "score": 0.0062499999999999995,
+        "id": "mem-245d50db-844e-4d5b-886b-95602506ae41",
+        "created_at": "2026-08-07T06:41:40.183676+00:00"
+      },
+      {
+        "memory": "Melanie: Wow, Caroline! You've gained so much from your own experience. Your passion and hard work to help others is awesome. Keep it up, you're making a big impact!",
+        "score": 0.006194690265486726,
+        "id": "mem-b11a2024-2973-4b94-bdd2-b65210441bcb",
+        "created_at": "2026-08-07T06:41:19.230412+00:00"
+      },
+      {
+        "memory": "Melanie: Woah, Caroline, it sounds like you're doing some impressive work. It's inspiring to see your dedication to helping others. What motivated you to pursue counseling?",
+        "score": 0.0061403508771929825,
+        "id": "mem-3e0e3323-2f8c-46de-b6d7-6ea59fd00417",
+        "created_at": "2026-08-07T06:41:19.073724+00:00"
+      },
+      {
+        "memory": "Melanie: Painting landscapes and still life is my favorite! Nature's amazing, here's a painting I did recently. [Sharing image - query: painting field sunflowers. The image shows: a photo of a painting of a sunflower on a canvas]",
+        "score": 0.006099791013584117,
+        "id": "mem-829981c7-bc23-4b14-9bb0-10da1eed1c24",
+        "created_at": "2026-08-07T06:41:36.801183+00:00"
+      },
+      {
+        "memory": "Melanie: They're really amazing. Wish I was that resilient too. But they give me the strength to keep going.",
+        "score": 0.00608695652173913,
+        "id": "mem-82cd05a7-6c40-4bea-8550-f408845b0b76",
+        "created_at": "2026-08-07T06:41:43.320316+00:00"
+      },
+      {
+        "memory": "Melanie: Hey Caroline! Last night was amazing! We celebrated my daughter's birthday with a concert surrounded by music, joy and the warm summer breeze. Seeing my kids' smiles was so awesome, and I'm so thankful for our special moments together.",
+        "score": 0.00603448275862069,
+        "id": "mem-ea6eb1d4-0b9a-466c-b7a7-b06b59a0d75e",
+        "created_at": "2026-08-07T06:41:30.280603+00:00"
+      },
+      {
+        "memory": "Melanie: That's awesome, Caroline! Glad to hear you found a great group where you can have an impact. Bet it feels great to be able to speak your truth and stand up for what's right. Want to tell me a bit more about it?",
+        "score": 0.006020346188885514,
+        "id": "mem-53285251-5c4e-4b3b-a6c6-6b5c219ce966",
+        "created_at": "2026-08-07T06:41:28.646004+00:00"
+      },
+      {
+        "memory": "Caroline: It must have been special at your wedding. I wish I had known you back then!",
+        "score": 0.005932203389830508,
+        "id": "mem-27f7aca8-a0e5-4e40-9442-ec63be2db9dd",
+        "created_at": "2026-08-07T06:41:25.310052+00:00"
+      },
+      {
+        "memory": "Melanie: Your art's amazing, Caroline. I love how you use it to tell your stories and teach people about trans folks. I'd love to see another painting of yours! [Sharing image that shows: a photo of a person holding a purple bowl in their hand]",
+        "score": 0.0058823529411764705,
+        "id": "mem-137b9e18-b312-4b01-9b22-2a0005cb0498",
+        "created_at": "2026-08-07T06:41:31.038312+00:00"
+      },
+      {
+        "memory": "Caroline: Thanks, Melanie! That plate is awesome! Did you make it?",
+        "score": 0.0058798299996100905,
+        "id": "mem-2c284528-02ad-4ca3-b71a-586eb01cf629",
+        "created_at": "2026-08-07T06:41:34.824524+00:00"
+      },
+      {
+        "memory": "Melanie: Thanks, Caroline! Your words really mean a lot. I've always felt a strong connection to art, and it's been a huge learning experience. It's both a sanctuary and a source of comfort. I'm so glad to have something that brings me so much happiness and fulfillment.",
+        "score": 0.005833333333333333,
+        "id": "mem-b0087995-4e5f-4020-816c-42edf89b4585",
+        "created_at": "2026-08-07T06:41:32.128443+00:00"
+      },
+      {
+        "memory": "Caroline: Thanks, Melanie. Transitioning wasn't easy and acceptance wasn't either, but the help I got from friends, family and people I looked up to was invaluable. They boosted me through tough times and helped me find out who I really am. That's why I want to pass that same support to anyone who needs it. Bringing others comfort and helping them grow brings me such joy.",
+        "score": 0.005785123966942148,
+        "id": "mem-7f3be946-1dff-49da-829c-01935f2415b0",
+        "created_at": "2026-08-07T06:41:45.139097+00:00"
+      },
+      {
+        "memory": "Melanie: The sign was just a precaution, I had a great time. But thank you for your concern, you're so thoughtful!",
+        "score": 0.005737704918032787,
+        "id": "mem-33cf0387-06b9-4f0d-8c2a-c8c0eec18ddc",
+        "created_at": "2026-08-07T06:41:40.556667+00:00"
+      },
+      {
+        "memory": "Caroline: I'm keen on counseling or working in mental health - I'd love to support those with similar issues.",
+        "score": 0.005691056910569105,
+        "id": "mem-a8cbff72-0c40-4d69-aead-0e880cb59ed0",
+        "created_at": "2026-08-07T06:41:14.824953+00:00"
+      },
+      {
+        "memory": "Caroline: Whoa, Mel, that sign looks serious. Did anything happen?",
+        "score": 0.005674470457079152,
+        "id": "mem-e8fc7e3a-8649-4096-b835-33202a84e75c",
+        "created_at": "2026-08-07T06:41:40.446846+00:00"
+      },
+      {
+        "memory": "Melanie: Thanks, Caroline! Yeah, I made this bowl in my class. It took some work, but I'm pretty proud of it.",
+        "score": 0.00564516129032258,
+        "id": "mem-fd3bf35e-e9db-464c-8108-98b130db3bff",
+        "created_at": "2026-08-07T06:41:19.986993+00:00"
+      },
+      {
+        "memory": "Melanie: I'll always remember our camping trip last year when we saw the Perseid meteor shower. It was so amazing lying there and watching the sky light up with streaks of light. We all made wishes and felt so at one with the universe. That's a memory I'll never forget. [Sharing image - query: shooting star night sky. The image shows: a photo of a plane flying in the sky with a star filled sky]",
+        "score": 0.0056,
+        "id": "mem-31c42903-c043-408e-be39-0197115b1b34",
+        "created_at": "2026-08-07T06:41:29.414964+00:00"
+      },
+      {
+        "memory": "Melanie: That sounds great, Caroline. Volunteering is a great way to meet people. Creating community and supporting each other, especially for kids, is really important. How did you feel about your time there? Anything that sticks out to you?",
+        "score": 0.0055695847362514025,
+        "id": "mem-b350efc1-355c-49c7-90ca-2cff0a05f487",
+        "created_at": "2026-08-07T06:41:37.471030+00:00"
+      },
+      {
+        "memory": "Caroline: Thanks, Melanie! This support network has been amazing. They've been there for me every step of the way giving me love, guidance, and acceptance. I couldn't have done it without them.",
+        "score": 0.005555555555555555,
+        "id": "mem-40d60b7a-b891-47c2-a129-4269e8705ad0",
+        "created_at": "2026-08-07T06:41:21.552681+00:00"
+      },
+      {
+        "memory": "Caroline: I 100% agree, Mel. Hanging with loved ones is amazing and brings so much happiness. Those moments really make me thankful. Family is everything.",
+        "score": 0.005511811023622047,
+        "id": "mem-19149d0c-1dfb-42ab-b671-1f2f98b594a7",
+        "created_at": "2026-08-07T06:41:18.048043+00:00"
+      },
+      {
+        "memory": "Melanie: Yeah, Caroline! I'll start thinking about what we can do.",
+        "score": 0.00546875,
+        "id": "mem-094f821e-5665-436e-8956-c878d9d01a7c",
+        "created_at": "2026-08-07T06:41:33.064312+00:00"
+      },
+      {
+        "memory": "Caroline: Hey Mel! A lot's happened since we last chatted - I just joined a new LGBTQ activist group last Tues. I'm meeting so many cool people who are as passionate as I am about rights and community support. I'm giving my voice and making a real difference, plus it's fulfilling in so many ways. It's just great, you know?",
+        "score": 0.005426356589147287,
+        "id": "mem-e64379e8-19e7-40c1-95d5-8fa485bff649",
+        "created_at": "2026-08-07T06:41:28.568534+00:00"
+      },
+      {
+        "memory": "Caroline: I'm putting together an LGBTQ art show next month and I'm gonna show my paintings. Super stoked!",
+        "score": 0.0053435114503816794,
+        "id": "mem-b8110fac-56a9-405d-9c78-702f64d71c62",
+        "created_at": "2026-08-07T06:41:37.019978+00:00"
+      },
+      {
+        "memory": "Caroline: It was a transgender poetry reading where transgender people shared their stories through poetry. It was extra special 'cause it was a safe place for self-expression and it was really empowering to hear others share and celebrate their identities. [Sharing image - query: transgender poetry reading trans pride flags. The image shows: a photography of a sign that says trans lives matter]",
+        "score": 0.0053318754823771545,
+        "id": "mem-1cdc5098-d5a5-4598-a738-594bb36dc605",
+        "created_at": "2026-08-07T06:41:42.119127+00:00"
+      },
+      {
+        "memory": "Caroline: It was so special to me. It reminded me of my own struggles in the past and how I felt alone. I was glad I could share my story and offer them support - it felt like I could make a difference.",
+        "score": 0.0053030303030303025,
+        "id": "mem-259398eb-42ba-4897-b011-9dc1180fc3c2",
+        "created_at": "2026-08-07T06:41:37.671164+00:00"
+      },
+      {
+        "memory": "Caroline: That photo is stunning! So glad you bonded over our love of nature. Last Friday I went to a council meeting for adoption. It was inspiring and emotional - so many people wanted to create loving homes for children in need. It made me even more determined to adopt.",
+        "score": 0.005263157894736842,
+        "id": "mem-50bf153d-71b9-4315-b304-b3f159eceb21",
+        "created_at": "2026-08-07T06:41:24.425250+00:00"
+      },
+      {
+        "memory": "Caroline: Thanks so much, Melanie! It's beautiful! It really brings home how much love's in families - both blood and the ones we choose. I hope to build my own family and put a roof over kids who haven't had that before. For me, adoption is a way of giving back and showing love and acceptance.",
+        "score": 0.005223880597014925,
+        "id": "mem-eae9992e-ea56-4404-a7db-e5aab8a1740d",
+        "created_at": "2026-08-07T06:41:44.692553+00:00"
+      },
+      {
+        "memory": "Caroline: Melanie, that photo's amazing! I love all the yellow leaves, it looks so cozy. That sounds like fun! Seeing how excited they get for the little things is awesome, it's so contagious.",
+        "score": 0.005185185185185185,
+        "id": "mem-2d7e2b43-d9b1-4707-a7e1-9a186f6d6b5b",
+        "created_at": "2026-08-07T06:41:39.404145+00:00"
+      },
+      {
+        "memory": "Melanie: \"Summer Sounds\"- The playing an awesome pop song that got everyone dancing and singing. It was so fun and lively!",
+        "score": 0.005147058823529412,
+        "id": "mem-2539c15b-a8a0-42ae-a54c-460be457ffac",
+        "created_at": "2026-08-07T06:41:38.274724+00:00"
+      },
+      {
+        "memory": "Melanie: That's so cool, Caroline! That's a great way to show off and be proud of everyone's skills. You know I love live music. Can't wait to hear about it! [Sharing image - query: talent show stage colorful lights microphone. The image shows: a photo of a band playing on a stage in a park]",
+        "score": 0.0051094890510948905,
+        "id": "mem-f7345b0d-6b85-4ecb-8991-5486f8fde719",
+        "created_at": "2026-08-07T06:41:37.997644+00:00"
+      },
+      {
+        "memory": "Caroline: Wow, what an amazing family pic! How long have you been married?",
+        "score": 0.005072463768115942,
+        "id": "mem-563b56c7-e52e-42c8-a04d-983da29f8e08",
+        "created_at": "2026-08-07T06:41:17.478144+00:00"
+      },
+      {
+        "memory": "Caroline: I'm so lucky to have such a great support system around me. Their love and encouragement has really helped me accept and grow into my true self. They've been instrumental in my transition.",
+        "score": 0.005,
+        "id": "mem-0b3afdd0-4fcd-4e2b-bbb5-baa59f5ed13f",
+        "created_at": "2026-08-07T06:41:21.708046+00:00"
+      },
+      {
+        "memory": "Melanie: Thanks, Caroline! Yup, we just did it yesterday! The kids loved it and it was a nice way to relax after the road trip.",
+        "score": 0.004995613073042334,
+        "id": "mem-6a7ebf65-4410-4a8a-968e-7fbb5f575ff4",
+        "created_at": "2026-08-07T06:41:43.925898+00:00"
+      },
+      {
+        "memory": "Caroline: Thanks, Melanie. It really mattered. My own journey and the support I got made a huge difference. Now I want to help people go through it too. I saw how counseling and support groups improved my life, so I started caring more about mental health and understanding myself. Now I'm passionate about creating a safe, inviting place for people to grow.",
+        "score": 0.004964539007092198,
+        "id": "mem-6279ad36-989e-4507-b712-31be7460ac28",
+        "created_at": "2026-08-07T06:41:19.150958+00:00"
+      },
+      {
+        "memory": "Caroline: Wow, Mel, you're amazing! Volunteering and making a difference- it's so heartwarming. You're an inspiration to us all! [Sharing image - query: volunteering pride event. The image shows: a photo of a crowd of people walking down a street with a rainbow flag]",
+        "score": 0.004929577464788732,
+        "id": "mem-93c45567-73e5-4bb5-98ca-cb1ba227f44c",
+        "created_at": "2026-08-07T06:41:35.415664+00:00"
+      },
+      {
+        "memory": "Caroline: Wow, Mel, glad you had a blast at the concert. A lot's happened since we talked. I went to a pride parade last Friday and it was awesome - so much energy and love everywhere. Really made me proud and reminded me how important it is to keep standing up for equality.",
+        "score": 0.004895104895104895,
+        "id": "mem-e19b09f4-6151-4ac1-b5c0-f27bbfe38f1a",
+        "created_at": "2026-08-07T06:41:30.509363+00:00"
+      },
+      {
+        "memory": "Caroline: Since I was 17 or so. I find it soempowering and cathartic. It's amazing how art can show things that are hard to put into words. How long have you been into art?",
+        "score": 0.004861111111111111,
+        "id": "mem-82d15f51-b796-4d7a-9df1-0d86d489378e",
+        "created_at": "2026-08-07T06:41:39.686152+00:00"
+      },
+      {
+        "memory": "Caroline: Hey Mel, long time no chat! I had a wicked day out with the gang last weekend - we went biking and saw some pretty cool stuff. It was so refreshing, and the pic I'm sending is just stunning, eh? [Sharing image - query: sunset lake. The image shows: a photo of a beach with a fence and a sunset]",
+        "score": 0.004827586206896551,
+        "id": "mem-6859c99b-08a9-4d65-9173-ddb7c2876e59",
+        "created_at": "2026-08-07T06:41:39.249258+00:00"
+      },
+      {
+        "memory": "Melanie: Thanks, Caroline. It was tough, but I'm doing ok. Been reading that book you recommended a while ago and painting to keep busy.",
+        "score": 0.004794520547945205,
+        "id": "mem-29f1c958-cc59-466f-be68-2f60f24ce9d7",
+        "created_at": "2026-08-07T06:41:41.447259+00:00"
+      },
+      {
+        "memory": "Caroline: Thanks Mel! Your kind words mean a lot. Sharing our experiences isn't always easy, but I feel it's important to help promote understanding and acceptance. I've been blessed with loads of love and support throughout this journey, and I want to pass it on to others. By sharing our stories, we can build a strong, supportive community of hope.",
+        "score": 0.0047619047619047615,
+        "id": "mem-75e541d4-f53d-4556-8a93-e306ac8abb0a",
+        "created_at": "2026-08-07T06:41:16.750317+00:00"
+      },
+      {
+        "memory": "Caroline: Hey Melanie! How's it going? I wanted to tell you about my school event last week. It was awesome! I talked about my transgender journey and encouraged students to get involved in the LGBTQ community. It was great to see their reactions. It made me reflect on how far I've come since I started transitioning three years ago.",
+        "score": 0.004729729729729729,
+        "id": "mem-cf49b249-b299-49b6-bd66-3d69a02e5805",
+        "created_at": "2026-08-07T06:41:16.455427+00:00"
+      },
+      {
+        "memory": "Caroline: I went to a LGBTQ support group yesterday and it was so powerful.",
+        "score": 0.004666666666666666,
+        "id": "mem-9282fd6a-90f1-45bf-9e7c-01b5aaaa397c",
+        "created_at": "2026-08-07T06:41:14.315388+00:00"
+      },
+      {
+        "memory": "Melanie: Hey Caroline! It's so good to hear from you! That pic is so beautiful, the colors really pop. Biking sounds like a great way to get out in nature. We went camping with the kids a few weeks ago, had a blast exploring the forest and hiking. Nature can be so refreshing for your soul. Any plans coming up? [Sharing image - query: family hiking trail vibrant autumn colors. The image shows: a photo of a dirt road surrounded by trees with yellow leaves]",
+        "score": 0.004635761589403973,
+        "id": "mem-bdcb3685-f176-42e5-8261-ec6d6e480e41",
+        "created_at": "2026-08-07T06:41:39.326393+00:00"
+      },
+      {
+        "memory": "Caroline: Thanks, Melanie! I painted it after I visited the beach last week. Just seeing the sun dip below the horizon, all the amazing colors - it was amazing and calming. So I just had to try to capture that feeling in my painting. [Sharing image that shows: a photo of a painting of a sunset over the ocean]",
+        "score": 0.004605263157894736,
+        "id": "mem-55b3414b-d671-44f7-9a86-16fa7992311f",
+        "created_at": "2026-08-07T06:41:35.119509+00:00"
+      },
+      {
+        "memory": "Caroline: I mentor a transgender teen just like me. We've been working on building up confidence and finding positive strategies, and it's really been paying off! We had a great time at the LGBT pride event last month.",
+        "score": 0.004516129032258064,
+        "id": "mem-bf27ec61-f23e-4717-bdda-4dd74e05c134",
+        "created_at": "2026-08-07T06:41:27.572468+00:00"
+      },
+      {
+        "memory": "Caroline: Lately, I've been looking into counseling and mental health as a career. I want to help people who have gone through the same things as me. [Sharing image that shows: a photo of a book shelf with many books on it]",
+        "score": 0.0044585987261146496,
+        "id": "mem-ab5062d2-cf6b-49ac-9798-fde874816270",
+        "created_at": "2026-08-07T06:41:18.857521+00:00"
+      },
+      {
+        "memory": "Melanie: Thanks, Caroline! The event was really thought-provoking. I'm starting to realize that self-care is really important. It's a journey for me, but when I look after myself, I'm able to better look after my family.",
+        "score": 0.004430379746835442,
+        "id": "mem-128ef72b-9ddc-475c-a338-8a7a56e3e038",
+        "created_at": "2026-08-07T06:41:15.446562+00:00"
+      },
+      {
+        "memory": "Melanie: I'll never forget the day my youngest took her first steps. Seeing her wobble as she took those initial steps really put into perspective how fleeting life is and how lucky I am to be able to share these moments.",
+        "score": 0.00440251572327044,
+        "id": "mem-128f199d-f999-4578-85af-2c8abff38a93",
+        "created_at": "2026-08-07T06:41:29.912275+00:00"
+      },
+      {
+        "memory": "Melanie: Wow, Caroline! Books have such an awesome power! Which one has been your favorite guide?",
+        "score": 0.004347826086956522,
+        "id": "mem-0209d3cc-4130-4259-80f1-685045e394b5",
+        "created_at": "2026-08-07T06:41:22.532705+00:00"
+      },
+      {
+        "memory": "Melanie: I appreciate our friendship too, Caroline. You've always been there for me.",
+        "score": 0.004320987654320987,
+        "id": "mem-343483cc-3144-43bf-93db-53333e7ee2ad",
+        "created_at": "2026-08-07T06:41:32.614015+00:00"
+      },
+      {
+        "memory": "Melanie: Absolutely! I'm so glad we can always be there for each other.",
+        "score": 0.0042944785276073615,
+        "id": "mem-4d31df45-3b35-43c6-babc-4dc809c530dd",
+        "created_at": "2026-08-07T06:41:45.371970+00:00"
+      },
+      {
+        "memory": "Melanie: Yeah, it was so much fun! Those joyful moments definitely show us life's beauty.",
+        "score": 0.004242424242424242,
+        "id": "mem-dd4cfcad-ef1d-42d6-869d-3fde5ce87835",
+        "created_at": "2026-08-07T06:41:40.697464+00:00"
+      },
+      {
+        "memory": "Melanie: Yeah, I made it in pottery class yesterday. I love it! Pottery's so relaxing and creative. Have you tried it yet?",
+        "score": 0.004191616766467066,
+        "id": "mem-f3ca545c-4588-4335-810a-e7a4583c0136",
+        "created_at": "2026-08-07T06:41:34.886846+00:00"
+      },
+      {
+        "memory": "Melanie: Yeah, I play clarinet! Started when I was young and it's been great. Expression of myself and a way to relax. [Sharing image that shows: a photo of a sheet music with notes and a pencil]",
+        "score": 0.004166666666666667,
+        "id": "mem-fe755e3c-376d-4c00-86df-58a3032b3070",
+        "created_at": "2026-08-07T06:41:39.016736+00:00"
+      },
+      {
+        "memory": "Caroline: Wow, sounds wonderful! Your love for your kids is so awesome. What concert was it? The advocacy event was a cool experience - so much love and support, amazing! [Sharing image that shows: a photo of a poster for a concert with a picture of a man]",
+        "score": 0.004117647058823529,
+        "id": "mem-d59c64da-70fe-4c5e-8897-d52d3733cda1",
+        "created_at": "2026-08-07T06:41:30.358005+00:00"
+      },
+      {
+        "memory": "Melanie: Hey Caroline, sorry about the hike. It sucks when people are so closed-minded. Strong support really helps. FYI, I finished another pottery project - want to see a pic?",
+        "score": 0.004093567251461988,
+        "id": "mem-385ef5ef-f7b6-496a-babc-7e1a1e3f152f",
+        "created_at": "2026-08-07T06:41:31.642781+00:00"
+      },
+      {
+        "memory": "Caroline: The mentoring is going great! I've met some amazing young folks and supported them along the way. It's inspiring to see how resilient and strong they are.",
+        "score": 0.004069767441860465,
+        "id": "mem-45611c07-dc44-4e7a-99f8-6bafd4d1f71a",
+        "created_at": "2026-08-07T06:41:27.416929+00:00"
+      },
+      {
+        "memory": "Caroline: Painting's great for expressing myself. I love creating art! Here's a recent self-portrait I made last week. [Sharing image - query: self-portrait painting vibrant colors. The image shows: a photo of a painting of a woman with a blue face]",
+        "score": 0.004046242774566474,
+        "id": "mem-002f0654-ae46-451b-b8bc-38684dcdc8e1",
+        "created_at": "2026-08-07T06:41:34.001499+00:00"
+      },
+      {
+        "memory": "Caroline: Art's allowed me to explore my transition and my changing body. It's been a great way to work through stuff I'm going through. I love that it teaches me to accept the beauty of imperfections.",
+        "score": 0.004022988505747126,
+        "id": "mem-87455296-5f08-4eb1-8cca-3498a0d40d65",
+        "created_at": "2026-08-07T06:41:31.271275+00:00"
+      },
+      {
+        "memory": "Melanie: Yeah, Caroline! It takes courage to talk about our own stories. But it's in these vulnerable moments that we bond and understand each other. We all have our different paths, but if we share them, we show people that they're not alone. Our stories can be so inspiring and encouraging to others who are facing the same challenges. Thank you for using your voice to create love, acceptance, and hope. You're doing amazing!",
+        "score": 0.004,
+        "id": "mem-c745e8cf-bc8a-4263-96d2-5a515299aebd",
+        "created_at": "2026-08-07T06:41:16.813200+00:00"
+      },
+      {
+        "memory": "Melanie: My fam's been awesome - they helped out and showed lots of love and support.",
+        "score": 0.003977272727272727,
+        "id": "mem-9b399250-867f-4d93-ad75-de39ecbbe3cd",
+        "created_at": "2026-08-07T06:41:26.492768+00:00"
+      },
+      {
+        "memory": "Caroline: No worries, Mel! Your friendship means so much to me. Enjoy your day!",
+        "score": 0.0039548022598870055,
+        "id": "mem-afcf42c4-71fc-401a-992e-2e053a5767ca",
+        "created_at": "2026-08-07T06:41:27.133402+00:00"
+      },
+      {
+        "memory": "Melanie: Wow, Caroline, that's so nice! The colors are so bright and the flowers are so pretty. Art is such a source of joy.",
+        "score": 0.003932584269662921,
+        "id": "mem-d149707c-f3ca-40de-80a4-6141ea6dbf97",
+        "created_at": "2026-08-07T06:41:36.504908+00:00"
+      },
+      {
+        "memory": "Caroline: Realizing I can be me without fear and having the courage to transition was the best part. It's so freeing to express myself authentically and have people back me up. [Sharing image that shows: a photo of a teepee with a teddy bear and pillows]",
+        "score": 0.003910614525139664,
+        "id": "mem-b4ef502f-bdd6-4e30-9642-b595ba6b4fcb",
+        "created_at": "2026-08-07T06:41:26.115845+00:00"
+      },
+      {
+        "memory": "Melanie: Wow, Caroline! That's awesome! Taking in kids in need - you're so kind. Your future family is gonna be so lucky to have you!",
+        "score": 0.0038888888888888888,
+        "id": "mem-27f58fba-3059-476d-924d-058b549b110b",
+        "created_at": "2026-08-07T06:41:15.832249+00:00"
+      },
+      {
+        "memory": "Melanie: Yeah, that pic was from a show I went to. It was so much fun and reminded me of how music brings us together. [Sharing image that shows: a photo of a crowd of people at a concert with their hands in the air]",
+        "score": 0.003867403314917127,
+        "id": "mem-64fd417d-78f3-4ded-a811-7e061f8a6085",
+        "created_at": "2026-08-07T06:41:38.136205+00:00"
+      },
+      {
+        "memory": "Caroline: I felt so proud and grateful - the vibes were amazing and it was comforting to know I'm not alone and have a great community around me. [Sharing image that shows: a photo of a rainbow flag on a pole on a carpet]",
+        "score": 0.003846153846153846,
+        "id": "mem-0e2a0d9c-ba29-41ae-b890-59a101647e9d",
+        "created_at": "2026-08-07T06:41:25.851190+00:00"
+      },
+      {
+        "memory": "Caroline: Yeah totally! \"Brave\" by Sara Bareilles has a lot of significance for me. It's about being courageous and fighting for what's right. Whenever I hear this jam, I think about the paths I've taken and the progress I've made.",
+        "score": 0.0038251366120218575,
+        "id": "mem-ec572726-6ac8-487e-8ab6-26a33025498f",
+        "created_at": "2026-08-07T06:41:38.799911+00:00"
+      },
+      {
+        "memory": "Caroline: I'm thrilled to make a family for kids who need one. It'll be tough as a single parent, but I'm up for the challenge!",
+        "score": 0.0038043478260869562,
+        "id": "mem-b447cb8f-ad62-46d5-a772-1d05306abb87",
+        "created_at": "2026-08-07T06:41:16.175334+00:00"
+      },
+      {
+        "memory": "Caroline: Thanks, Mel! My goal is to give kids a loving home. I'm truly grateful for all the support I've got from friends and mentors. Now the hard work starts to turn my dream into a reality. And here's one of the adoption agencies I'm looking into. It's a lot to take in, but I'm feeling hopeful and optimistic. [Sharing image - query: adoption agency brochure. The image shows: a photography of a sign for a new arrival and an information and domestic building]",
+        "score": 0.0037837837837837837,
+        "id": "mem-5d7c88cc-9084-4dc0-b2fa-7d135b45f30a",
+        "created_at": "2026-08-07T06:41:15.909046+00:00"
+      },
+      {
+        "memory": "Melanie: Hey Caroline! Since we last spoke, I took my kids to a park yesterday. They had fun exploring and playing. It was nice seeing them have a good time outdoors. Time flies, huh? What's new with you? [Sharing image - query: kids climbing jungle gym park. The image shows: a photo of a playground with a climbing net and a slide]",
+        "score": 0.0037634408602150535,
+        "id": "mem-730af823-2dad-4bc2-b907-308c5198bf38",
+        "created_at": "2026-08-07T06:41:37.315320+00:00"
+      },
+      {
+        "memory": "Melanie: Caroline, thanks! Mental health is important to me, and it's made such an improvement!",
+        "score": 0.0037433155080213902,
+        "id": "mem-65df9d2c-becd-4c04-a0d5-3505896c7ce5",
+        "created_at": "2026-08-07T06:41:23.697931+00:00"
+      },
+      {
+        "memory": "Caroline: Kids are amazingly resilient in tough situations. They have an amazing ability to bounce back.",
+        "score": 0.0037234042553191487,
+        "id": "mem-efe5c8b2-fcd2-45b0-8bc7-a49954ba81d1",
+        "created_at": "2026-08-07T06:41:43.243603+00:00"
+      },
+      {
+        "memory": "Caroline: Thanks Mel! I'm going to a transgender conference this month. I'm so excited to meet other people in the community and learn more about advocacy. It's gonna be great!",
+        "score": 0.0037037037037037034,
+        "id": "mem-faa8c1b1-7d6c-48ed-9975-523873f03ff2",
+        "created_at": "2026-08-07T06:41:20.339954+00:00"
+      },
+      {
+        "memory": "Caroline: Hey, Mel! How's it going? There's something I want to tell you. I went hiking last week and got into a bad spot with some people. It really bugged me, so I tried to apologize to them. [Sharing image - query: letter apology hike encounter. The image shows: a photo of a woman sitting on a sign on top of a mountain]",
+        "score": 0.0036842105263157894,
+        "id": "mem-4ab06b7d-2cd1-4475-b854-fb0f17b7d4b2",
+        "created_at": "2026-08-07T06:41:34.621676+00:00"
+      },
+      {
+        "memory": "Melanie: They were stoked for the dinosaur exhibit! They love learning about animals and the bones were so cool. It reminds me why I love being a mom.",
+        "score": 0.003664921465968586,
+        "id": "mem-307388dc-cb6e-4364-ab7b-7f49c47d1ad7",
+        "created_at": "2026-08-07T06:41:21.024688+00:00"
+      },
+      {
+        "memory": "Melanie: That was a blast! So much fun with the whole gang! Wanna do a family outing this summer?",
+        "score": 0.0036269430051813468,
+        "id": "mem-219e6987-278b-4da0-a0c1-33745a9a39a3",
+        "created_at": "2026-08-07T06:41:32.751756+00:00"
+      },
+      {
+        "memory": "Caroline: Cool that you have creative outlets. Got any paintings to show? I'd love to check them out.",
+        "score": 0.003608247422680412,
+        "id": "mem-408fbd66-98ed-4bc7-aef7-593a41ebf566",
+        "created_at": "2026-08-07T06:41:41.524190+00:00"
+      },
+      {
+        "memory": "Melanie: Absolutely, Caroline! I cherish time with family. It's when I really feel alive and happy.",
+        "score": 0.0035897435897435893,
+        "id": "mem-7ff02432-025e-4f17-96cf-5c8b72ded55b",
+        "created_at": "2026-08-07T06:41:17.971487+00:00"
+      },
+      {
+        "memory": "Melanie: Thanks, Caroline! This has been great for my mental health. I'm gonna keep it up.",
+        "score": 0.0035532994923857864,
+        "id": "mem-9ddbd45a-d977-4870-853f-fe5f43aaa237",
+        "created_at": "2026-08-07T06:41:23.543302+00:00"
+      },
+      {
+        "memory": "Caroline: I'm still figuring out the details, but I'm thinking of working with trans people, helping them accept themselves and supporting their mental health. Last Friday, I went to an LGBTQ+ counseling workshop and it was really enlightening. They talked about different therapeutic methods and how to best work with trans people. Seeing how passionate these pros were about making a safe space for people like me was amazing.",
+        "score": 0.003535353535353535,
+        "id": "mem-8cef2c71-70ed-4a1b-ba60-7676b4d70d2c",
+        "created_at": "2026-08-07T06:41:18.995103+00:00"
+      },
+      {
+        "memory": "Caroline: I loved it. It was awesome to see how strong the young people were, with all the challenges they face. I felt fulfilled guiding and supporting them. I even got to let them know they're not alone by sharing my story. Such a powerful, emotional experience. [Sharing image that shows: a photo of a table with a black table cloth and a group of people]",
+        "score": 0.003517587939698492,
+        "id": "mem-15a0b210-dc65-4a61-a6ae-60ce27b0dde6",
+        "created_at": "2026-08-07T06:41:37.547615+00:00"
+      },
+      {
+        "memory": "Caroline: That's amazing! You put so much effort and passion into it. Your creativity really shines. Seeing how art can be a source of self-expression and growth is truly inspiring. You're killing it!",
+        "score": 0.0034999999999999996,
+        "id": "mem-006ead99-4501-4333-90bc-99a6cbb93e2e",
+        "created_at": "2026-08-07T06:41:32.050448+00:00"
+      },
+      {
+        "memory": "Melanie: Wow, the beach really inspired you. The art really took me to that moment and I can feel the serenity. You captured the sunset perfectly, so peaceful!",
+        "score": 0.0034825870646766166,
+        "id": "mem-b1adba6c-dab8-4d6c-9ff6-5543727cbcfa",
+        "created_at": "2026-08-07T06:41:35.197307+00:00"
+      },
+      {
+        "memory": "Caroline: Aww, that's so sweet! That cup is so cute. It's awesome to see how kids show their personalities through art. What other creative projects do you do with them, besides pottery?",
+        "score": 0.003465346534653465,
+        "id": "mem-2338cd01-6287-4d9c-acc9-152ce205912f",
+        "created_at": "2026-08-07T06:41:24.145054+00:00"
+      },
+      {
+        "memory": "Caroline: The transgender stories were so inspiring! I was so happy and thankful for all the support. [Sharing image - query: transgender pride flag mural. The image shows: a photo of a dog walking past a wall with a painting of a woman]",
+        "score": 0.0034482758620689655,
+        "id": "mem-64716f98-cd64-4898-8f3e-eee3bb4f3922",
+        "created_at": "2026-08-07T06:41:14.437600+00:00"
+      },
+      {
+        "memory": "Melanie: Wow, Caroline, that's gorgeous! I love the self-acceptance and love theme. How does art help you with your self-discovery and acceptance journey? [Sharing image that shows: a photo of a woman is making a vase on a wheel]",
+        "score": 0.003431372549019608,
+        "id": "mem-7fec2910-7770-41b3-a5d7-d80ef9ec993e",
+        "created_at": "2026-08-07T06:41:31.192229+00:00"
+      },
+      {
+        "memory": "Caroline: Thanks, Mel! Exciting but kinda nerve-wracking. Parenting's such a big responsibility. And yup, I do- Oscar, my guinea pig. He's been great. How are your pets?",
+        "score": 0.0033980582524271844,
+        "id": "mem-07d0028e-69a2-45e6-b67b-6123bf86e283",
+        "created_at": "2026-08-07T06:41:33.374562+00:00"
+      },
+      {
+        "memory": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content. [Sharing image - query: painting vibrant colors happiness self-expression. The image shows: a photo of a painting with the words happiness painted on it]",
+        "score": 0.0033816425120772944,
+        "id": "mem-1e3cbd3f-4c2a-4ac7-b574-8618c9c6bd12",
+        "created_at": "2026-08-07T06:41:45.636803+00:00"
+      },
+      {
+        "memory": "Caroline: Thanks, Melanie. Art gives me a sense of freedom, but so does having supportive people around, promoting LGBTQ rights and being true to myself. I want to live authentically and help others to do the same.",
+        "score": 0.003365384615384615,
+        "id": "mem-ef7830e5-189f-45df-81c4-e0c68bc7eeb7",
+        "created_at": "2026-08-07T06:41:34.309199+00:00"
+      },
+      {
+        "memory": "Melanie: Thanks, Caroline! I'm obsessed with those, so I made something to catch the eye and make people smile. Plus, painting helps me express my feelings and be creative. Each stroke carries a part of me.",
+        "score": 0.0033492822966507173,
+        "id": "mem-610df71e-ac04-462f-8c95-7baa7ca89160",
+        "created_at": "2026-08-07T06:41:31.956268+00:00"
+      },
+      {
+        "memory": "Caroline: Wow, that's great! It sure shows how important friendship and compassion are. It's made me appreciate how lucky I am to have my friends and family helping with my transition. They make all the difference. We even had a picnic last week! [Sharing image - query: group friends picnic. The image shows: a photo of a group of women sitting on a blanket in a park]",
+        "score": 0.003333333333333333,
+        "id": "mem-399609a8-d828-4851-8311-5720078fd3ed",
+        "created_at": "2026-08-07T06:41:21.412399+00:00"
+      },
+      {
+        "memory": "Melanie: Nope, never been to something like that. What was it about? What made it so special?",
+        "score": 0.0033175355450236967,
+        "id": "mem-b9f84f77-fb7e-4dbe-bea3-72dc7111fd9c",
+        "created_at": "2026-08-07T06:41:42.041637+00:00"
+      },
+      {
+        "memory": "Melanie: I feel the same way! Art is so cool like that - it connects us and helps us understand each other. I was actually just remembering yesterday, spending the day with my fam volunteering at a homeless shelter. It was hard to see how neglected some people are, but it was great to feel like we could make a difference.",
+        "score": 0.00330188679245283,
+        "id": "mem-abc3f785-1954-44b6-ab81-fcab329d0d10",
+        "created_at": "2026-08-07T06:41:35.337281+00:00"
+      },
+      {
+        "memory": "Caroline: That's great news about your friend! It can be tough, but so worth it. It's a great way to add to your family and show your love. If you ever do it, let me know — I'd love to help in any way I can.",
+        "score": 0.0032863849765258214,
+        "id": "mem-4ee30a03-19f4-4eea-9397-897fba543a9c",
+        "created_at": "2026-08-07T06:41:41.072797+00:00"
+      },
+      {
+        "memory": "Melanie: That's so nice, Caroline! Art can be in the most unlikely places. Love and acceptance really can be found everywhere. [Sharing image that shows: a photo of a person drawing a flower on the ground]",
+        "score": 0.0032710280373831773,
+        "id": "mem-27457563-06f6-49a9-878b-875a670dbe20",
+        "created_at": "2026-08-07T06:41:36.349144+00:00"
+      },
+      {
+        "memory": "Caroline: I'm inspired seeing my work make a difference for the LGBTQ+ community. Knowing I'm helping create a more loving world is amazing. I'm really thankful for my friends, family and mentors' support. It inspires me to keep making art, too. [Sharing image - query: canvas painting rainbow colors. The image shows: a photo of a painting of a heart on a table]",
+        "score": 0.003255813953488372,
+        "id": "mem-fee18927-e7d3-4bbb-a475-5e01fb51e1a5",
+        "created_at": "2026-08-07T06:41:39.560433+00:00"
+      },
+      {
+        "memory": "Caroline: Melanie, that's a great pic! That must have been awesome. What were they so stoked about?",
+        "score": 0.0032407407407407406,
+        "id": "mem-f93e9975-8be3-459b-9604-c6124612a005",
+        "created_at": "2026-08-07T06:41:20.948817+00:00"
+      },
+      {
+        "memory": "Melanie: Thanks! They were scared but we reassured them and explained their brother would be OK. They're tough kids.",
+        "score": 0.0032258064516129032,
+        "id": "mem-4c6a8b28-c8f8-4c41-b93e-7b748891d6ba",
+        "created_at": "2026-08-07T06:41:43.165664+00:00"
+      },
+      {
+        "memory": "Caroline: Cool! Got any fav tunes?",
+        "score": 0.0032110091743119264,
+        "id": "mem-90adb10a-3a85-44d2-9d3a-b0af0e0d5037",
+        "created_at": "2026-08-07T06:41:39.093605+00:00"
+      },
+      {
+        "memory": "Caroline: Aw, that's sweet, Mel! Those milestones are great reminders of how special our bonds are. [Sharing image that shows: a photo of a baby in a white crib with a blue blanket]",
+        "score": 0.0031818181818181815,
+        "id": "mem-286b229c-600e-4453-b361-9b0b426ac7e3",
+        "created_at": "2026-08-07T06:41:29.989192+00:00"
+      },
+      {
+        "memory": "Melanie: Caroline, congrats! So proud of you for taking this step. How does it feel? Also, do you have any pets?",
+        "score": 0.0031674208144796376,
+        "id": "mem-9a8c6992-8620-4ce6-86f8-dffb5c72d225",
+        "created_at": "2026-08-07T06:41:33.298310+00:00"
+      },
+      {
+        "memory": "Caroline: Wow, that looks great! The blue adds so much to it. What feelings were you hoping to portray?",
+        "score": 0.003153153153153153,
+        "id": "mem-f792fb6c-b7f2-43cf-90f3-3c2b116a40ed",
+        "created_at": "2026-08-07T06:41:41.821645+00:00"
+      },
+      {
+        "memory": "Caroline: Thanks so much, Mel! Seeing this pic just made me appreciate my love of reading even more. Books guide me, motivate me and help me discover who I am. They're a huge part of my journey, and this one's reminding me to keep going and never give up!",
+        "score": 0.003139013452914798,
+        "id": "mem-ec745134-f8fc-4c2d-bbb6-9e0037fa3055",
+        "created_at": "2026-08-07T06:41:22.455190+00:00"
+      },
+      {
+        "memory": "Caroline: Thanks, Mell! I'm still looking into counseling and mental health jobs. It's important to me that people have someone to talk to, and I want to help make that happen.",
+        "score": 0.0031249999999999997,
+        "id": "mem-141536dc-b2e3-42b7-abf5-2a1d19fb7133",
+        "created_at": "2026-08-07T06:41:22.160043+00:00"
+      },
+      {
+        "memory": "Melanie: Hey Caroline, hope all's good! I had a quiet weekend after we went camping with my fam two weekends ago. It was great to unplug and hang with the kids. What've you been up to? Anything fun over the weekend?",
+        "score": 0.003111111111111111,
+        "id": "mem-7c7fdd3e-5a26-432e-b83b-f375766dfdc1",
+        "created_at": "2026-08-07T06:41:27.213391+00:00"
+      },
+      {
+        "memory": "Caroline: Being a mom is awesome. I'm creating a library for when I have kids. I'm really looking forward to reading to them and opening up their minds. [Sharing image - query: bookshelf childrens books library. The image shows: a photo of a bookcase filled with books and toys]",
+        "score": 0.003097345132743363,
+        "id": "mem-bf9a34f7-502e-482e-a2e5-2ce4709fafe3",
+        "created_at": "2026-08-07T06:41:21.103489+00:00"
+      },
+      {
+        "memory": "Melanie: Thanks, Caroline! These are for running. Been running longer since our last chat - a great way to destress and clear my mind. [Sharing image that shows: a photo of a pair of pink sneakers in a box]",
+        "score": 0.003083700440528634,
+        "id": "mem-a1e838ae-b21c-4510-981e-d6b3922ae5d8",
+        "created_at": "2026-08-07T06:41:23.262236+00:00"
+      },
+      {
+        "memory": "Caroline: Right, it was so much fun! We could do a family outting, or wanna plan something special for this summer, just us two? It'd be a great chance to catch up and explore nature! What do you think?",
+        "score": 0.0030701754385964912,
+        "id": "mem-c6d8e0b3-7159-44b3-8a30-25c52ce9702c",
+        "created_at": "2026-08-07T06:41:32.829370+00:00"
+      },
+      {
+        "memory": "Caroline: It's so sweet to see your love for your family, Melanie. They really are your rock.",
+        "score": 0.003056768558951965,
+        "id": "mem-30beac98-9b6e-4df2-8e26-060df07540bd",
+        "created_at": "2026-08-07T06:41:43.553149+00:00"
+      },
+      {
+        "memory": "Melanie: Thanks, Caroline, for letting me join your journey. I'm so proud to be part of the difference you're making. Let's keep motivating and helping each other out as we journey through life. We can make a real impact together!",
+        "score": 0.003043478260869565,
+        "id": "mem-ab0b9e11-2345-49e7-8022-24c39769106b",
+        "created_at": "2026-08-07T06:41:16.966822+00:00"
+      },
+      {
+        "memory": "Melanie: Congrats, Caroline! Adoption sounds awesome. I'm so happy for you. These figurines I bought yesterday remind me of family love. Tell me, what's your vision for the future? [Sharing image - query: painted ceramic family figurine. The image shows: a photo of a couple of wooden dolls sitting on top of a table]",
+        "score": 0.0030303030303030303,
+        "id": "mem-8cc98785-5394-46d5-bc80-1ad2c4239314",
+        "created_at": "2026-08-07T06:41:44.613863+00:00"
+      },
+      {
+        "memory": "Melanie: You'd be a great counselor! Your empathy and understanding will really help the people you work with. By the way, take a look at this. [Sharing image - query: painting sunrise. The image shows: a photo of a painting of a sunset over a lake]",
+        "score": 0.003017241379310345,
+        "id": "mem-8c6809cb-34ef-43d0-b5d2-9997d3834b37",
+        "created_at": "2026-08-07T06:41:14.887553+00:00"
+      },
+      {
+        "memory": "Caroline: Thanks, Melanie. Your support really means a lot. This journey has been amazing and I'm grateful I get to share it and help others with theirs. It's a real gift. [Sharing image that shows: a photo of a clock with a green and yellow design on it]",
+        "score": 0.003004291845493562,
+        "id": "mem-d057722f-fc86-49b1-ae2e-419c736800fb",
+        "created_at": "2026-08-07T06:41:45.294766+00:00"
+      },
+      {
+        "memory": "Caroline: I chose them 'cause they help LGBTQ+ folks with adoption. Their inclusivity and support really spoke to me.",
+        "score": 0.0029914529914529912,
+        "id": "mem-ff6a3e88-d8d1-4724-84f2-73f753234dbc",
+        "created_at": "2026-08-07T06:41:16.048613+00:00"
+      },
+      {
+        "memory": "Caroline: Agreed, Mel! Art can be a real mood-booster - I saw someone drawing on the ground the other day and it made me so happy. Creativity sure can lighten someone's day. [Sharing image - query: drawing flower ground colored chalk simple act creativity. The image shows: a photo of a painting of flowers and a watercolor palette]",
+        "score": 0.002978723404255319,
+        "id": "mem-fa027ef7-c59c-4fd7-9e0e-57d01580bcea",
+        "created_at": "2026-08-07T06:41:36.427186+00:00"
+      },
+      {
+        "memory": "Melanie: 5 years already! Time flies- feels like just yesterday I put this dress on! Thanks, Caroline! [Sharing image - query: wedding day. The image shows: a photo of a bride in a wedding dress holding a bouquet]",
+        "score": 0.002966101694915254,
+        "id": "mem-5bb7e1f7-3fa7-42f7-8f6e-3cd73bd789c8",
+        "created_at": "2026-08-07T06:41:17.540263+00:00"
+      },
+      {
+        "memory": "Caroline: Oops, sorry 'bout the accident! Must have been traumatizing for you guys. Thank goodness your son's okay. Life sure can be a roller coaster.",
+        "score": 0.002953586497890295,
+        "id": "mem-038366ac-f27f-42e6-8bc0-019f22049a67",
+        "created_at": "2026-08-07T06:41:42.791697+00:00"
+      },
+      {
+        "memory": "Melanie: Yep, Caroline. Taking care of ourselves is vital. I'm off to go swimming with the kids. Talk to you soon!",
+        "score": 0.0029411764705882353,
+        "id": "mem-4b787f43-d66a-45aa-977f-cceeaea0f894",
+        "created_at": "2026-08-07T06:41:15.261619+00:00"
+      },
+      {
+        "memory": "Caroline: I started playing acoustic guitar about five years ago; it's been a great way to express myself and escape into my emotions.",
+        "score": 0.0029166666666666664,
+        "id": "mem-bf4ff7bc-2043-4765-a4de-b75be9fbd9c8",
+        "created_at": "2026-08-07T06:41:38.661673+00:00"
+      },
+      {
+        "memory": "Caroline: Thanks, Mel. Finding self-acceptance was a long process, but now I'm ready to offer love and support to those who need it. It's empowering to make a positive difference in someone's life.",
+        "score": 0.0029045643153526968,
+        "id": "mem-7a0ead55-b1e1-452c-ad8b-89969d71c428",
+        "created_at": "2026-08-07T06:41:44.985946+00:00"
+      },
+      {
+        "memory": "Melanie: Hey Caroline! Good to see you! I'm swamped with the kids & work. What's up with you? Anything new?",
+        "score": 0.002892561983471074,
+        "id": "mem-376c6b99-cf2b-45b4-a07e-107720273061",
+        "created_at": "2026-08-07T06:41:14.252357+00:00"
+      },
+      {
+        "memory": "Caroline: Yeah, it's true! Having people who back you makes such a huge difference. It's great to see how far LGBTQ rights have come, but there's still plenty of progress to be made. I wanna help make a difference.",
+        "score": 0.0028806584362139915,
+        "id": "mem-0cccfe99-08fe-4c95-9df2-d0dd3e4b7fad",
+        "created_at": "2026-08-07T06:41:22.003586+00:00"
+      },
+      {
+        "memory": "Caroline: Thanks, Melanie. It's definitely changed them. Some close friends kept supporting me, but a few weren't able to handle it. It wasn't easy, but I'm much happier being around those who accept and love me. Now my relationships feel more genuine.",
+        "score": 0.0028688524590163933,
+        "id": "mem-5806beee-c548-4e41-b36b-4d73d973b2e8",
+        "created_at": "2026-08-07T06:41:40.261194+00:00"
+      },
+      {
+        "memory": "Melanie: Hey Caroline, it's been super busy here. So much since we talked! Last Fri I finally took my kids to a pottery workshop. We all made our own pots, it was fun and therapeutic! [Sharing image - query: pottery workshop family making clay pots. The image shows: a photography of a group of children making clay sculptures in a classroom]",
+        "score": 0.002857142857142857,
+        "id": "mem-07757a4e-e2f2-45c7-84bf-8cab9887c664",
+        "created_at": "2026-08-07T06:41:23.927655+00:00"
+      },
+      {
+        "memory": "Melanie: That's awesome, Caro! You've found the courage to be yourself - that's important for our mental health and finding peace. [Sharing image that shows: a photo of a buddha statue and a candle on a table]",
+        "score": 0.0028455284552845526,
+        "id": "mem-153e6974-44ce-45b4-adf0-7a78f07894b7",
+        "created_at": "2026-08-07T06:41:26.193520+00:00"
+      },
+      {
+        "memory": "Melanie: Thanks, Caroline! I really appreciate your help and motivation. What made you decide to transition and join the transgender community? [Sharing image that shows: a photo of a bulletin board with a rainbow flag and a don't ever be afraid to]",
+        "score": 0.0028340080971659917,
+        "id": "mem-33a52764-1d1d-4875-ad47-4665a1b55e08",
+        "created_at": "2026-08-07T06:41:35.494008+00:00"
+      },
+      {
+        "memory": "Caroline: Thanks, Melanie! Your kind words really mean a lot. I'll do my best to make sure these kids have a safe and loving home.",
+        "score": 0.00282258064516129,
+        "id": "mem-c887359e-9092-4a44-8f38-d4041d30a954",
+        "created_at": "2026-08-07T06:41:16.315125+00:00"
+      }
+    ],
+    "search_latency_ms": 78.0,
+    "total_results": 200
+  }
+}

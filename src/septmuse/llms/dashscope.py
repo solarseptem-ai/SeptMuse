@@ -73,6 +73,7 @@ class DashScopeLLM(LLM):
                 ],
                 api_key=self._api_key,
                 result_format="message",
+                timeout=30,
             )
             content = response.output.choices[0].message.content
             logger.debug("dashscope_complete_done", model=self.model, response_len=len(content))

@@ -1,0 +1,137 @@
+{
+  "question_id": "conv0_q1",
+  "conversation_idx": 0,
+  "category": 2,
+  "category_name": "temporal",
+  "question": "When did Melanie paint a sunrise?",
+  "ground_truth_answer": "2022",
+  "user_id": "locomo_0_f5581b8c",
+  "reference_date": "9:55 am on 22 October, 2023",
+  "retrieval": {
+    "search_query": "When did Melanie paint a sunrise?",
+    "search_results": [
+      {
+        "memory": "Melanie: You'd be a great counselor! Your empathy and understanding will really help the people you work with. By the way, take a look at this. [Sharing image - query: painting sunrise. The image shows: a photo of a painting of a sunset over a lake]",
+        "score": 0.016393442622950817,
+        "id": "mem-d119fc62-bbf3-4193-8467-9cc9d588b178",
+        "created_at": "2026-08-07T06:39:16.407578+00:00"
+      },
+      {
+        "memory": "Melanie: Wow, love that painting! So cool you found such a helpful group. What's it done for you?",
+        "score": 0.015873015873015872,
+        "id": "mem-82fbf518-99dc-4e94-86c9-730f64a67342",
+        "created_at": "2026-08-07T06:39:16.036863+00:00"
+      },
+      {
+        "memory": "Melanie: Wow, that's cool, Caroline! What happened that was so awesome? Did you hear any inspiring stories?",
+        "score": 0.015607940446650124,
+        "id": "mem-707f110a-d84f-4683-87a4-6c262e10e92f",
+        "created_at": "2026-08-07T06:39:15.911027+00:00"
+      },
+      {
+        "memory": "Caroline: The transgender stories were so inspiring! I was so happy and thankful for all the support. [Sharing image - query: transgender pride flag mural. The image shows: a photo of a dog walking past a wall with a painting of a woman]",
+        "score": 0.015576036866359447,
+        "id": "mem-004a0490-4758-463a-869a-8563f6520edf",
+        "created_at": "2026-08-07T06:39:15.974028+00:00"
+      },
+      {
+        "memory": "Melanie: Thanks, Caroline! Painting's a fun way to express my feelings and get creative. It's a great way to relax after a long day.",
+        "score": 0.015482954545454545,
+        "id": "mem-44ff823a-7e8b-4ce5-b0af-237c2442295b",
+        "created_at": "2026-08-07T06:39:16.654445+00:00"
+      },
+      {
+        "memory": "Melanie: Yeah, I painted that lake sunrise last year! It's special to me.",
+        "score": 0.015135261194029848,
+        "id": "mem-5c05a012-9f4e-4958-87f3-8c42b8e6bf4f",
+        "created_at": "2026-08-07T06:39:16.531159+00:00"
+      },
+      {
+        "memory": "Caroline: I went to a LGBTQ support group yesterday and it was so powerful.",
+        "score": 0.014953886693017126,
+        "id": "mem-175cb606-c8e2-4ac3-a13d-3465382c1ec3",
+        "created_at": "2026-08-07T06:39:15.848028+00:00"
+      },
+      {
+        "memory": "Caroline: Wow, Melanie! The colors really blend nicely. Painting looks like a great outlet for expressing yourself.",
+        "score": 0.014760312151616498,
+        "id": "mem-af2f58db-2218-4672-a65e-00bf8138a4ac",
+        "created_at": "2026-08-07T06:39:16.592645+00:00"
+      },
+      {
+        "memory": "Melanie: Hey Caroline, since we last chatted, I've had a lot of things happening to me. I ran a charity race for mental health last Saturday – it was really rewarding. Really made me think about taking care of our minds.",
+        "score": 0.014477611940298507,
+        "id": "mem-a1026ca1-b55e-4432-87c7-a65da6cf5a2c",
+        "created_at": "2026-08-07T06:39:16.841648+00:00"
+      },
+      {
+        "memory": "Caroline: Thanks, Melanie! That's really sweet. Is this your own painting?",
+        "score": 0.014403706688154713,
+        "id": "mem-beb96362-5863-46fb-93a1-dcf9a75b2260",
+        "created_at": "2026-08-07T06:39:16.469836+00:00"
+      },
+      {
+        "memory": "Melanie: That's really cool. You've got guts. What now?",
+        "score": 0.01408450704225352,
+        "id": "mem-978bca67-ec87-48b2-b261-44afe449ad3f",
+        "created_at": "2026-08-07T06:39:16.161430+00:00"
+      },
+      {
+        "memory": "Melanie: Wow, Caroline! What kinda jobs are you thinkin' of? Anything that stands out?",
+        "score": 0.013755707762557075,
+        "id": "mem-ce568790-cfd4-46be-a138-5b5af8034590",
+        "created_at": "2026-08-07T06:39:16.286029+00:00"
+      },
+      {
+        "memory": "Melanie: Hey Caroline! Good to see you! I'm swamped with the kids & work. What's up with you? Anything new?",
+        "score": 0.013745098039215685,
+        "id": "mem-81a4bb3e-2551-4fb5-8305-310837b61d77",
+        "created_at": "2026-08-07T06:39:15.785077+00:00"
+      },
+      {
+        "memory": "Melanie: Yep, Caroline. Taking care of ourselves is vital. I'm off to go swimming with the kids. Talk to you soon!",
+        "score": 0.013513513513513513,
+        "id": "mem-07756d1c-04a1-473f-9d4a-14edcfafc153",
+        "created_at": "2026-08-07T06:39:16.778957+00:00"
+      },
+      {
+        "memory": "Caroline: That charity race sounds great, Mel! Making a difference & raising awareness for mental health is super rewarding - I'm really proud of you for taking part!",
+        "score": 0.013210526315789473,
+        "id": "mem-eb350fda-cb56-4a98-99ea-d5f8fdfb7f21",
+        "created_at": "2026-08-07T06:39:16.904737+00:00"
+      },
+      {
+        "memory": "Caroline: Gonna continue my edu and check out career options, which is pretty exciting!",
+        "score": 0.009722222222222222,
+        "id": "mem-89173b5b-5e73-48bc-9353-0317f410654b",
+        "created_at": "2026-08-07T06:39:16.223117+00:00"
+      },
+      {
+        "memory": "Caroline: Totally agree, Mel. Relaxing and expressing ourselves is key. Well, I'm off to go do some research.",
+        "score": 0.00909090909090909,
+        "id": "mem-47dad617-8cf4-4e63-8410-b3cb0985749f",
+        "created_at": "2026-08-07T06:39:16.716397+00:00"
+      },
+      {
+        "memory": "Caroline: The support group has made me feel accepted and given me courage to embrace myself.",
+        "score": 0.008974358974358974,
+        "id": "mem-536b9fd3-ad34-42aa-9ce5-2499a55b0e12",
+        "created_at": "2026-08-07T06:39:16.099097+00:00"
+      },
+      {
+        "memory": "Caroline: I'm keen on counseling or working in mental health - I'd love to support those with similar issues.",
+        "score": 0.008860759493670885,
+        "id": "mem-6d8bf85b-81a7-4d37-82da-a3cf29b80f0e",
+        "created_at": "2026-08-07T06:39:16.346787+00:00"
+      },
+      {
+        "memory": "Caroline: Hey Mel! Good to see you! How have you been?",
+        "score": 0.008749999999999999,
+        "id": "mem-7b90e819-4eb1-44fc-a539-2195a359deea",
+        "created_at": "2026-08-07T06:39:15.706516+00:00"
+      }
+    ],
+    "search_latency_ms": 31.0,
+    "total_results": 20
+  }
+}

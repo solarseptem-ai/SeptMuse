@@ -61,7 +61,7 @@ class AnthropicLLM(LLM):
         if not self._api_key:
             raise ValueError("ANTHROPIC_API_KEY not set: pass api_key or set env var")
 
-        self._client = Anthropic(api_key=self._api_key)
+        self._client = Anthropic(api_key=self._api_key, timeout=30.0)
         logger.info("anthropic_llm_ready", model=model)
 
     def _complete(self, system_prompt: str, user_prompt: str) -> str:

@@ -37,10 +37,12 @@ dream / compress / conflict / temporal search / graph search / entity CRUD)
 from __future__ import annotations
 
 import contextlib
+from collections.abc import Callable
 from typing import Any
 
 from septmuse.configs.defaults import MemoryConfig, default_config
 from septmuse.core.logging import get_logger
+from septmuse.core.messages import normalize_messages as _normalize_messages
 from septmuse.embedders.base import Embedder
 from septmuse.llms.base import LLM
 from septmuse.memory.episodic import EpisodicMemory
@@ -71,21 +73,6 @@ def _resolve_embedder(config: MemoryConfig) -> Embedder:
             backend, config=config.embedder, model_name="Xenova/paraphrase-multilingual-MiniLM-L12-v2"
         )
     return embedder_provider.resolve(backend, config=config.embedder)
-
-
-def _normalize_messages(messages: Any) -> list[str]:
-    """归一化 messages 为 text 列表 (接受 str 或 List[Dict])。"""
-    if isinstance(messages, str):
-        return [messages]
-    texts: list[str] = []
-    for m in messages:
-        if isinstance(m, dict):
-            content = m.get("content")
-            if content:
-                texts.append(content)
-        elif isinstance(m, str):
-            texts.append(m)
-    return texts
 
 
 def _normalize_expiration_date(expiration_date: Any) -> str | None:
@@ -227,79 +214,76 @@ class Memory:
         self._dedup_window = DedupWindow()
 
         self._hybrid_retriever = None
+        self._search_pipeline = None
+        self._recall_pipeline = None
 
         self._init_v2_components()
 
+    def _safe_init(self, attr: str, factory: Callable[[], Any]) -> None:
+        """尝试构造组件, 失败设 None + 日志 (集中 try/except, 消除 7× 重复)。"""
+        try:
+            setattr(self, attr, factory())
+        except Exception as e:
+            setattr(self, attr, None)
+            logger.warning(f"{attr}_init_failed", error=str(e))
+
     def _init_v2_components(self) -> None:
-        """初始化 V2 编排组件 (working_memory / capture / token_budget / meta / evolution / forgetting)。"""
+        """初始化 V2 编排组件 (working_memory / capture / token_budget / meta / evolution / forgetting / summarizer)。"""
         store_engine = getattr(self.store, "engine", None)
 
-        self.working_memory = None
-        if store_engine is not None:
-            try:
-                from septmuse.memory.working_memory import WorkingMemory
-                from septmuse.storage.working_memory_stores.factory import create_working_memory_store
+        def make_working_memory() -> Any:
+            from septmuse.memory.working_memory import WorkingMemory
+            from septmuse.storage.working_memory_stores.factory import create_working_memory_store
 
-                wm_store = create_working_memory_store(self.config, engine=store_engine)
-                self.working_memory = WorkingMemory(store=wm_store, agent_id="default")
-            except Exception as e:
-                logger.warning("working_memory_init_failed", error=str(e))
+            return WorkingMemory(
+                store=create_working_memory_store(self.config, engine=store_engine), agent_id="default"
+            )
 
-        self.capture = None
-        try:
+        def make_capture() -> Any:
             from septmuse.capture.pipeline import CapturePipeline
 
-            self.capture = CapturePipeline(
-                self.store,
-                self.embedder,
-                typed_store=self.typed_store,
-                llm=self.llm,
-                dedup_window=self._dedup_window,
+            return CapturePipeline(
+                self.store, self.embedder,
+                typed_store=self.typed_store, llm=self.llm, dedup_window=self._dedup_window,
             )
-        except Exception as e:
-            logger.warning("capture_init_failed", error=str(e))
 
-        self.token_budget = None
-        try:
+        def make_token_budget() -> Any:
             from septmuse.retrieval.token_budget import TokenBudget
 
-            self.token_budget = TokenBudget()
-        except Exception as e:
-            logger.warning("token_budget_init_failed", error=str(e))
+            return TokenBudget()
 
-        self.meta = None
-        try:
+        def make_meta() -> Any:
             from septmuse.memory.meta import MetacognitionLayer
 
-            self.meta = MetacognitionLayer(self.embedder, self.store, self.typed_store)
-        except Exception as e:
-            logger.warning("meta_init_failed", error=str(e))
+            return MetacognitionLayer(self.embedder, self.store, self.typed_store)
 
-        self.evolution = None
-        try:
+        def make_evolution() -> Any:
             from septmuse.memory.evolution import EvolutionEngine
 
-            self.evolution = EvolutionEngine(
+            return EvolutionEngine(
                 self.store, self.graph_store, self.embedder, self.typed_store, self.llm
             )
-        except Exception as e:
-            logger.warning("evolution_init_failed", error=str(e))
 
-        self.forgetting = None
-        try:
+        def make_forgetting() -> Any:
             from septmuse.retrieval.forgetting import ForgettingRetriever
 
-            self.forgetting = ForgettingRetriever(self.typed_store)
-        except Exception as e:
-            logger.warning("forgetting_init_failed", error=str(e))
+            return ForgettingRetriever(self.typed_store)
 
-        self.summarizer = None
-        try:
+        def make_summarizer() -> Any:
             from septmuse.evolution.summarizer import Summarizer
 
-            self.summarizer = Summarizer(self.store, self.typed_store, self.llm)
-        except Exception as e:
-            logger.warning("summarizer_init_failed", error=str(e))
+            return Summarizer(self.store, self.typed_store, self.llm)
+
+        if store_engine is not None:
+            self._safe_init("working_memory", make_working_memory)
+        else:
+            self.working_memory = None
+        self._safe_init("capture", make_capture)
+        self._safe_init("token_budget", make_token_budget)
+        self._safe_init("meta", make_meta)
+        self._safe_init("evolution", make_evolution)
+        self._safe_init("forgetting", make_forgetting)
+        self._safe_init("summarizer", make_summarizer)
 
     def _resolve_store(self) -> MemoryStore:
         """解析 store: 统一走 ORMMemoryStore (DatabaseService 自动回退 SQLite 零配置)。"""
@@ -542,68 +526,42 @@ class Memory:
             )
         return self._hybrid_retriever
 
+    def _get_search_pipeline(self):
+        """获取持久化 SearchPipeline 实例 (缓存跨 search 调用生效)。"""
+        if self._search_pipeline is None:
+            from septmuse.rerankers import create_reranker
+            from septmuse.retrieval.search_pipeline import SearchPipeline, VectorRetrieverAdapter
+
+            self._search_pipeline = SearchPipeline(
+                hybrid_retriever=self._get_hybrid_retriever(),
+                vector_retriever=VectorRetrieverAdapter(self.store, self.embedder),
+                reranker_factory=lambda name: create_reranker(name, embedder=self.embedder, llm=self.llm),
+                embedder=self.embedder,
+                forgetting=self.forgetting,
+                default_top_k=self.config.top_k,
+                default_threshold=self.config.threshold,
+            )
+        return self._search_pipeline
+
+    def _get_recall_pipeline(self):
+        """获取持久化 RecallPipeline 实例 (缓存跨 recall 调用生效)。"""
+        if self._recall_pipeline is None:
+            from septmuse.retrieval.recall_pipeline import RecallPipeline
+
+            self._recall_pipeline = RecallPipeline(
+                search_pipeline=self._get_search_pipeline(),
+                meta=self.meta,
+                token_budget=self.token_budget,
+                working_memory=self.working_memory,
+                summarizer=self.summarizer,
+                typed_store=self.typed_store,
+            )
+        return self._recall_pipeline
+
     def _invalidate_search_cache(self, user_id: str | None = None) -> None:
         """清除 HybridRetriever 搜索缓存 (add/update/delete 后调用)。"""
         if self._hybrid_retriever is not None:
             self._hybrid_retriever.invalidate_cache(user_id=user_id)
-
-    def _apply_search_post_processing(
-        self,
-        results: list[dict[str, Any]],
-        *,
-        user_id: str,
-        forgetting: bool = False,
-        token_budget: int | None = None,
-        inject_prompt: bool = False,
-    ) -> list[dict[str, Any]] | dict[str, Any]:
-        """search 后处理链: forgetting → token_budget → inject_prompt。
-
-        后处理失败不阻塞检索——吞错降级, 返回原始结果。
-        """
-        # [1] forgetting: 强度加权 + 测试效应
-        if forgetting and self.forgetting is not None:
-            try:
-                weighted = self.forgetting.apply_strength(results, user_id=user_id)
-                original_map = {r.get("id"): r for r in results}
-                results = [
-                    {
-                        "id": w.id,
-                        "memory": w.memory,
-                        "score": w.final_score,
-                        "final_score": w.final_score,
-                        "strength": w.strength,
-                        "metadata": w.metadata,
-                        "created_at": original_map.get(w.id, {}).get("created_at"),
-                    }
-                    for w in weighted
-                ]
-            except Exception as e:
-                logger.warning("forgetting_apply_failed", error=str(e))
-        elif forgetting and self.forgetting is None:
-            logger.warning("forgetting_component_unavailable")
-
-        # [2] token_budget: 按加权后 score 贪心裁剪
-        if token_budget is not None and results:
-            try:
-                from septmuse.retrieval.token_budget import BudgetItem, TokenBudget
-
-                items = [
-                    BudgetItem(text=r.get("memory", ""), score=r.get("score", 0.0), id=r.get("id")) for r in results
-                ]
-                budget = TokenBudget(budget=token_budget)
-                fitted = budget.fit(items)
-                chosen_ids = {item.id for item in fitted.items}
-                results = [r for r in results if r.get("id") in chosen_ids]
-            except Exception as e:
-                logger.warning("token_budget_failed", error=str(e))
-
-        # [3] inject_prompt: 返回 dict (提前 return)
-        if inject_prompt:
-            memory_texts = "\n".join(f"- {r.get('memory', '')}" for r in results)
-            injected_prompt = f"<memory>\n{memory_texts}\n</memory>"
-            return {"results": results, "injected_prompt": injected_prompt}
-
-        return results
 
     def search(
         self,
@@ -629,149 +587,26 @@ class Memory:
     ) -> list[dict[str, Any]] | dict[str, Any]:
         """检索记忆 (默认 hybrid BM25+向量 RRF 融合, 支持后处理重排)。
 
-        Args:
-            query: 查询文本
-            user_id: 用户 ID (必填)
-            session_id: 会话 ID (None=不限)
-            top_k: 返回数 (默认 config.top_k)
-            threshold: 相似阈值 (默认 config.threshold)
-            hybrid: True=BM25+向量 RRF 融合 (默认); False=纯向量
-            reranker: 重排器 ("noop"/"mmr"/"cross_encoder"/"llm"/"cohere"/"batch_llm", None=用 config)
-            recipe: 预置检索 recipe (覆盖 hybrid/reranker/explain)
-            explain: True=返回 score_details
-            filters: 字段过滤字典 (hybrid + 纯向量均生效)
-            search_filter: reranker boost 权重字典 (匹配 user_id/session_id/tags 的结果 score 加权)
-
-        Returns:
-            list[{"id","memory","score","metadata","created_at"}]
+        委托给 SearchPipeline。管线拥有 recipe 解析 → 检索 → reranker → 过期过滤 → 后处理全链路。
         """
-        if recipe is not None:
-            from septmuse.retrieval.recipes import get_recipe
-
-            r = get_recipe(recipe)
-            hybrid = r.hybrid
-            if r.reranker != "noop":
-                reranker = r.reranker
-            explain = r.explain
-
-        if hyde:
-            logger.info("hyde_not_enabled", hint="requires LLM + prompt engineering (future)")
-        if query_rewrite:
-            logger.info("query_rewrite_not_enabled", hint="requires LLM (future)")
-
-        tk = top_k or self.config.top_k
-        fetch_k = tk * 2 if not show_expired else tk
-        if hybrid:
-            th = 0.0 if threshold is None else threshold
-        else:
-            th = threshold if threshold is not None else self.config.threshold
-
-        if hybrid:
-            retriever = self._get_hybrid_retriever()
-            hybrid_results = retriever.search(
-                query,
-                user_id=user_id,
-                session_id=session_id,
-                top_k=fetch_k,
-                threshold=th,
-                explain=explain,
-                filters=filters,
-            )
-            # reranker 应用 (try/except 降级容错: 失败回退原始结果)
-            if reranker is not None and reranker != "noop":
-                from septmuse.rerankers import create_reranker
-                from septmuse.rerankers.strategies import RerankerStrategyFactory
-
-                try:
-                    reranker_instance = create_reranker(reranker, embedder=self.embedder, llm=self.llm)
-                    strategy = RerankerStrategyFactory.create("full_memory")
-                    tracker, documents = strategy.prepare(hybrid_results)
-                    scored = reranker_instance.rerank(query, documents, top_k=fetch_k)
-                    hybrid_results = strategy.reconstruct(scored, tracker, hybrid_results, fetch_k, search_filter)
-                except Exception as e:
-                    logger.warning("reranker_failed_fallback", reranker=reranker, error=str(e))
-            hybrid_return = [
-                {
-                    "id": r.id,
-                    "memory": r.memory,
-                    "score": r.score,
-                    "vector_score": r.vector_score,
-                    "bm25_score": r.bm25_score,
-                    "metadata": r.metadata,
-                    "created_at": r.created_at,
-                }
-                for r in hybrid_results
-            ]
-            if not show_expired:
-                hybrid_return = [r for r in hybrid_return if not _is_expired(r.get("metadata"))]
-            return self._apply_search_post_processing(
-                hybrid_return[:tk],
-                user_id=user_id,
-                forgetting=forgetting,
-                token_budget=token_budget,
-                inject_prompt=inject_prompt,
-            )
-
-        # 纯向量分支
-        emb = self.embedder.embed(query)
-        results = self.store.search(
-            emb,
+        return self._get_search_pipeline().search(
+            query,
             user_id=user_id,
             session_id=session_id,
-            top_k=fetch_k,
-            threshold=th,
+            top_k=top_k,
+            threshold=threshold,
+            hybrid=hybrid,
+            reranker=reranker,
+            recipe=recipe,
+            explain=explain,
             filters=filters,
-        )
-
-        # 纯向量分支也应用 reranker (try/except 降级容错)
-        if reranker is not None and reranker != "noop" and results:
-            from septmuse.rerankers import create_reranker
-            from septmuse.rerankers.strategies import RerankerStrategyFactory
-            from septmuse.retrieval.hybrid import HybridResult
-
-            try:
-                reranker_instance = create_reranker(reranker, embedder=self.embedder, llm=self.llm)
-                strategy = RerankerStrategyFactory.create("full_memory")
-                # dict → HybridResult 转换
-                hybrid_results = [
-                    HybridResult(
-                        id=r["id"],
-                        memory=r["memory"],
-                        score=r["score"],
-                        vector_score=r.get("score", 0.0),
-                        bm25_score=0.0,
-                        entity_boost=0.0,
-                        metadata=r.get("metadata", {}),
-                        created_at=r.get("created_at"),
-                    )
-                    for r in results
-                ]
-                tracker, documents = strategy.prepare(hybrid_results)
-                scored = reranker_instance.rerank(query, documents, top_k=fetch_k)
-                reranked = strategy.reconstruct(scored, tracker, hybrid_results, fetch_k, search_filter)
-                # HybridResult → dict 转换
-                results = [
-                    {
-                        "id": r.id,
-                        "memory": r.memory,
-                        "score": r.score,
-                        "metadata": r.metadata,
-                        "created_at": r.created_at,
-                    }
-                    for r in reranked
-                ]
-            except Exception as e:
-                logger.warning("reranker_failed_fallback", reranker=reranker, error=str(e))
-
-        logger.info("memory_search_done", user_id=user_id, query=query[:50], hits=len(results))
-        if not show_expired:
-            results = [r for r in results if not _is_expired(r.get("metadata"))]
-        return self._apply_search_post_processing(
-            results[:tk],
-            user_id=user_id,
+            search_filter=search_filter,
+            show_expired=show_expired,
             forgetting=forgetting,
             token_budget=token_budget,
             inject_prompt=inject_prompt,
+            hyde=hyde,
+            query_rewrite=query_rewrite,
         )
 
     def get_all(
@@ -1013,67 +848,18 @@ class Memory:
     ) -> dict[str, Any]:
         """V2 recall: 检索 → token 裁剪 → 注入 prompt → L0 路由 + L2 策略。
 
-        Returns:
-            {"memories": list, "injected_prompt": str, "route": dict, "strategy": StrategyResult|None}
+        委托给 RecallPipeline。管线拥有 compress → search → budget → prompt → route → strategy 全链路。
         """
-        if auto_compress and self.summarizer is not None:
-            with contextlib.suppress(Exception):
-                self.summarizer.compress(user_id=user_id)
-
-        forgetting = kwargs.pop("forgetting", True)
-        kwargs.pop("inject_prompt", None)  # recall() has its own prompt assembly; search() inject_prompt not supported
-        kwargs.pop("token_budget", None)   # recall() has its own token budget logic; search() token_budget not supported
-        memories = self.search(
-            query, user_id=user_id, session_id=session_id, top_k=top_k, recipe=recipe, forgetting=forgetting, **kwargs
+        return self._get_recall_pipeline().recall(
+            query,
+            user_id=user_id,
+            session_id=session_id,
+            top_k=top_k,
+            auto_compress=auto_compress,
+            recipe=recipe,
+            inject_profile=inject_profile,
+            **kwargs,
         )
-
-        from types import SimpleNamespace
-
-        from septmuse.retrieval.token_budget import BudgetItem
-
-        items = [
-            BudgetItem(text=m.get("memory", ""), score=m.get("score", 0.0), id=m.get("id"))
-            for m in memories
-        ]
-        if self.token_budget is not None:
-            budget_result = self.token_budget.fit(items)
-        else:
-            budget_result = SimpleNamespace(texts=[item.text for item in items], used_tokens=0)
-
-        wm_prompt = ""
-        if self.working_memory is not None:
-            wm_prompt = self.working_memory.compile_to_prompt() + "\n"
-
-        memory_texts = "\n".join(f"- {t}" for t in budget_result.texts)
-        injected_prompt = f"{wm_prompt}<memory>\n{memory_texts}\n</memory>"
-
-        route_result = None
-        if self.meta is not None:
-            try:
-                route_result = self.meta.route(query)
-            except Exception as e:
-                logger.warning("recall_route_failed", error=str(e))
-
-        strategy = None
-        if self.meta is not None:
-            coverage_facts = self.typed_store.get_all_facts(user_id=user_id)
-            has_coverage = any(
-                "meta" in (f.tags or []) and "coverage" in (f.tags or []) for f in coverage_facts
-            )
-            if has_coverage:
-                try:
-                    report = self.meta.analyze_coverage(user_id=user_id)
-                    strategy = self.meta.adapt_strategy(report)
-                except Exception as e:
-                    logger.warning("recall_strategy_failed", error=str(e))
-
-        logger.info("recall_done", user_id=user_id, hits=len(memories), tokens=budget_result.used_tokens)
-        return {
-            "memories": memories,
-            "injected_prompt": injected_prompt,
-            "route": route_result,
-            "strategy": strategy,
-        }
 
     def improve(self, *, user_id: str, limit: int = 20) -> dict[str, Any]:
         """V2 improve: Dream 链接生长 + reflect 蒸馏 + L1 覆盖报告持久化。
@@ -1220,6 +1006,8 @@ class Memory:
                     wm_store.reset()
 
         self._hybrid_retriever = None
+        self._search_pipeline = None
+        self._recall_pipeline = None
 
         logger.info("memory_reset_done")
         return {"status": "reset", "message": "all memories cleared"}

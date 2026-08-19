@@ -57,7 +57,7 @@ class OllamaLLM(LLM):
 
         self.model = model
         self._host = host or os.getenv("OLLAMA_HOST", "http://localhost:11434")
-        self._client = Client(host=self._host)
+        self._client = Client(host=self._host, timeout=30.0)
         logger.info("ollama_llm_ready", model=model, host=self._host)
 
     def _complete(self, system_prompt: str, user_prompt: str) -> str:

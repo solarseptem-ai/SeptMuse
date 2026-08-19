@@ -1,0 +1,1217 @@
+{
+  "question_id": "conv1_q33",
+  "conversation_idx": 1,
+  "category": 2,
+  "category_name": "temporal",
+  "question": "When did Jon visit networking events for his store?",
+  "ground_truth_answer": "20 June, 2023",
+  "user_id": "locomo_1_a65c10d4",
+  "reference_date": "6:46 pm on 23 July, 2023",
+  "retrieval": {
+    "search_query": "When did Jon visit networking events for his store?",
+    "search_results": [
+      {
+        "memory": "Gina: Way to go, Jon! Attending those networking events takes guts and drive. Keep it up!",
+        "score": 0.015186426476749056,
+        "id": "mem-a0fdd593-4146-4868-823d-2f3aa4585a2f",
+        "created_at": "2026-08-07T06:42:34.367877+00:00"
+      },
+      {
+        "memory": "Jon: I'm always here to support you! Go create something awesome with your store. Keep it up!",
+        "score": 0.013960720130932896,
+        "id": "mem-50d8fde4-af84-4d49-94a3-3be5507bf5f4",
+        "created_at": "2026-08-07T06:42:15.086255+00:00"
+      },
+      {
+        "memory": "Jon: Glad I have you in my corner! Gotta make time to dance and vent, that's for sure. We'll make it through this - hang in there!",
+        "score": 0.013856852103120758,
+        "id": "mem-09d20039-c4d8-451f-87b4-6269451a0920",
+        "created_at": "2026-08-07T06:42:14.014893+00:00"
+      },
+      {
+        "memory": "Gina: Hey Jon, what's been up? Some pretty cool stuff happened since we talked. I have acquired some new unique pieces for my store. [Sharing image - query: online clothing store logo fashion unique pieces. The image shows: a photo of a woman in a black hoodie posing for a picture]",
+        "score": 0.013387387387387387,
+        "id": "mem-a55544c6-192a-486e-8ac1-8aca7a50247d",
+        "created_at": "2026-08-07T06:42:33.916486+00:00"
+      },
+      {
+        "memory": "Jon: Thanks for having my back.",
+        "score": 0.013105844618674268,
+        "id": "mem-5978ed16-2662-44e0-8313-a04ed8ec57c3",
+        "created_at": "2026-08-07T06:42:38.415221+00:00"
+      },
+      {
+        "memory": "Jon: Congrats on your store, Gina! Happy for you! It looks sick - is it a unique piece you're selling?",
+        "score": 0.01309090909090909,
+        "id": "mem-ec052388-5c77-495b-877a-03ba08eb50fe",
+        "created_at": "2026-08-07T06:42:33.993837+00:00"
+      },
+      {
+        "memory": "Gina: Believe in yourself, Jon! The process may be tough, but you got this. Push through and it'll be worth it. Don't forget to take breaks and dance it out when you need to destress!",
+        "score": 0.013037316957959375,
+        "id": "mem-161e4f0f-28d8-4bc4-a3f6-c7fb934da5ac",
+        "created_at": "2026-08-07T06:42:13.952666+00:00"
+      },
+      {
+        "memory": "Gina: Understand where you're at, Jon. Setbacks are just opportunities for comebacks. You got the skills, passion, and drive. Plus my full support. Don't give up, buddy!",
+        "score": 0.012920379419373382,
+        "id": "mem-006f7bfa-2d88-4568-9bab-bc735660efbd",
+        "created_at": "2026-08-07T06:42:15.780854+00:00"
+      },
+      {
+        "memory": "Gina: Way to go, Jon! Don't quit, remember, failures lead you closer to success. Here's a pic from when I was dancing - it was a tough road, but it was worth it! [Sharing image - query: dance competition trophy stage. The image shows: a photo of a group of young women posing for a picture]",
+        "score": 0.012751564349737864,
+        "id": "mem-7afd4ebe-a008-49d8-99b1-3051aa2c6060",
+        "created_at": "2026-08-07T06:42:31.616061+00:00"
+      },
+      {
+        "memory": "Jon: Wow, great idea! Let's go to a dance class, it'll be so much fun!",
+        "score": 0.012491904145077719,
+        "id": "mem-39537f99-8efd-4273-a782-b9a2314f0f5d",
+        "created_at": "2026-08-07T06:42:11.864262+00:00"
+      },
+      {
+        "memory": "Gina: Go for it, Jon! You got this! Don't let anything stop you. We're in this together!",
+        "score": 0.012452391028353788,
+        "id": "mem-b9f1180d-7faa-4db6-b1af-156f82242ea7",
+        "created_at": "2026-08-07T06:42:25.447457+00:00"
+      },
+      {
+        "memory": "Jon: Yeah, totally! It's great we both face the same challenges, it motivates us and it's like having a partner to dance with!",
+        "score": 0.012335600907029478,
+        "id": "mem-3ae6280f-c9d5-4011-ad2d-9ebc3ef23b15",
+        "created_at": "2026-08-07T06:42:19.626618+00:00"
+      },
+      {
+        "memory": "Gina: Definitely, Jon! I'm pumped to collaborate with you and make some sweet moves. Together, we can make a difference and show the world what we can do. Let's go for it!",
+        "score": 0.012254412254412253,
+        "id": "mem-06b66cce-0e98-4b61-ad80-4d05641c0fc2",
+        "created_at": "2026-08-07T06:42:38.180562+00:00"
+      },
+      {
+        "memory": "Jon: Wow, you're awesome for going for it! Setbacks can help us reach our potential, right? I'm having trouble with my business project. Any advice on staying motivated even when times are tough?",
+        "score": 0.012003129890453833,
+        "id": "mem-031e0ecc-003c-4f8d-9203-dabbb7b2267c",
+        "created_at": "2026-08-07T06:42:24.918254+00:00"
+      },
+      {
+        "memory": "Jon: It was a tough call, but I thought it'd help my biz grow. Handling changes has been hard, but I'm staying positive and looking ahead. Anything new for you?",
+        "score": 0.011859459459459458,
+        "id": "mem-d143243f-fdd0-447c-8880-3ed0af9871ca",
+        "created_at": "2026-08-07T06:42:21.425971+00:00"
+      },
+      {
+        "memory": "Gina: Hey Jon! Long time no see! Things have been hectic lately. I just launched an ad campaign for my clothing store in hopes of growing the business. Starting my own store and taking risks is both scary and rewarding. I'm excited to see where it takes me! [Sharing image that shows: a photo of a clothing store with a variety of clothes on display]",
+        "score": 0.011769402746726285,
+        "id": "mem-df4e4705-f19f-410a-b570-171cd69632fc",
+        "created_at": "2026-08-07T06:42:13.193653+00:00"
+      },
+      {
+        "memory": "Jon: Thanks for being there for me! It's really made a huge difference and it feels great.",
+        "score": 0.011731534719150817,
+        "id": "mem-35204992-4b87-4205-acb1-ff4a9010d1f9",
+        "created_at": "2026-08-07T06:42:20.627952+00:00"
+      },
+      {
+        "memory": "Jon: Yeah, Gina! We'll rock the dance floor and teach others to chase their dreams. Let's go for it and make an impact!",
+        "score": 0.011361566484517305,
+        "id": "mem-1cdf9b88-2a74-48e8-a766-6e10d4f846ca",
+        "created_at": "2026-08-07T06:42:38.258798+00:00"
+      },
+      {
+        "memory": "Jon: Love the tattoo, did you just get it?",
+        "score": 0.011263923619004319,
+        "id": "mem-714173cf-32a2-4758-9ea3-dc3448f66a29",
+        "created_at": "2026-08-07T06:42:17.813591+00:00"
+      },
+      {
+        "memory": "Gina: Way to go, Jon! Keep it up, you're almost there!",
+        "score": 0.011227960027206612,
+        "id": "mem-5642221b-202c-4749-a9b8-287c155e14e2",
+        "created_at": "2026-08-07T06:42:24.527311+00:00"
+      },
+      {
+        "memory": "Gina: Thanks, Jon! Appreciate the kind words. <3",
+        "score": 0.011119402985074626,
+        "id": "mem-90cf5107-41a4-4234-97ef-57dfd6260055",
+        "created_at": "2026-08-07T06:42:22.947465+00:00"
+      },
+      {
+        "memory": "Jon: I'm gonna keep on believing in myself. Thanks for the kind words!",
+        "score": 0.010598551277163554,
+        "id": "mem-ea29cf2d-dd98-420f-98ca-40d6a3ee7684",
+        "created_at": "2026-08-07T06:42:21.207367+00:00"
+      },
+      {
+        "memory": "Gina: No prob, Jon! You earned all the kudos for your hard work. Keep it up!",
+        "score": 0.010572139303482588,
+        "id": "mem-870b9516-1297-4c16-b54b-7d594a030e8e",
+        "created_at": "2026-08-07T06:42:24.370327+00:00"
+      },
+      {
+        "memory": "Gina: Searching for the perfect dance studio's a tough job, Jon. Hang in there and you'll find it soon!",
+        "score": 0.010557184750733138,
+        "id": "mem-286391e5-7167-4e16-8023-929850d99394",
+        "created_at": "2026-08-07T06:42:16.075191+00:00"
+      },
+      {
+        "memory": "Jon: Tomorrow's gonna be an awesome night and I'm not gonna forget a second of it. I put so much into this and I want to savor all the good vibes. Thanks for always having my back. You're the best!",
+        "score": 0.010546407185628742,
+        "id": "mem-422c519b-e6ff-44a4-bbff-beed4688b8f5",
+        "created_at": "2026-08-07T06:42:32.765481+00:00"
+      },
+      {
+        "memory": "Jon: Hey Gina, congrats on the clothing store! The dance studio is on tenuous grounds right now, but I'm staying positive. I got a temp job to help cover expenses while I look for investors. It's tough, but I'm sure it'll be worth it.",
+        "score": 0.010512820512820513,
+        "id": "mem-2cc8c563-c34f-4ad4-85b3-ed178822c7c3",
+        "created_at": "2026-08-07T06:42:36.847522+00:00"
+      },
+      {
+        "memory": "Jon: Woohoo! Tomorrow's opening will be so much fun. Can't wait for it - and for you to be there!",
+        "score": 0.010322299651567944,
+        "id": "mem-8941463d-fa56-465b-99a5-0c3200610b77",
+        "created_at": "2026-08-07T06:42:33.605850+00:00"
+      },
+      {
+        "memory": "Jon: Wow! It looks awesome! Thanks for the support, it really means a lot.",
+        "score": 0.010301616109238614,
+        "id": "mem-f30b82f4-99d5-4d0e-a953-095cb2f271ff",
+        "created_at": "2026-08-07T06:42:24.293173+00:00"
+      },
+      {
+        "memory": "Jon: That's awesome, Gina! Yesterday I chose to go to networking events to make things happen. It's been tough but I'm staying determined and focused.",
+        "score": 0.010197368421052632,
+        "id": "mem-3bcdd543-a44d-4b6b-b069-267148d647e8",
+        "created_at": "2026-08-07T06:42:34.290167+00:00"
+      },
+      {
+        "memory": "Jon: Hey Gina, thanks for being there for me and believing in me. It means a lot.",
+        "score": 0.010196078431372548,
+        "id": "mem-8afd78c2-8a5d-4380-933e-e1b6b4284110",
+        "created_at": "2026-08-07T06:42:28.840177+00:00"
+      },
+      {
+        "memory": "Jon: Yeah, Gina! Dancing helps me de-stress. It's where I'm most alive. It's a must-have in my life.",
+        "score": 0.010023310023310023,
+        "id": "mem-dae6ba52-13e9-4eff-8cbf-74884f00bb04",
+        "created_at": "2026-08-07T06:42:26.149776+00:00"
+      },
+      {
+        "memory": "Jon: Hey Gina! Congrats on the new fashion piece! Looks like your store is growing. Remenber the festival I told you about? Had that performance and it was awesome - so many people there complementing my dance moves. Dancing brings me joy and it was nice to be reminded why I'm passionate about it. [Sharing image that shows: a photo of a group of young girls in a dance studio]",
+        "score": 0.009983328429930372,
+        "id": "mem-f2b501b1-b5df-465b-b207-5432d9a38964",
+        "created_at": "2026-08-07T06:42:16.884199+00:00"
+      },
+      {
+        "memory": "Gina: Yeah, I have a few plans. I'm thinking of working with some fashion bloggers and influencers in the next few months to get more attention for my store. Plus, I'm going to do more ads so I can reach more people. I'm really focused on building my customer base and making my store a top destination for fashion fans. It's awesome to see it all coming together! You, Jon? What do you have going for your dance studio?",
+        "score": 0.009796380090497738,
+        "id": "mem-f284cfaf-5b25-45a2-9975-3664b4950964",
+        "created_at": "2026-08-07T06:42:22.106448+00:00"
+      },
+      {
+        "memory": "Gina: Thanks for the advice, Jon! Building relationships and creating a strong brand image for my store is something I'm always working on. You're right, staying positive is key. What helps you stay motivated with your dance studio business?",
+        "score": 0.00973063973063973,
+        "id": "mem-88f5336c-7c32-4376-a4c3-dfb63953b469",
+        "created_at": "2026-08-07T06:42:20.392547+00:00"
+      },
+      {
+        "memory": "Gina: Gotcha, Jon! Dance is my stress fix too. As soon as I start, all my worries vanish. It's amazing what we can do for our own mental health with something we enjoy.",
+        "score": 0.00972137170851194,
+        "id": "mem-94909670-0be8-4820-8326-3d7373eebd3e",
+        "created_at": "2026-08-07T06:42:26.070434+00:00"
+      },
+      {
+        "memory": "Jon: Feeling supported by all of you means so much. It gives me the oomph to keep chasing my dreams. Your faith in me is priceless - I won't let you down!",
+        "score": 0.009705829916206096,
+        "id": "mem-c997e14b-b9a4-4dd7-b8d2-2c328ab8c43c",
+        "created_at": "2026-08-07T06:42:35.856095+00:00"
+      },
+      {
+        "memory": "Jon: Yeah, can't wait to see it done! Looking for the right place and getting everything ready has been a mix of exciting and nerve-wracking, but I'm determined to make it work. It'll be worth it!",
+        "score": 0.009575328614762386,
+        "id": "mem-f41e9909-f2bc-4d5a-8711-428570bf7d03",
+        "created_at": "2026-08-07T06:42:13.874786+00:00"
+      },
+      {
+        "memory": "Jon: Nice, Gina! I'm happy that dance has such a special meaning to both of us. It's a really cool way to express ourselves. I loved taking lessons with my friends when I was younger. Those memories are so precious. So glad I can still enjoy it with my own studio. Thanks for always being there for me.",
+        "score": 0.009277403551745254,
+        "id": "mem-ecd4209e-ae72-48e7-835e-f905c5e916c0",
+        "created_at": "2026-08-07T06:42:24.137975+00:00"
+      },
+      {
+        "memory": "Gina: Oh no, Jon! Sorry to hear that. Tough decision for you? How're you handling the changes?",
+        "score": 0.009215471343564046,
+        "id": "mem-6d1f3d34-d47e-4b3a-a182-8209542aa6dd",
+        "created_at": "2026-08-07T06:42:21.347755+00:00"
+      },
+      {
+        "memory": "Jon: Sorry to hear that! I'm starting a dance studio 'cause I'm passionate about dancing and it'd be great to share it with others.",
+        "score": 0.008878968253968254,
+        "id": "mem-71b6d356-a7e7-4d8c-aba0-b7118e208649",
+        "created_at": "2026-08-07T06:42:11.476190+00:00"
+      },
+      {
+        "memory": "Gina: Wow, Jon, you must be so excited! You've come so far since we last talked, and tomorrow's gonna be a blast! All those long nights were worth it - so take some time to savor it. Capture the joy and thrill that dance brings - it's magical!",
+        "score": 0.008852749047359824,
+        "id": "mem-4f3d2a8c-45cc-4d1b-b522-23aa9efa134c",
+        "created_at": "2026-08-07T06:42:32.689973+00:00"
+      },
+      {
+        "memory": "Jon: Success is almost here. We got this!",
+        "score": 0.008790222000498877,
+        "id": "mem-59b13948-e69d-4420-b7b7-aee126df695f",
+        "created_at": "2026-08-07T06:42:14.295930+00:00"
+      },
+      {
+        "memory": "Jon: Thanks Gina! Your help really means a lot. Sometimes it's hard when things don't go my way, but I'm sure if I keep pushing, I'll reach my dreams!",
+        "score": 0.008783840415723745,
+        "id": "mem-9a8194e2-224a-41a0-856d-fbc448e30ab1",
+        "created_at": "2026-08-07T06:42:15.703272+00:00"
+      },
+      {
+        "memory": "Jon: Yeah, Gina, thanks for having my back. Here's to taking on new heights, and all the trials that come with it. Cheers! [Sharing image - query: champagne celebration. The image shows: a photo of two glasses of champagne with a bottle of wine in the background]",
+        "score": 0.00878089716203845,
+        "id": "mem-75914aa5-c78d-41a5-9db1-1b9eddd8fbf1",
+        "created_at": "2026-08-07T06:42:19.937356+00:00"
+      },
+      {
+        "memory": "Jon: I'm currently reading \"The Lean Startup\" and hoping it'll give me tips for my biz.",
+        "score": 0.008744192049561176,
+        "id": "mem-7b004975-e8ba-4c99-889f-cc87387f5e9d",
+        "created_at": "2026-08-07T06:42:27.752031+00:00"
+      },
+      {
+        "memory": "Gina: I get it, Jon. Dance is just me -- I can't picture life without it. It's like air.",
+        "score": 0.008737603859555078,
+        "id": "mem-d0668649-5473-4c59-9199-ea1ffba4b03a",
+        "created_at": "2026-08-07T06:42:26.226866+00:00"
+      },
+      {
+        "memory": "Gina: No worries, Jon! You're really inspiring with your determination and passion for dance. Keep it up!",
+        "score": 0.008680926916221033,
+        "id": "mem-2d1362e2-7f7a-4753-a93e-0900d525d447",
+        "created_at": "2026-08-07T06:42:32.062932+00:00"
+      },
+      {
+        "memory": "Gina: Hah, yeah!) But really having a creative space for dancers is so important. Last Friday at dance class with a group of friends I felt it. Your studio will be a go-to spot for self-expression. Keep up the good work and don't forget your passion for dance. [Sharing image that shows: a photo of three girls in ballet costumes sitting on a desk]",
+        "score": 0.008673793876253066,
+        "id": "mem-989ef5e6-ac82-45be-852c-367ce8221988",
+        "created_at": "2026-08-07T06:42:38.910281+00:00"
+      },
+      {
+        "memory": "Gina: I've had some tough times with my business, Jon. Sourcing trendy pieces for my store was a big hurdle. I had to do a lot of research and networking. My advice? Don't be scared to reach out to people in your field for help and contacts. Networking was a lifesaver for me and opened me up to amazing products that I might not have found otherwise.",
+        "score": 0.008661348294906637,
+        "id": "mem-960d4247-5101-4d6e-9f89-8ab16e29d663",
+        "created_at": "2026-08-07T06:42:37.081992+00:00"
+      },
+      {
+        "memory": "Gina: Hey Jon! Long time no talk! A lot's happened - I just got accepted for a fashion internship!",
+        "score": 0.0085968505953143,
+        "id": "mem-b8212103-09fc-445a-b269-0498f4c49fe7",
+        "created_at": "2026-08-07T06:42:27.366313+00:00"
+      },
+      {
+        "memory": "Gina: I get it, Jon. Confidence is important in business. I stay motivated by reminding myself of my successes and progress. It also helps to have a good support system. Just focus on why you started this – because you love it! Have faith in yourself, Jon. I do!",
+        "score": 0.008522077327842598,
+        "id": "mem-b8c972cc-be30-487c-bcf6-5b54c40e225c",
+        "created_at": "2026-08-07T06:42:25.150692+00:00"
+      },
+      {
+        "memory": "Jon: Thanks, Gina! My dance studio and some other schools are bringing their best moves for an awesome night of performances and judging. It'll be super creative and fun. Come join us! [Sharing image - query: group dancers stage performance. The image shows: a photo of a group of dancers on a stage with a man in the middle of the group]",
+        "score": 0.008502555601602431,
+        "id": "mem-61a2e540-086f-4e6f-8ba9-2c1aa06b89e8",
+        "created_at": "2026-08-07T06:42:22.495514+00:00"
+      },
+      {
+        "memory": "Jon: Been doing some promotion for my business. Crazy ride so far, but I'm hanging in there. Got any tips for marketing?",
+        "score": 0.008490566037735849,
+        "id": "mem-a48f4270-5406-4adf-a358-bba5673749c2",
+        "created_at": "2026-08-07T06:42:30.760233+00:00"
+      },
+      {
+        "memory": "Jon: Hi Gina! Been hectic for me lately. Started hitting the gym last week to stay on track with the venture. Gotta figure out how to balance it all, but it's going well. How about you?",
+        "score": 0.00844040762073549,
+        "id": "mem-db42990f-a361-4587-98f4-b4062704fd35",
+        "created_at": "2026-08-07T06:42:18.554637+00:00"
+      },
+      {
+        "memory": "Jon: Thanks! Your words mean a lot. I'm staying positive and pushing forward. We've put our hearts into our dreams and I'm sure we'll make it.",
+        "score": 0.008382488479262672,
+        "id": "mem-56841369-a731-413b-a221-08fe8a22fc50",
+        "created_at": "2026-08-07T06:42:15.241172+00:00"
+      },
+      {
+        "memory": "Gina: Wow Jon, you look so happy when you dance! Show the world your true self and keep dancing!",
+        "score": 0.008239895697522814,
+        "id": "mem-832c62cf-28a6-47b8-be8c-79d834c1bd12",
+        "created_at": "2026-08-07T06:42:23.728087+00:00"
+      },
+      {
+        "memory": "Jon: Thanks, Gina! I won't quit, even when it's hard. I'm gonna make it!",
+        "score": 0.00822566752799311,
+        "id": "mem-e28f6d9f-a712-4c2a-acd1-ae5bb54d3531",
+        "created_at": "2026-08-07T06:42:36.167583+00:00"
+      },
+      {
+        "memory": "Jon: Glad to hear it. Been practicing dance routines lately, it keeps my mind focused and motivated.",
+        "score": 0.008166747927840078,
+        "id": "mem-3fe2e451-d974-4ef5-8f87-ea751c6e4085",
+        "created_at": "2026-08-07T06:42:26.912586+00:00"
+      },
+      {
+        "memory": "Jon: I've been feeling kinda low on confidence lately. It's hard to run a business when you don't have faith in yourself. Any tips on how you stay confident in your business?",
+        "score": 0.008156819026384243,
+        "id": "mem-c72af412-0b46-479c-a362-1591faece06b",
+        "created_at": "2026-08-07T06:42:25.073119+00:00"
+      },
+      {
+        "memory": "Gina: Wow Jon, same here! Dance is pretty much my go-to for stress relief. Got any fave styles?",
+        "score": 0.00815251572327044,
+        "id": "mem-471d4bb9-6f0e-4e4f-b5b7-6d3145c6d592",
+        "created_at": "2026-08-07T06:42:11.678805+00:00"
+      },
+      {
+        "memory": "Jon: Thanks! I won't quit, no matter what. Your encouragement really motivates me to keep going.",
+        "score": 0.00814242077128675,
+        "id": "mem-00e05b41-a664-467c-8cf2-f1e8625ca80b",
+        "created_at": "2026-08-07T06:42:31.536830+00:00"
+      },
+      {
+        "memory": "Jon: Thanks Gina! It's been tough, but I'm gonna make it happen. It's been great! And hey, you're awesome with your store. How's it going?",
+        "score": 0.008142372881355931,
+        "id": "mem-c15d0599-164c-4e5f-842d-1837f627aa30",
+        "created_at": "2026-08-07T06:42:20.156792+00:00"
+      },
+      {
+        "memory": "Gina: Go, Jon! I'm here for you. Keep going!",
+        "score": 0.008135574598989233,
+        "id": "mem-58d47e88-d8f0-441b-a380-745a6263a9c0",
+        "created_at": "2026-08-07T06:42:31.909254+00:00"
+      },
+      {
+        "memory": "Jon: I hope so, Gina. I want to create a place for people to dance and express themselves - it's been a dream of mine.",
+        "score": 0.008132384856522788,
+        "id": "mem-42029f8c-b64a-4ac0-b732-cc080b5511e3",
+        "created_at": "2026-08-07T06:42:26.462709+00:00"
+      },
+      {
+        "memory": "Gina: Thanks Jon! Dance is my stress relief and fashion fuels my creativity. I love finding new trends for my store. It keeps me motivated to keep growing. Check out this pic of my fave dance session! [Sharing image - query: dance studio session. The image shows: a photo of a man and woman doing a yoga pose]",
+        "score": 0.00804904051172708,
+        "id": "mem-c17292f0-1777-453e-b74c-34cdb3fb9c8c",
+        "created_at": "2026-08-07T06:42:21.657938+00:00"
+      },
+      {
+        "memory": "Gina: Hey Jon, congrats on the fair! It's awesome to see your hard work paying off. Keep on pushing, pal, you're headed for greatness. Oh, and BTW, I started my own online clothing store not so long ago - pretty cool, huh? [Sharing image - query: clothing store website. The image shows: a photography of a laptop with a sale ad on the screen]",
+        "score": 0.007875457875457875,
+        "id": "mem-c284903f-1645-46d9-abc6-dae1f1c38d58",
+        "created_at": "2026-08-07T06:42:24.683569+00:00"
+      },
+      {
+        "memory": "Jon: Wow, Gina! You did great taking that leap. Congrats! Got any advice for someone just starting out?",
+        "score": 0.00787037037037037,
+        "id": "mem-d50582ee-9c90-4f62-aaeb-d5352f799959",
+        "created_at": "2026-08-07T06:42:31.227264+00:00"
+      },
+      {
+        "memory": "Jon: I'm getting ready for a dance comp near me next month. It's a great chance for me to show my skillz and, hopefully, get some props from the dance fam. Super stoked!",
+        "score": 0.007865401924807865,
+        "id": "mem-a9484382-a433-485f-8003-5e2f07b14c48",
+        "created_at": "2026-08-07T06:42:16.295382+00:00"
+      },
+      {
+        "memory": "Jon: It's downtown which is awesome cuz it's easy to get to. Plus the natural light! Gotta check the size & floor quality too. We need a good dance floor with enough bounce for me & my students to dance safely.",
+        "score": 0.007721028531172947,
+        "id": "mem-a0579836-3c4e-4fdb-b3a1-1109d4cc251f",
+        "created_at": "2026-08-07T06:42:13.567190+00:00"
+      },
+      {
+        "memory": "Jon: Woah, that pic's from when my dance crew took home first in a local comp last year. It was amazing up on that stage! I'm super keen to spread that intensity with other peeps. Gina, you ever been in any dance comps or shows?",
+        "score": 0.007680976430976431,
+        "id": "mem-214f6b98-0aff-47b9-8120-73410664b503",
+        "created_at": "2026-08-07T06:42:12.309411+00:00"
+      },
+      {
+        "memory": "Jon: Searching for a dance studio location has been tricky, but I'm determined to find the right spot - when I do, I'm sure the rest will follow!",
+        "score": 0.007666223404255318,
+        "id": "mem-78ad802a-6257-42cf-8fd6-6de70b1d6d80",
+        "created_at": "2026-08-07T06:42:16.012579+00:00"
+      },
+      {
+        "memory": "Jon: Nice reminder, Gina! It's so important to have freedom and express ourselves without worry. Dance gives me an escape to be myself. [Sharing image that shows: a photo of a woman in a tutu posing for a picture]",
+        "score": 0.00766484942886812,
+        "id": "mem-9e76a462-9574-45ef-9e59-d30f0bf5d447",
+        "created_at": "2026-08-07T06:42:17.953570+00:00"
+      },
+      {
+        "memory": "Jon: Hi Gina! I just wanted to fill you in on my business. Yesterday, I went to a fair to show off my studio, it was both stressful and great! I got some possible leads, so that was awesome. But overall, I've learned that this biz is no cakewalk and having confidence in yourself is important for making it successful! [Sharing image - query: fair booth flyers brochures dance studio. The image shows: a photo of a group of women performing a dance on a stage]",
+        "score": 0.007648578811369509,
+        "id": "mem-83e96e6a-d6ca-48db-9767-fc232e6190f4",
+        "created_at": "2026-08-07T06:42:24.605272+00:00"
+      },
+      {
+        "memory": "Gina: Yep! We're both on different paths, but it's nice to have someone to root for us. We can do it!",
+        "score": 0.007583148558758314,
+        "id": "mem-acbc5da2-234b-4d34-b5ec-1cbe8250ac9f",
+        "created_at": "2026-08-07T06:42:19.703780+00:00"
+      },
+      {
+        "memory": "Jon: Wow, Gina! You found the perfect spot for your store. Way to go, hard work's paying off! [Sharing image that shows: a photo of a room with a mirror and a wooden floor]",
+        "score": 0.0075507493834187055,
+        "id": "mem-f3b06092-e8a1-4eff-b808-ceb1baf945b2",
+        "created_at": "2026-08-07T06:42:14.526688+00:00"
+      },
+      {
+        "memory": "Jon: Your store looks great - your customers will be so comfy.",
+        "score": 0.007529162248144219,
+        "id": "mem-ac9e51b5-d6e0-4cd6-a30b-aa17b6492f54",
+        "created_at": "2026-08-07T06:42:14.790929+00:00"
+      },
+      {
+        "memory": "Gina: Yeah Jon! Challenges are awesome for learning and growth. To stay motivated, I think of the big goal and why I'm doing it. I also get help from people who support me. And of course, I dance it out. Do you need advice on anything in particular?",
+        "score": 0.007336839845427222,
+        "id": "mem-2fbcdae7-6998-4463-9da6-93c4904ce3c7",
+        "created_at": "2026-08-07T06:42:24.995561+00:00"
+      },
+      {
+        "memory": "Gina: Congrats, Jon! The studio looks amazing. You've put a lot of work into this and I'm so pumped for the launch tomorrow. Don't miss a beat!",
+        "score": 0.0072759789156626505,
+        "id": "mem-ceaf9eaf-a133-468b-9d87-205989806d04",
+        "created_at": "2026-08-07T06:42:32.533923+00:00"
+      },
+      {
+        "memory": "Jon: Thanks, Gina! Appreciate your support. Your store looks great, I remember it!",
+        "score": 0.007241853575962759,
+        "id": "mem-19be2de8-ec76-4b13-97cd-29b78d5a430e",
+        "created_at": "2026-08-07T06:42:24.761839+00:00"
+      },
+      {
+        "memory": "Jon: Hey Gina! We haven't talked in a few days. Been rehearsing hard and working on business plans. It's been stressful, but dancing has kept me going.",
+        "score": 0.0072372357399282,
+        "id": "mem-7b9f5602-755a-4d00-8c4f-5d01fc482983",
+        "created_at": "2026-08-07T06:42:38.479440+00:00"
+      },
+      {
+        "memory": "Jon: Thanks for being there for me. Your help means a lot.",
+        "score": 0.007135761589403973,
+        "id": "mem-132bc4ac-4082-41e4-9dda-4173ab98d008",
+        "created_at": "2026-08-07T06:42:20.770196+00:00"
+      },
+      {
+        "memory": "Jon: Thanks! It's a bit scary, but I just think about my love for dance and how it makes me feel. It's been my stress-buster since childhood!",
+        "score": 0.007127659574468086,
+        "id": "mem-91847f12-bcb1-4e3c-9cbb-20153560045c",
+        "created_at": "2026-08-07T06:42:25.991551+00:00"
+      },
+      {
+        "memory": "Jon: I'm wrapping up the business plan and looking for investors. My passion for the project and belief in its success are driving me.",
+        "score": 0.0071094890510948906,
+        "id": "mem-261b4400-1b57-427b-801b-6a165001ed2c",
+        "created_at": "2026-08-07T06:42:28.235719+00:00"
+      },
+      {
+        "memory": "Gina: Hey Jon! Great hearing from you again. How have you been? BTW, I found a cool new fashion piece for my store. Can't wait to share with my customers. [Sharing image that shows: a photo of a group of women posing with a giant balloon]",
+        "score": 0.006948717948717948,
+        "id": "mem-d2b3c043-2dc6-4afe-8c75-f8eb0f5aa934",
+        "created_at": "2026-08-07T06:42:16.806194+00:00"
+      },
+      {
+        "memory": "Jon: Thanks! I'm going for my dreams!",
+        "score": 0.006941176470588235,
+        "id": "mem-ea3a132a-3db9-4187-bd83-d2c073426da6",
+        "created_at": "2026-08-07T06:42:16.605375+00:00"
+      },
+      {
+        "memory": "Gina: Hey Jon! Remember, just do it! You should get to the point where anyone else would quit and you're not going to stop there. No, what are you waiting for? Do it! Just do it! [Sharing image that shows: a photo of a group of dancers on a stage with their arms in the air]",
+        "score": 0.006924651924651924,
+        "id": "mem-ac4dd39b-aefd-4239-93d2-664613e1b0ee",
+        "created_at": "2026-08-07T06:42:38.555445+00:00"
+      },
+      {
+        "memory": "Gina: Totally agree, Jon. Dancing lets us be ourselves and ain't nothing like the feeling it gives us. You're so dedicated to your studio, it's inspiring. Chase those dreams, buddy!",
+        "score": 0.006921757035003431,
+        "id": "mem-f092ef09-2303-4026-b87f-f9c6dc6fca80",
+        "created_at": "2026-08-07T06:42:18.030394+00:00"
+      },
+      {
+        "memory": "Gina: Hey Jon, my online clothing store has been a roller coaster but rewarding. Starting a business takes courage - you hang in there too!",
+        "score": 0.006858581091709925,
+        "id": "mem-b89469f1-b1f1-439d-9579-d0e039385dc2",
+        "created_at": "2026-08-07T06:42:20.078710+00:00"
+      },
+      {
+        "memory": "Jon: Appreciate your encouragement. We'll keep pushing each other on this path.",
+        "score": 0.00684519463832024,
+        "id": "mem-690242c5-1afb-42f0-aa12-ba852db864dd",
+        "created_at": "2026-08-07T06:42:25.526924+00:00"
+      },
+      {
+        "memory": "Jon: Wow, I'm excited too! This is gonna be great! [Sharing image - query: dancing on stage performance dance competition last year. The image shows: a photography of a man in a suit is performing a dance]",
+        "score": 0.006754492841912884,
+        "id": "mem-42c3ae30-1669-436c-8d8b-09364690ebe9",
+        "created_at": "2026-08-07T06:42:12.154855+00:00"
+      },
+      {
+        "memory": "Jon: Thanks, Gina! Your faith in me is a real boost. I'm gonna make my dreams come true!",
+        "score": 0.0067250495703899535,
+        "id": "mem-b96781e1-7299-413c-b96c-0427c4ac77ea",
+        "created_at": "2026-08-07T06:42:36.013417+00:00"
+      },
+      {
+        "memory": "Gina: Hi Jon! So happy you're pushing forward with dancing! Inspiring 💪 I emailed some wholesalers and one replied and said yes today! I'm over the moon because now I can expand my clothing store and get closer to my customers. Check it out - here's a pic! [Sharing image that shows: a photography of a shopping mall with a glass entrance and a sign]",
+        "score": 0.00668261562998405,
+        "id": "mem-f1524c4c-4692-4748-b8c1-0ab53d089eec",
+        "created_at": "2026-08-07T06:42:14.450365+00:00"
+      },
+      {
+        "memory": "Jon: Thanks! The event was awesome. I met some investors and got some good advice. The energy was really motivating, it gave me a boost to go after my goals. [Sharing image - query: crowded networking event people mingling business cards. The image shows: a photo of a man signing a card at a table]",
+        "score": 0.006649932265519165,
+        "id": "mem-c8d18651-1c66-44e3-9571-662ab56d660a",
+        "created_at": "2026-08-07T06:42:37.313881+00:00"
+      },
+      {
+        "memory": "Gina: Thanks Jon! I got the idea from a fashion mag and saw there wasn't much around like it. So I worked with the artist to make it happen - it's all about being ahead of the game and giving my customers something different.",
+        "score": 0.006647859276468636,
+        "id": "mem-28aacd4d-9105-43f3-8bec-44b4fe7251e0",
+        "created_at": "2026-08-07T06:42:17.273034+00:00"
+      },
+      {
+        "memory": "Gina: I'm so happy to see my words motivating you, Jon. <3",
+        "score": 0.006637622877569258,
+        "id": "mem-0299238e-1150-4c19-b059-64b518cbdfa1",
+        "created_at": "2026-08-07T06:42:39.066212+00:00"
+      },
+      {
+        "memory": "Jon: Thanks, Gina! Seeing my goals written down on paper really helps keep me motivated and focused on what I have to do. I know it won't be easy, but I'm sure it'll pay off. Thanks for the support!",
+        "score": 0.006602734135890634,
+        "id": "mem-319ea93c-09cc-4e3a-97be-c516035de511",
+        "created_at": "2026-08-07T06:42:34.770661+00:00"
+      },
+      {
+        "memory": "Gina: You're living the dream and inspiring others too! Your studio will totally change things for lots of folks.",
+        "score": 0.006593617839292579,
+        "id": "mem-0bc21f4d-232e-45af-a649-a32032b2efd4",
+        "created_at": "2026-08-07T06:42:26.384844+00:00"
+      },
+      {
+        "memory": "Jon: Hey Gina, I had to shut down my bank account. It was tough, but I needed to do it for my biz.",
+        "score": 0.006581036224563429,
+        "id": "mem-db4bac9a-4a58-46cb-b861-4f5cc20cc2cf",
+        "created_at": "2026-08-07T06:42:21.270403+00:00"
+      },
+      {
+        "memory": "Jon: Yeah, I totally agree - taking risks is key for success. It's made me grow, and even got me out of my secure 9-5 as a banker. Now, I'm aiming to turn my dancing passion into a business. I'm determined to make it work, I just know it! That being said, I definitely don't underestimate the difficulties - it ain't been a walk in the park, that's for sure.",
+        "score": 0.006580547112462006,
+        "id": "mem-3b863ed2-f767-4b02-8d1c-0d6a6fd8268f",
+        "created_at": "2026-08-07T06:42:17.505934+00:00"
+      },
+      {
+        "memory": "Jon: Thanks! Appreciate your encouragement - it means a lot! I'm working on my business and some new dance routines - rehearsing hard for an upcoming show. I'm passionate about dancing and it brings me so much joy and fulfillment. [Sharing image that shows: a photo of a woman in a gray dress doing a trick]",
+        "score": 0.006535353535353535,
+        "id": "mem-a9c5d4fe-7c8c-4c7a-b623-d594bc95915a",
+        "created_at": "2026-08-07T06:42:16.153782+00:00"
+      },
+      {
+        "memory": "Jon: Way to go, Gina! You really stepped up. What's your plan for the future? [Sharing image that shows: a photo of a book with a yellow and green cover]",
+        "score": 0.006514206514206514,
+        "id": "mem-3da14f1f-a784-4251-b254-de6010edd8d2",
+        "created_at": "2026-08-07T06:42:27.596579+00:00"
+      },
+      {
+        "memory": "Jon: Thanks for the support. You rock!",
+        "score": 0.006387188293265641,
+        "id": "mem-1e273945-780e-4b75-812f-ad2e917f3523",
+        "created_at": "2026-08-07T06:42:37.932605+00:00"
+      },
+      {
+        "memory": "Jon: Thanks for the advice, Gina! I already started doing what you said about social media and posted some of my dance videos. It's creating a bit of a stir.",
+        "score": 0.0063335987261146495,
+        "id": "mem-1f38b432-c767-4a97-ab51-43b26e579b72",
+        "created_at": "2026-08-07T06:42:30.915432+00:00"
+      },
+      {
+        "memory": "Gina: That's awesome! I'm sure you feel great knowing your students are doing so well with dance. It's amazing what it can do for people! Oh, and btw - I've been working hard on my online store and just teamed up with a local artist for some cool designs. Check 'em out! [Sharing image - query: unique artwork clothing. The image shows: a photo of a rack of clothes with a coat and a dress]",
+        "score": 0.006315987933634993,
+        "id": "mem-4cba22c9-d894-4d36-9d00-426c05164ebc",
+        "created_at": "2026-08-07T06:42:17.117966+00:00"
+      },
+      {
+        "memory": "Gina: Remember Jon, Just do it!",
+        "score": 0.006307566991791808,
+        "id": "mem-9c3d0e5e-ed65-4eff-bb23-8e18c462c56b",
+        "created_at": "2026-08-07T06:42:39.391549+00:00"
+      },
+      {
+        "memory": "Gina: Wow, nice spot! Where is it? Got any other features you want to think about before you decide? Paris?! That is really great Jon! Never had a chance to visit it. Been only to Rome once.",
+        "score": 0.006144957983193277,
+        "id": "mem-f677e6fb-952f-4eee-9e97-4ee8df2429b9",
+        "created_at": "2026-08-07T06:42:13.490192+00:00"
+      },
+      {
+        "memory": "Gina: Thanks! Glad you like it. Yeah, it's a great spot. Here's a peek at the space I designed. Cozy and inviting - perfect for customers to check out all the trendy pieces. [Sharing image - query: inside of store cozy inviting atmosphere trendy pieces. The image shows: a photography of a clothing store with a lot of clothes on display]",
+        "score": 0.006142231751987849,
+        "id": "mem-a3ce71f0-6162-42bd-b732-581ea8857bee",
+        "created_at": "2026-08-07T06:42:14.589688+00:00"
+      },
+      {
+        "memory": "Gina: Hey Jon! The store's doing great! It's a wild ride. How's the biz?",
+        "score": 0.0061164529914529905,
+        "id": "mem-34193b77-e276-4ae7-9ba9-ef383b96e072",
+        "created_at": "2026-08-07T06:42:15.472193+00:00"
+      },
+      {
+        "memory": "Jon: Thanks, Gina! I love running my own studio. It's great having the freedom to create a space and help dancers of all ages and levels express themselves. I'm super thrilled about dancing each day and seeing my students progress. It's so fulfilling.",
+        "score": 0.006110310021629415,
+        "id": "mem-b5737422-0ff1-473c-bb54-ebc8df25bae3",
+        "created_at": "2026-08-07T06:42:17.040096+00:00"
+      },
+      {
+        "memory": "Jon: Hey Gina, hope you're doing ok! Still following my passion for dance. It's been bumpy, but I'm determined to make it work. I'm still searching for a place to open my dance studio.",
+        "score": 0.006052778854018684,
+        "id": "mem-2aa01423-d5ff-4562-a07e-41df7153ecf6",
+        "created_at": "2026-08-07T06:42:14.372674+00:00"
+      },
+      {
+        "memory": "Jon: Thanks, Gina! Your pep-talk really meant a lot. I'm not gonna give up on my dreams - my dance studio and biz ventures need the hard work I'm putting in. Love having you in my corner, thanks for always being there!",
+        "score": 0.006023321615364828,
+        "id": "mem-403e7570-c479-4a6d-9a10-3bcf3bb19c8d",
+        "created_at": "2026-08-07T06:42:18.399346+00:00"
+      },
+      {
+        "memory": "Gina: Thanks, Jon! It was a huge jump, but totally worth it. My advice: stay passionate, focused and resilient. Challenges will come, but believe in yourself and keep going. And stay open to learning and improving.",
+        "score": 0.006004140786749482,
+        "id": "mem-068d5871-f943-4820-90b9-1e78a82fc598",
+        "created_at": "2026-08-07T06:42:31.304159+00:00"
+      },
+      {
+        "memory": "Jon: Thanks! Juggling both my passions can be tricky, but so rewarding. Dancing and running my biz need hard work, plus they give me energy for each other. My dance moves get me pumped to tackle my business goals, and successes there boost my drive to keep dreaming on the dance floor. It's a balancing act, but fun.",
+        "score": 0.006003584229390681,
+        "id": "mem-bba4b014-2d87-4875-8dcd-c8eee68b2c43",
+        "created_at": "2026-08-07T06:42:18.244076+00:00"
+      },
+      {
+        "memory": "Jon: Hey Gina! Thanks for asking. I'm on the hunt for the ideal spot for my dance studio and it's been quite a journey! I've been looking at different places and picturing how the space would look. I even found a place with great natural light! Oh, I've been to Paris yesterday! It was sooo cool. [Sharing image - query: dance studio natural lighting spacious room large windows dance mirrors. The image shows: a photo of a bathroom with a blue floor and a pink wall]",
+        "score": 0.005971360188227658,
+        "id": "mem-29944974-f95f-49d2-95f6-294c52dab134",
+        "created_at": "2026-08-07T06:42:13.412788+00:00"
+      },
+      {
+        "memory": "Gina: Nice one, Jon! Networking really pays off. Connecting with like-minded people is key. How was the event? [Sharing image that shows: a photo of a clothing store with a wall of pictures and clothes]",
+        "score": 0.005957962181590873,
+        "id": "mem-dc2dcaa9-b188-493a-9e9f-6965964181ee",
+        "created_at": "2026-08-07T06:42:37.238230+00:00"
+      },
+      {
+        "memory": "Gina: Yeah Jon, I'm here for you! Chasing our dreams and helping each other out. Let's keep movin' forward!",
+        "score": 0.005909090909090909,
+        "id": "mem-df5383c0-78ac-42b8-a0ae-bf3610b4aa37",
+        "created_at": "2026-08-07T06:42:18.476974+00:00"
+      },
+      {
+        "memory": "Jon: Hey Gina, how's it going?",
+        "score": 0.005907663996536047,
+        "id": "mem-59f73a79-6595-4e0f-ab8a-8ed3bf949b2c",
+        "created_at": "2026-08-07T06:42:20.014707+00:00"
+      },
+      {
+        "memory": "Gina: Yay! My online clothes store is open! I've been dreaming of this for a while now - can't wait to see what happens! [Sharing image - query: online clothing store website screenshot. The image shows: a photo of a computer screen showing a book and a pair of shoes]",
+        "score": 0.005845992243051067,
+        "id": "mem-6900da2b-3104-414d-9e84-8341460bac05",
+        "created_at": "2026-08-07T06:42:18.940513+00:00"
+      },
+      {
+        "memory": "Jon: Congrats, Gina! That's awesome news about the fashion internship. 🎉 So stoked for you. Where is the internship and how're you feelin' about it?",
+        "score": 0.005845164152617568,
+        "id": "mem-b6ff880f-fc96-4c03-b64b-1acdb14b40e5",
+        "created_at": "2026-08-07T06:42:27.442235+00:00"
+      },
+      {
+        "memory": "Jon: Thanks, Gina! Appreciate the offer. Need help with marketing strategies - any advice on reaching my target audience and raising awareness for the dance studio?",
+        "score": 0.0058426443202979515,
+        "id": "mem-6f8e4c9b-cdaf-4028-8c94-b7ef06fd9717",
+        "created_at": "2026-08-07T06:42:37.622557+00:00"
+      },
+      {
+        "memory": "Jon: Hi! Since we last spoke I am still working on the dance studio and things are looking up! [Sharing image that shows: a photo of a woman in a short skirt with her hands on her hips]",
+        "score": 0.005818242790073775,
+        "id": "mem-0a15c00b-2f1d-41c6-af06-7131b8f38dc2",
+        "created_at": "2026-08-07T06:42:25.682008+00:00"
+      },
+      {
+        "memory": "Gina: Oof, that's tough, Jon. I got some new offers and promotions going on my online store to try and bring in new customers. It's been a wild ride starting my business, but I'm not giving up!",
+        "score": 0.005779010633379565,
+        "id": "mem-f339a3eb-0f06-45a9-aa23-d4777bd856a4",
+        "created_at": "2026-08-07T06:42:21.504037+00:00"
+      },
+      {
+        "memory": "Jon: Thanks for askin', Gina! Losing my job was hard, but I'm livin' my dreams now. Startin' my biz has been tough but I'm gonna make it! I keep facing new challenges, but I'm sure it'll be worth it in the end. [Sharing image that shows: a photo of a laptop computer sitting on top of a table]",
+        "score": 0.005719806763285024,
+        "id": "mem-134add3b-5847-4134-af64-918e882096ae",
+        "created_at": "2026-08-07T06:42:19.328620+00:00"
+      },
+      {
+        "memory": "Gina: Believe in yourself. Even when it's tough, you got this! Keep going!",
+        "score": 0.005717329545454545,
+        "id": "mem-a7cd3aee-dc1b-4121-92fe-0deb5b3a0ed6",
+        "created_at": "2026-08-07T06:42:21.128859+00:00"
+      },
+      {
+        "memory": "Jon: It looks awesome. Your commitment and creativity in your business really stands out. How'd you come up with these cool designs?",
+        "score": 0.00568504366812227,
+        "id": "mem-41c7c664-934b-48e6-ad18-2b13cb7be5c5",
+        "created_at": "2026-08-07T06:42:17.196462+00:00"
+      },
+      {
+        "memory": "Jon: Thanks, Gina! Your belief in me means the world. I'm not gonna let anything or anyone stop me. I'll keep pushing and make my dreams come true. Thanks for being a great friend. You rock! [Sharing image that shows: a photo of a chalkboard with a quote written on it]",
+        "score": 0.0056567222006974035,
+        "id": "mem-0808acbf-6c74-4c54-9d3d-fe58a2b10164",
+        "created_at": "2026-08-07T06:42:36.319940+00:00"
+      },
+      {
+        "memory": "Jon: Hey Gina! Whoa, your store looks great! All your hard work really paid off - congrats! Must be awesome to see your stuff on display.",
+        "score": 0.005647172949002217,
+        "id": "mem-50ad978d-cc69-41ba-8b05-6182d9ed0512",
+        "created_at": "2026-08-07T06:42:13.256710+00:00"
+      },
+      {
+        "memory": "Gina: Yeah, Jon, I'll watch your routine! So proud of you!",
+        "score": 0.00562221231043711,
+        "id": "mem-2310174d-3505-4644-8b5e-76da3ca8d48a",
+        "created_at": "2026-08-07T06:42:27.144947+00:00"
+      },
+      {
+        "memory": "Jon: Thanks, Gina! It's been so inspiring to work with our young dancers, seeing their passion and commitment. Opening the dance studio's been a great experience - I want it to be a place of support and encouragement for all our dancers. Will you show me this presentation?",
+        "score": 0.005568910256410256,
+        "id": "mem-e9ed3e31-829a-443a-892d-3d7a179e5329",
+        "created_at": "2026-08-07T06:42:29.136300+00:00"
+      },
+      {
+        "memory": "Gina: No doubt, Jon you've got this. Your passion and commitment are awesome! Keep it up!",
+        "score": 0.005550200803212851,
+        "id": "mem-689400e6-7d6f-4313-af3f-9eb55064c434",
+        "created_at": "2026-08-07T06:42:16.527707+00:00"
+      },
+      {
+        "memory": "Jon: That's a great goal! Creating a special experience for customers is the key to making them feel welcome and coming back. I think you can create that space you're imagining.",
+        "score": 0.005536037474715214,
+        "id": "mem-4bf9872f-4b5d-453b-990b-cf4958585bf8",
+        "created_at": "2026-08-07T06:42:14.948121+00:00"
+      },
+      {
+        "memory": "Gina: Go get 'em, Jon!",
+        "score": 0.005521367521367521,
+        "id": "mem-b5ca50b4-bec1-4a37-9f38-e48c0feb9ebf",
+        "created_at": "2026-08-07T06:42:35.470573+00:00"
+      },
+      {
+        "memory": "Jon: Wow, that's awesome! Combining your two interests into a store is super cool. Best of luck with it! [Sharing image that shows: a photo of three young girls standing next to each other with trophies]",
+        "score": 0.005465587044534413,
+        "id": "mem-eff66c44-1072-4d39-9e2a-72eec91a16c1",
+        "created_at": "2026-08-07T06:42:19.173781+00:00"
+      },
+      {
+        "memory": "Gina: Thanks! Really appreciate you keeping me in the loop on this cool project. Can't wait to hear more and watch it come to life! Oh, btw, I had an interview for a design internship yesterday! It was so cool.",
+        "score": 0.005457777007109415,
+        "id": "mem-abb8129d-b2b4-4fba-ae88-acff35289470",
+        "created_at": "2026-08-07T06:42:26.679782+00:00"
+      },
+      {
+        "memory": "Gina: Sounds great! I'm definitely in for the show. [Sharing image that shows: a photo of a woman in a tutu posing for a picture]",
+        "score": 0.005453063126019101,
+        "id": "mem-af2dd40b-981c-498f-ae58-4be79bbf3969",
+        "created_at": "2026-08-07T06:42:22.575001+00:00"
+      },
+      {
+        "memory": "Jon: I'm also excited to guide and mentor aspiring dancers on their dreams.",
+        "score": 0.005427436125965537,
+        "id": "mem-99092da6-1c33-4698-afe2-a71110a51776",
+        "created_at": "2026-08-07T06:42:35.546292+00:00"
+      },
+      {
+        "memory": "Jon: Yep! Dancing is like second nature to me. I'm living my dream by having my own dance studio and teaching others.",
+        "score": 0.005389492753623188,
+        "id": "mem-578598b0-3fbe-434f-8597-a462ae28d6ff",
+        "created_at": "2026-08-07T06:42:26.306865+00:00"
+      },
+      {
+        "memory": "Jon: Thanks! I rehearsed with a small group of dancers after work. We do all kinds of dances, from contemporary to hip-hop. We've got some cool projects in the works. Finishing up choreography to perform at a nearby festival next month. Can't wait! [Sharing image - query: group dancers performing on stage. The image shows: a photo of a group of dancers in white dresses on a stage]",
+        "score": 0.005381202760433782,
+        "id": "mem-2b81ff31-aae3-4275-85f1-6fdfc29b89ee",
+        "created_at": "2026-08-07T06:42:12.866051+00:00"
+      },
+      {
+        "memory": "Jon: Thanks for the support. Running a business isn't easy, but I'm determined to make it work. How have you tackled challenges in your business? Got any advice?",
+        "score": 0.005369466920514041,
+        "id": "mem-c256048f-654a-4fff-abc3-07d4e6fa07f7",
+        "created_at": "2026-08-07T06:42:37.003827+00:00"
+      },
+      {
+        "memory": "Gina: Thanks, Jon! Appreciate the kind words. Sorry to hear about the studio, but glad to see the positivity. Not easy facing setbacks but I believe in you. Finding investors can be tough, but you've got the passion and experience to make it happen. Rome wasn't built in a day so keep pushing on!",
+        "score": 0.005349462365591398,
+        "id": "mem-17ae9901-66fe-43c6-8358-3d2f67aafc7c",
+        "created_at": "2026-08-07T06:42:36.925828+00:00"
+      },
+      {
+        "memory": "Jon: Hey Gina! What's up? How's the store going? I gotta tell you about this thing with my biz.",
+        "score": 0.005325077399380805,
+        "id": "mem-eb7500b2-6a52-4281-9576-e8213210800b",
+        "created_at": "2026-08-07T06:42:15.399193+00:00"
+      },
+      {
+        "memory": "Jon: Awesome advice! Lately I've been networking and it's gotten me some good stuff. Really can't beat what connections can do. Check this pic I got from the last networking event! [Sharing image that shows: a photography of a group of people standing in a room]",
+        "score": 0.005321858259418635,
+        "id": "mem-bce1dbb8-ca7c-4239-8cef-489e38cf7f0b",
+        "created_at": "2026-08-07T06:42:37.160830+00:00"
+      },
+      {
+        "memory": "Gina: Hi! You're so inspiring taking it on and opening your own studio!",
+        "score": 0.005263157894736842,
+        "id": "mem-65f64177-d2b2-4dbf-bccf-03c2d8343450",
+        "created_at": "2026-08-07T06:42:25.758074+00:00"
+      },
+      {
+        "memory": "Gina: It sounds great! Could it spark any ideas for your dance studio?",
+        "score": 0.005252525252525252,
+        "id": "mem-4b3a91db-c3f7-44d8-8881-adb36a15f556",
+        "created_at": "2026-08-07T06:42:27.830453+00:00"
+      },
+      {
+        "memory": "Gina: Thanks, Jon! See you at the event! [Sharing image that shows: a photo of a group of young girls in tutuss and ballet shoes]",
+        "score": 0.005241242564441506,
+        "id": "mem-f0291492-40c6-4ca4-abb6-2b75e51b2f04",
+        "created_at": "2026-08-07T06:42:22.728397+00:00"
+      },
+      {
+        "memory": "Jon: Wow, Gina, I'm stoked about this! Taking a risk is scary, but I'm sure following my dreams will pay off in the end. How did the interview go?",
+        "score": 0.005236486486486487,
+        "id": "mem-a2758dd1-862e-43a9-ba37-dfa88cb299cd",
+        "created_at": "2026-08-07T06:42:26.759157+00:00"
+      },
+      {
+        "memory": "Gina: Thanks, Jon! I'll try my best. You're gonna do great with your dance studio, just keep going and stay positive! We'll get through this!",
+        "score": 0.005214025500910747,
+        "id": "mem-0bf90dfb-ff79-4fe6-8764-9b96268b86ff",
+        "created_at": "2026-08-07T06:42:15.163483+00:00"
+      },
+      {
+        "memory": "Jon: I won't give up, Gina! I'll keep pushing and working to make my dreams happen. Thanks for the support!",
+        "score": 0.005212714817930537,
+        "id": "mem-cee966fd-e3b0-4145-9e68-1996801e3357",
+        "created_at": "2026-08-07T06:42:30.525595+00:00"
+      },
+      {
+        "memory": "Jon: Sure, Gina! Wanna see one of my routines? Lemme know when you got time and I'll send you a vid.",
+        "score": 0.005207978970156178,
+        "id": "mem-0bc95a3b-2e41-40cb-93c1-b74d7641890e",
+        "created_at": "2026-08-07T06:42:27.067828+00:00"
+      },
+      {
+        "memory": "Jon: Thanks, I'm really grateful for your help with staying motivated.",
+        "score": 0.0052030742515355175,
+        "id": "mem-1d4c7391-ce22-44d0-8ef9-63cac4cd8438",
+        "created_at": "2026-08-07T06:42:20.911104+00:00"
+      },
+      {
+        "memory": "Gina: Hey Jon! Long time no talk! Last week, I built a new website for customers to make orders. It's been a wild ride but I'm loving it. What's up with you? How's the dance studio?",
+        "score": 0.00519687277896233,
+        "id": "mem-6eba5e93-b964-4f0c-97bf-e1ee9c211c7e",
+        "created_at": "2026-08-07T06:42:36.755590+00:00"
+      },
+      {
+        "memory": "Jon:  I'm prepping for my dance studio more than ever!",
+        "score": 0.005176224611708483,
+        "id": "mem-2f69529e-04d6-46ec-bf7d-9f8fdb8a20e6",
+        "created_at": "2026-08-07T06:42:28.997229+00:00"
+      },
+      {
+        "memory": "Gina: Sure, Jon! I'm always around for you. How've you been since we caught up?",
+        "score": 0.005159061122363875,
+        "id": "mem-3f56ce19-6b53-4e26-979a-1ae9b2e79d7d",
+        "created_at": "2026-08-07T06:42:28.918311+00:00"
+      },
+      {
+        "memory": "Jon: Yeah, awesome! Glad to be part of it.",
+        "score": 0.00514052120592744,
+        "id": "mem-923a3015-e267-4859-868d-13aab96da8df",
+        "created_at": "2026-08-07T06:42:13.130189+00:00"
+      },
+      {
+        "memory": "Jon: Thanks! Your support and encouragement means a lot. Losing my job was a bummer, but it pushed me to take the plunge and go for my biz dreams. Started to learn all these marketing and analytics tools to push the biz forward today. It's been tricky, but I'm up for the challenge and I'm gonna make this work!",
+        "score": 0.005119770580296896,
+        "id": "mem-6e6aae0e-4943-4b48-8740-3207abadedd8",
+        "created_at": "2026-08-07T06:42:35.392557+00:00"
+      },
+      {
+        "memory": "Jon: Congrats! That's awesome! What gave you the idea to start the online store?",
+        "score": 0.005111007607514361,
+        "id": "mem-efdb7b13-4083-4c80-b83f-480320eebf5d",
+        "created_at": "2026-08-07T06:42:19.018550+00:00"
+      },
+      {
+        "memory": "Jon: Thanks!",
+        "score": 0.00501913453046806,
+        "id": "mem-1ae7fe85-23c4-4fc9-bd71-d377859080ec",
+        "created_at": "2026-08-07T06:42:30.220174+00:00"
+      },
+      {
+        "memory": "Gina: Hi! Good for you! It definitely will help you to concentrate on your biz better.",
+        "score": 0.005005421354805453,
+        "id": "mem-037c31b6-902f-44f6-a906-83cecf7a574f",
+        "created_at": "2026-08-07T06:42:32.219395+00:00"
+      },
+      {
+        "memory": "Gina: Yep Jon, staying resilient and focused is key for any entrepreneur. Keep going and don't give up! You got this!",
+        "score": 0.004976851851851851,
+        "id": "mem-94d30383-2adc-4b76-b6c3-1f6ded95a223",
+        "created_at": "2026-08-07T06:42:31.460915+00:00"
+      },
+      {
+        "memory": "Jon: Yeah, the book got me thinking about building a focused and efficient business. Adapting and tweaking from customer feedback is important too, so I'm gonna try it out! [Sharing image - query: whiteboard business ideas. The image shows: a photo of a white board with a list of dates on it]",
+        "score": 0.004961513669282979,
+        "id": "mem-ebdd6406-6b58-4d4c-98a7-3ff7932221bd",
+        "created_at": "2026-08-07T06:42:27.908663+00:00"
+      },
+      {
+        "memory": "Jon: Agreed!",
+        "score": 0.004907944257959516,
+        "id": "mem-502fac3f-1768-4a20-a81c-63e1a3647873",
+        "created_at": "2026-08-07T06:42:33.451784+00:00"
+      },
+      {
+        "memory": "Jon: Gina, good luck with your store! [Sharing image that shows: a photo of a dress with a sign on it that says june bunty]",
+        "score": 0.004907852564102564,
+        "id": "mem-69a6b6e5-8809-428a-8326-f6d69ea8b6b4",
+        "created_at": "2026-08-07T06:42:22.869186+00:00"
+      },
+      {
+        "memory": "Jon: Thanks a bunch, Gina! You seriously rock. Dancing for me is like a way to express myself and find my happy place. I used to be scared to death of what people would think, but I learnt that my own happiness is the most important thing. It's been tough but also the best thing ever!",
+        "score": 0.004902016634385325,
+        "id": "mem-7118307b-1fa2-407d-a1f8-d443219682b6",
+        "created_at": "2026-08-07T06:42:23.806195+00:00"
+      },
+      {
+        "memory": "Jon: Bye!",
+        "score": 0.004881897370666752,
+        "id": "mem-3162d0e6-67ac-4f97-bbc1-7fc2e40234a1",
+        "created_at": "2026-08-07T06:42:36.615130+00:00"
+      },
+      {
+        "memory": "Gina: Wow! That's great. Dancing is awesome for staying focused. Wanna show me a routine sometime?",
+        "score": 0.004866562009419152,
+        "id": "mem-58cd6bb7-8576-4128-a582-9b5fbda44dab",
+        "created_at": "2026-08-07T06:42:26.990447+00:00"
+      },
+      {
+        "memory": "Gina: I'm here for you no matter what! Anything you want to say about your biz?",
+        "score": 0.00477210020968988,
+        "id": "mem-57b8e21a-a736-47e1-825b-a3357e110698",
+        "created_at": "2026-08-07T06:42:15.936446+00:00"
+      },
+      {
+        "memory": "Gina: Proud of you for starting your own business! It takes strength to stay hopeful. What are you doing to prep for your dance studio? I have developed a video presentation to teach how to style my fashion pieces, btw.  [Sharing image that shows: a photo of a group of young girls in blue outfits posing for a picture]",
+        "score": 0.004747047417592102,
+        "id": "mem-2597bf02-df0a-46cf-8f29-26590d53152d",
+        "created_at": "2026-08-07T06:42:29.059687+00:00"
+      },
+      {
+        "memory": "Gina: Hey Jon! Got your back - dance is awesome for expressing yourself and finding happiness. Here's one of my trophies from a dance contest, nice reminder of the hard work, dedication and joy it brings. [Sharing image - query: dance competition trophy. The image shows: a photo of a trophy with a glass globe on top]",
+        "score": 0.00474622550594282,
+        "id": "mem-c34e0f43-6ae5-4a32-b667-38f16c694904",
+        "created_at": "2026-08-07T06:42:24.217173+00:00"
+      },
+      {
+        "memory": "Gina: Thanks! Making my spot comfortable and inviting for my customers is key. I want 'em to feel like they're in a cool oasis. Just creating an experience that'll make 'em wanna come back.",
+        "score": 0.004735202492211838,
+        "id": "mem-0990a417-518f-4590-8606-514051c8badc",
+        "created_at": "2026-08-07T06:42:14.869191+00:00"
+      },
+      {
+        "memory": "Gina: Glad I could help, Jon! It's nice to be part of something positive. Supporting your dreams is awesome!",
+        "score": 0.004703358690686634,
+        "id": "mem-1a6c6049-6f78-4e1a-94cc-dfceddc17f0a",
+        "created_at": "2026-08-07T06:42:20.691928+00:00"
+      },
+      {
+        "memory": "Jon: Yeah, Gina! It's been tough, but I'm living my true self. Dancing makes me so happy, and now I get to share that with other people. Seeing my students get better at it brings me such joy. [Sharing image that shows: a photo of a woman doing a pole dance in a dance studio]",
+        "score": 0.004699156513589503,
+        "id": "mem-7824e5c6-cea3-43d4-9df6-c4fd565f37eb",
+        "created_at": "2026-08-07T06:42:23.651193+00:00"
+      },
+      {
+        "memory": "Gina: Wow, Jon! Impressed by your commitment. How's the hunt for investors going?",
+        "score": 0.004679062659195109,
+        "id": "mem-29e0157d-fb0d-478c-83f5-ef8ecc3fce84",
+        "created_at": "2026-08-07T06:42:28.312363+00:00"
+      },
+      {
+        "memory": "Gina: I'll be right by your side, Jon. Let's live it up and make some great memories tomorrow. So excited! [Sharing image that shows: a photo of a group of people in a dance studio]",
+        "score": 0.0046766409266409265,
+        "id": "mem-bd76e6cf-121b-467f-9ba0-9a6ea3c0fbd6",
+        "created_at": "2026-08-07T06:42:33.063265+00:00"
+      },
+      {
+        "memory": "Jon: I've been into dancing since I was a kid and it's been my passion and escape. I wanna start a dance studio so I can teach others the joy that dancing brings me.",
+        "score": 0.004640856066868742,
+        "id": "mem-f04563ce-122f-4c19-8c2e-436d1e7416d4",
+        "created_at": "2026-08-07T06:42:11.615968+00:00"
+      },
+      {
+        "memory": "Gina: Thanks! I'm passionate about fashion trends and finding unique pieces. Plus, I wanted to blend my love for dance and fashion, so it was a perfect match.",
+        "score": 0.004621311933564898,
+        "id": "mem-68bdc3df-5dda-4afe-afa3-732b2966eb16",
+        "created_at": "2026-08-07T06:42:19.097099+00:00"
+      },
+      {
+        "memory": "Jon: Sure, I am always there for you! [Sharing image that shows: a photo of a street light on a sidewalk in front of a building]",
+        "score": 0.0046206633625619515,
+        "id": "mem-5d987b0f-3f2c-4f81-8516-45d44ad2f318",
+        "created_at": "2026-08-07T06:42:23.024472+00:00"
+      },
+      {
+        "memory": "Jon: Wow, that's an awesome pic! You guys look great and passionate about dancing. Reminds me how much I love performing. Thanks for sharing!",
+        "score": 0.004596396309357036,
+        "id": "mem-71d925f1-d6a4-471c-8b5f-495b4f942186",
+        "created_at": "2026-08-07T06:42:31.692607+00:00"
+      },
+      {
+        "memory": "Jon: Cool, Gina! I love all dances, but contemporary is my top pick. It's so expressive and powerful! What's your fave?",
+        "score": 0.004566791845493562,
+        "id": "mem-c524c172-41d6-4e07-afa7-bd1369279ceb",
+        "created_at": "2026-08-07T06:42:11.740196+00:00"
+      },
+      {
+        "memory": "Jon: Yeah! Let's make some awesome memories tomorrow at the grand opening! [Sharing image that shows: a photo of a man in a native costume is giving another man a high five]",
+        "score": 0.004443507207519318,
+        "id": "mem-613cc7c3-a69a-47df-9c2c-74a881635f3a",
+        "created_at": "2026-08-07T06:42:33.141316+00:00"
+      },
+      {
+        "memory": "Gina: Awesome! Marketing is key. Use social media channels and work with influencers for bigger reach.",
+        "score": 0.0044375,
+        "id": "mem-271a845c-e115-49bf-842d-960ae6c321a8",
+        "created_at": "2026-08-07T06:42:30.838569+00:00"
+      },
+      {
+        "memory": "Gina: Nice one, Jon! How've you been using it?",
+        "score": 0.004433088470137336,
+        "id": "mem-30b9295a-2d1a-44e1-b60d-8e90d6c71438",
+        "created_at": "2026-08-07T06:42:29.522694+00:00"
+      },
+      {
+        "memory": "Jon: Thanks! Losing my job gave me the push to finally start my dream business: my own dance studio! Now I'm stepping into the unknown and hoping for the best.",
+        "score": 0.004430438842203548,
+        "id": "mem-54e3ff5b-11df-4b0c-a8bf-922f8509d3c2",
+        "created_at": "2026-08-07T06:42:25.836210+00:00"
+      },
+      {
+        "memory": "Gina: Wow, Jon! You're so talented! What show ya got planned?",
+        "score": 0.004381654381654381,
+        "id": "mem-cc79707e-3624-4d2c-907c-d87a455268f3",
+        "created_at": "2026-08-07T06:42:16.233001+00:00"
+      },
+      {
+        "memory": "Jon: Thanks! Searching for investors has been tough, but I'm staying hopeful. It's all a process and I'm learning a ton.",
+        "score": 0.004379182492313257,
+        "id": "mem-235f5f4c-d145-462b-9120-293aba47dfe6",
+        "created_at": "2026-08-07T06:42:28.390602+00:00"
+      },
+      {
+        "memory": "Jon: Thanks, Gina. Your help means a lot. I'll keep plugging away and stay optimistic. [Sharing image - query: motivational quote \"everything you want is on the other side of fear\". The image shows: a photography of a cartoon character with a quote about fear]",
+        "score": 0.004371254088597304,
+        "id": "mem-8707d327-666b-467c-a32e-d7eb8d30aa25",
+        "created_at": "2026-08-07T06:42:17.660128+00:00"
+      },
+      {
+        "memory": "Jon: Wow, it looks great! Must've taken you ages to design it. What made you pick out the furniture and decor?",
+        "score": 0.004368680837512936,
+        "id": "mem-eafdd5b6-97d2-4d1d-a548-3439d7dd74d3",
+        "created_at": "2026-08-07T06:42:14.667005+00:00"
+      },
+      {
+        "memory": "Gina: No worries, Jon! When things get rough, keep persevering and keep working hard. You'll get there! Don't quit! [Sharing image - query: never give up sign. The image shows: a photo of a sign that says never give up never give up never]",
+        "score": 0.004347731712611243,
+        "id": "mem-1d96c7a8-05fd-4042-ba59-e50d1180faa8",
+        "created_at": "2026-08-07T06:42:34.848040+00:00"
+      },
+      {
+        "memory": "Gina: Thanks! Appreciate your kind words. Store's going good, just been keeping up with fashion trends so I can offer the best pieces to customers. It's been a lot of work, but really enjoying it. Got any advice or tips on running a successful biz?",
+        "score": 0.004302164409851796,
+        "id": "mem-2d5235eb-6658-45d0-8fcf-89c18675febf",
+        "created_at": "2026-08-07T06:42:20.235032+00:00"
+      },
+      {
+        "memory": "Jon: Thanks! Setbacks can be tough, but with your support, I can handle anything. Appreciate you having my back!",
+        "score": 0.00426820067898906,
+        "id": "mem-74ea56e0-b6c3-425d-92e3-612414e03812",
+        "created_at": "2026-08-07T06:42:15.858775+00:00"
+      },
+      {
+        "memory": "Jon: Thanks! Your support means a lot. I'm gonna keep going and reach my dreams no matter what.",
+        "score": 0.004260176819197513,
+        "id": "mem-53d1ae00-9dfa-4a96-a22a-9470d72a8fb2",
+        "created_at": "2026-08-07T06:42:25.383384+00:00"
+      },
+      {
+        "memory": "Jon: Ah ha ha, yeah, JUST DOING IT!",
+        "score": 0.004241926655719759,
+        "id": "mem-99cd9ef0-e4f9-46d7-9818-8d24bb94e843",
+        "created_at": "2026-08-07T06:42:39.469820+00:00"
+      },
+      {
+        "memory": "Gina: Wow, Jon! Mentors can really help. I'm working on my online store, growing the customer base. It's tough but I'm determined. How about you? Any new things happening?",
+        "score": 0.004239871300961009,
+        "id": "mem-afab8773-52ed-40aa-b47f-7510069aaf25",
+        "created_at": "2026-08-07T06:42:30.682117+00:00"
+      },
+      {
+        "memory": "Jon: Nice work! Combining passions is always cool. How's it going?",
+        "score": 0.004210614712798119,
+        "id": "mem-71450060-6f84-4656-a1e3-4bd469151598",
+        "created_at": "2026-08-07T06:42:21.889297+00:00"
+      },
+      {
+        "memory": "Jon: Thanks, Gina! Your support means so much. I'm gonna keep chasing after those dreams. Dance is my passion, and I'm gonna keep working hard to make it a success! [Sharing image that shows: a photo of a trophy with a glass globe on top]",
+        "score": 0.004200056733564995,
+        "id": "mem-3b96c1bd-b424-45eb-8308-a1a16dd52f26",
+        "created_at": "2026-08-07T06:42:18.106432+00:00"
+      },
+      {
+        "memory": "Gina: You got this, Jon! Don't let the bumps in the road bring you down. Keep going and make your dreams a reality! I'm rooting for you!",
+        "score": 0.0041562493749624976,
+        "id": "mem-a065dcd6-e2d6-4ea9-a99f-5da34544eae8",
+        "created_at": "2026-08-07T06:42:36.244205+00:00"
+      },
+      {
+        "memory": "Gina: Thanks. Your support means a lot. I'm sure with my hard work and effort, I can make a special shopping experience for my customers. It's tough but I'm up for the challenge!",
+        "score": 0.004129723837209302,
+        "id": "mem-c6869871-dcdb-4f82-88c6-d38f6a3fadd3",
+        "created_at": "2026-08-07T06:42:15.009860+00:00"
+      },
+      {
+        "memory": "Jon: Wow, that's awesome! Can't wait to hear it!",
+        "score": 0.00412547171422229,
+        "id": "mem-c29f17c9-5204-446b-99dc-80c979832355",
+        "created_at": "2026-08-07T06:42:18.864565+00:00"
+      },
+      {
+        "memory": "Gina: Wow Jon, you're gonna kill it in that competition. Your hard work and talent will pay off! Good luck.",
+        "score": 0.004123069257598405,
+        "id": "mem-6bc32d0a-f8f7-45f7-958f-80d03b69be28",
+        "created_at": "2026-08-07T06:42:16.374562+00:00"
+      },
+      {
+        "memory": "Gina: Yeah Jon! Let's make a difference and show 'em what we got. We can do amazing things together!",
+        "score": 0.004103823668623914,
+        "id": "mem-d9636b77-0e37-4558-8952-b9a863724358",
+        "created_at": "2026-08-07T06:42:38.336857+00:00"
+      },
+      {
+        "memory": "Gina: Ha, yeah, Jon. I've been one 'cause I lost my job. I opened an online clothing store and it's been great! Being my own boss and doing something I love is awesome.",
+        "score": 0.004078543910684802,
+        "id": "mem-6e78589f-57ac-4bc7-a474-a7bad2a96de6",
+        "created_at": "2026-08-07T06:42:31.149439+00:00"
+      }
+    ],
+    "search_latency_ms": 156.0,
+    "total_results": 200
+  }
+}

@@ -572,8 +572,9 @@ class TypedMemoryStore:
         strength: float,
         last_accessed: datetime | None = None,
         archived: bool | None = None,
+        access_count: int | None = None,
     ) -> None:
-        """更新记忆强度 (可选更新 last_accessed / archived)。"""
+        """更新记忆强度 (可选更新 last_accessed / archived / access_count)。"""
         with Session(self.engine) as session:
             stmt = select(MemoryStrength).where(
                 MemoryStrength.memory_id == memory_id,
@@ -587,6 +588,8 @@ class TypedMemoryStore:
                     s.last_accessed = last_accessed
                 if archived is not None:
                     s.archived = archived
+                if access_count is not None:
+                    s.access_count = access_count
                 session.add(s)
                 session.commit()
 

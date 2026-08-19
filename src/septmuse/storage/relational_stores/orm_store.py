@@ -225,7 +225,8 @@ class ORMMemoryStore(MemoryStore):
         # 双写: vector_store + keyword_index
         if self._vector_store is not None:
             self._vector_store.insert_vectors(
-                [embedding], [mid], [{"user_id": user_id, "session_id": session_id}]
+                [embedding], [mid],
+                [{"user_id": user_id, "agent_id": agent_id, "session_id": session_id}],
             )
         if self._keyword_index is not None:
             self._keyword_index.add_docs({mid: content})
@@ -314,7 +315,7 @@ class ORMMemoryStore(MemoryStore):
         if self._vector_store is not None and all_embeddings:
             self._vector_store.insert_vectors(
                 all_embeddings, all_ids,
-                [{"user_id": user_id, "session_id": session_id}] * len(all_ids),
+                [{"user_id": user_id, "agent_id": agent_id, "session_id": session_id}] * len(all_ids),
             )
         if self._keyword_index is not None and all_docs:
             self._keyword_index.add_docs(all_docs)
@@ -329,6 +330,7 @@ class ORMMemoryStore(MemoryStore):
             stmt = select(MemoryTable).where(
                 MemoryTable.id == memory_id,
                 MemoryTable.is_deleted == 0,
+                or_(MemoryTable.state == "active", MemoryTable.state.is_(None)),
             )
             mem = session.exec(stmt).first()
             if mem is None:
@@ -384,6 +386,7 @@ class ORMMemoryStore(MemoryStore):
             stmt = select(MemoryTable).where(
                 MemoryTable.id.in_(list(score_map.keys())),
                 MemoryTable.is_deleted == 0,
+                or_(MemoryTable.state == "active", MemoryTable.state.is_(None)),
             )
             if effective_session_id is not None:
                 stmt = stmt.where(MemoryTable.session_id == effective_session_id)
@@ -410,6 +413,7 @@ class ORMMemoryStore(MemoryStore):
             stmt = select(MemoryTable).where(
                 MemoryTable.user_id == user_id,
                 MemoryTable.is_deleted == 0,
+                or_(MemoryTable.state == "active", MemoryTable.state.is_(None)),
             )
             if session_id is not None:
                 stmt = stmt.where(MemoryTable.session_id == session_id)
@@ -479,6 +483,7 @@ class ORMMemoryStore(MemoryStore):
             old_content = mem.content
             old_meta = json.loads(mem.metadata_json) if mem.metadata_json else {}
             vs_user_id = mem.user_id
+            vs_agent_id = mem.agent_id
             vs_session_id = mem.session_id
             mem.content = content
             mem.metadata_json = json.dumps(metadata if metadata is not None else old_meta)
@@ -496,9 +501,9 @@ class ORMMemoryStore(MemoryStore):
             session.commit()
         # 双写更新 (带 payload, 否则过滤搜索找不到更新后的向量)
         if self._vector_store is not None:
-            self._vector_store.insert_vectors(
-                [embedding], [memory_id],
-                [{"user_id": vs_user_id, "session_id": vs_session_id}],
+            self._vector_store.update_vector(
+                memory_id, embedding,
+                payload={"user_id": vs_user_id, "agent_id": vs_agent_id, "session_id": vs_session_id},
             )
         if self._keyword_index is not None:
             self._keyword_index.add_docs({memory_id: content})

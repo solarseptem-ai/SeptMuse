@@ -138,7 +138,7 @@ class AsyncORMMemoryStore(AsyncMemoryStore):
                 self._vector_store.insert_vectors,
                 [embedding],
                 [mid],
-                [{"user_id": user_id, "session_id": session_id}],
+                [{"user_id": user_id, "agent_id": agent_id, "session_id": session_id}],
             )
         if self._keyword_index is not None:
             await asyncio.to_thread(self._keyword_index.add_docs, {mid: content})
@@ -151,6 +151,7 @@ class AsyncORMMemoryStore(AsyncMemoryStore):
             stmt = select(MemoryTable).where(
                 MemoryTable.id == memory_id,
                 MemoryTable.is_deleted == 0,
+                or_(MemoryTable.state == "active", MemoryTable.state.is_(None)),
             )
             result = await session.exec(stmt)
             mem = result.first()
@@ -202,6 +203,7 @@ class AsyncORMMemoryStore(AsyncMemoryStore):
             stmt = select(MemoryTable).where(
                 MemoryTable.id.in_(list(score_map.keys())),
                 MemoryTable.is_deleted == 0,
+                or_(MemoryTable.state == "active", MemoryTable.state.is_(None)),
             )
             if filters:
                 clean_filters = dict(filters)
@@ -233,6 +235,7 @@ class AsyncORMMemoryStore(AsyncMemoryStore):
             stmt = select(MemoryTable).where(
                 MemoryTable.user_id == user_id,
                 MemoryTable.is_deleted == 0,
+                or_(MemoryTable.state == "active", MemoryTable.state.is_(None)),
             )
             if session_id is not None:
                 stmt = stmt.where(MemoryTable.session_id == session_id)
@@ -278,6 +281,9 @@ class AsyncORMMemoryStore(AsyncMemoryStore):
                 return False
             old_content = mem.content
             old_meta = json.loads(mem.metadata_json) if mem.metadata_json else {}
+            vs_user_id = mem.user_id
+            vs_agent_id = mem.agent_id
+            vs_session_id = mem.session_id
             mem.content = content
             mem.metadata_json = json.dumps(metadata if metadata is not None else old_meta)
             mem.updated_at = now
@@ -292,9 +298,13 @@ class AsyncORMMemoryStore(AsyncMemoryStore):
                 is_deleted=0,
             ))
             await session.commit()
-        # 双写更新
+        # 双写更新 (带 payload, 否则过滤搜索找不到更新后的向量)
         if self._vector_store is not None:
-            await asyncio.to_thread(self._vector_store.insert_vectors, [embedding], [memory_id])
+            await asyncio.to_thread(
+                self._vector_store.update_vector,
+                memory_id, embedding,
+                payload={"user_id": vs_user_id, "agent_id": vs_agent_id, "session_id": vs_session_id},
+            )
         if self._keyword_index is not None:
             await asyncio.to_thread(self._keyword_index.add_docs, {memory_id: content})
         logger.info("async_memory_updated", memory_id=memory_id, content_len=len(content))

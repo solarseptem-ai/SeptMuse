@@ -57,13 +57,16 @@ class OpenAILLM(LLM):
 
         self.model = model
         self._api_key = api_key or os.getenv("OPENAI_API_KEY") or "not-required"
-        resolved_base_url = base_url or os.getenv("OPENAI_BASE_URL") or os.getenv("SEPTMUSE_BASE_URL")
+        resolved_base_url = base_url or os.getenv("OPENAI_BASE_URL") or os.getenv("SEPTMUSE_BASE_URL") or os.getenv("SEPTMUSE_LLM_BASE_URL")
 
         client_kwargs: dict[str, Any] = {"api_key": self._api_key}
         if resolved_base_url:
             client_kwargs["base_url"] = resolved_base_url
-        client_kwargs.update(kwargs)
-
+        # 只传递合法的 OpenAI client 构造参数, 过滤掉 LLM 配置字段 (temperature/max_tokens/top_p)
+        for k in ("timeout", "max_retries", "default_headers", "default_query", "http_client"):
+            if k in kwargs:
+                client_kwargs[k] = kwargs[k]
+        client_kwargs.setdefault("timeout", 30.0)
         self._client = OpenAI(**client_kwargs)
         logger.info("openai_llm_ready", model=model, base_url=resolved_base_url or "default")
 

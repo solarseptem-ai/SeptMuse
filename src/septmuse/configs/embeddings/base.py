@@ -23,5 +23,6 @@ class BaseEmbedderConfig(BaseModel):
 
     backend: str = Field(default="bge-zh")
     model: str | None = Field(default=None, description="模型名")
+    base_url: str | None = Field(default=None, description="OpenAI 兼容端点")
     embedding_dims: int | None = Field(default=None, description="嵌入维度, None=自动检测")
     api_key: str | None = Field(default=None)

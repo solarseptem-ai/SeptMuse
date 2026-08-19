@@ -153,7 +153,7 @@ class MemoryConfig(BaseSettings):
 
         pydantic-settings 用 env_nested_delimiter='__' 解析嵌套环境变量,
         但旧版用户习惯用 SEPTMUSE_EMBEDDER=onnx 这样的扁平形式。
-        本 validator 在校验前把扁平 env 映射到嵌套子配置的 backend 字段。
+        本 validator 在校验前把扁平 env 映射到嵌套子配置的字段。
         """
         if not isinstance(data, dict):
             return data
@@ -161,13 +161,18 @@ class MemoryConfig(BaseSettings):
             "SEPTMUSE_DB_URL": ("database", "db_url"),
             "SEPTMUSE_DB_PATH": ("database", "db_path"),
             "SEPTMUSE_EMBEDDER": ("embedder", "backend"),
-            "SEPTMUSE_VECTOR_BACKEND": ("vector_store", "backend"),
+            "SEPTMUSE_EMBEDDER_MODEL": ("embedder", "model"),
+            "SEPTMUSE_EMBEDDER_BASE_URL": ("embedder", "base_url"),
+            "SEPTMUSE_EMBEDDER_DIMS": ("embedder", "embedding_dims"),
             "SEPTMUSE_EMBEDDING_DIMS": ("vector_store", "embedding_model_dims"),
+            "SEPTMUSE_VECTOR_BACKEND": ("vector_store", "backend"),
             "SEPTMUSE_KEYWORD_BACKEND": ("keyword_index", "backend"),
             "SEPTMUSE_GRAPH_BACKEND": ("graph_store", "backend"),
             "SEPTMUSE_RERANKER": ("reranker", "backend"),
             "SEPTMUSE_ENTITY_EXTRACTOR": ("entity_extractor", "backend"),
             "SEPTMUSE_LLM": ("llm", "backend"),
+            "SEPTMUSE_LLM_MODEL": ("llm", "model"),
+            "SEPTMUSE_LLM_BASE_URL": ("llm", "base_url"),
         }
         for env_name, (section, field) in aliases.items():
             val = os.getenv(env_name)
@@ -175,14 +180,28 @@ class MemoryConfig(BaseSettings):
                 continue
             section_data = data.get(section)
             if isinstance(section_data, dict):
-                # 来自 YAML 或 nested env 的 dict → 更新 backend
                 section_data[field] = val
             elif section_data is None or isinstance(section_data, str):
-                # None=未设置 / str=flat env 直接映射的原始值 → 用 dict 替换
                 data[section] = {field: val}
             # else: 已构造的子配置实例 (来自 init kwargs 如 default_config) → 不动
-        # 旧版扁平 init kwargs → 嵌套字段 (向后兼容, db_path=... → database.db_path)
-        flat_kwargs = {"db_path": ("database", "db_path")}
+        # 顶层标量 env 变量 (非嵌套)
+        top_level_env = {"SEPTMUSE_INFER": "infer"}
+        for env_name, field_name in top_level_env.items():
+            val = os.getenv(env_name)
+            if not val:
+                continue
+            data[field_name] = val.lower() in ("true", "1", "yes")
+        # 旧版扁平 init kwargs → 嵌套字段 (向后兼容)
+        flat_kwargs = {
+            "db_path": ("database", "db_path"),
+            "llm_provider": ("llm", "backend"),
+            "llm_model": ("llm", "model"),
+            "llm_base_url": ("llm", "base_url"),
+            "embedder_backend": ("embedder", "backend"),
+            "embedder_model": ("embedder", "model"),
+            "embedder_base_url": ("embedder", "base_url"),
+            "embedder_dims": ("embedder", "embedding_dims"),
+        }
         for kwarg_name, (section, field) in flat_kwargs.items():
             if kwarg_name not in data:
                 continue

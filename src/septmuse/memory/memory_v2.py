@@ -82,17 +82,8 @@ class V2Memory:
         self.evolution = getattr(self.mem, "evolution", None)
         self.forgetting = getattr(self.mem, "forgetting", None)
 
-        # retrieval: 初始化 Memory 的延迟 HybridRetriever (兼容旧 V2 测试 v2.retrieval)
-        if self.mem._retriever is None:
-            from septmuse.retrieval.hybrid import HybridRetriever
-
-            self.mem._retriever = HybridRetriever(
-                self.mem.store,
-                self.mem.embedder,
-                entity_extractor=self.mem.entity_extractor,
-                entity_store=self.mem.entity_store,
-            )
-        self.retrieval = self.mem._retriever
+        # retrieval: 使用 Memory 的延迟 HybridRetriever (兼容旧 V2 测试 v2.retrieval)
+        self.retrieval = self.mem._get_hybrid_retriever()
 
         # causal: CausalGraph (兼容旧 V2 测试 v2.causal)
         from septmuse.memory.causal import CausalGraph

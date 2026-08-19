@@ -1,4 +1,5 @@
 """Tests for MCP butler tools (remember/recall/improve/forget)."""
+
 from __future__ import annotations
 
 import json
@@ -51,7 +52,9 @@ def test_remember_tool_basic(mock_memory):
         assert parsed["captured"] is True
         assert parsed["memory_id"] == "mem-001"
         assert len(parsed["fact_ids"]) == 2
-        mock_memory.remember.assert_called_once_with("用户要出差去上海", user_id="alice", session_id=None, agent_id=None)
+        mock_memory.remember.assert_called_once_with(
+            "用户要出差去上海", user_id="alice", session_id=None, agent_id=None
+        )
 
 
 def test_remember_tool_no_user_id():

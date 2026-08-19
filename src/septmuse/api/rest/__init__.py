@@ -39,6 +39,7 @@
 from __future__ import annotations
 
 import http
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query, Request
@@ -468,10 +469,30 @@ def register_routes(app: FastAPI, memory: ExperimentalMemory, async_memory: Asyn
         results = app.state.memory.list_entities(user_id=user_id, entity_type=entity_type, limit=limit)
         return {"results": results}
 
-    @app.get("/health", tags=["health"], response_model=HealthResponse)
-    async def health() -> dict[str, str]:
-        """健康检查。"""
-        return {"status": "ok"}
+    @app.get("/health", tags=["health"], response_model=None)
+    async def health() -> JSONResponse | dict[str, str]:
+        """深度健康检查 — DB 连通性验证。"""
+        engine = getattr(getattr(memory, "store", None), "engine", None)
+        if engine is None:
+            return JSONResponse(status_code=503, content={"status": "unhealthy", "detail": "no engine"})
+        try:
+            from sqlalchemy import text as sa_text
+            from sqlalchemy.orm import Session as SASession
+
+            with SASession(engine) as session:
+                session.execute(sa_text("SELECT 1"))
+            return {"status": "ok"}
+        except Exception as e:
+            return JSONResponse(status_code=503, content={"status": "unhealthy", "detail": str(e)[:200]})
+
+    @app.get("/ready", tags=["health"], response_model=None)
+    async def ready() -> JSONResponse | dict[str, str]:
+        """Readiness 探针 — store + embedder 是否初始化完毕。"""
+        if getattr(memory, "store", None) is None:
+            return JSONResponse(status_code=503, content={"status": "not ready", "detail": "store not initialized"})
+        if getattr(memory, "embedder", None) is None:
+            return JSONResponse(status_code=503, content={"status": "not ready", "detail": "embedder not initialized"})
+        return {"status": "ready"}
 
 
 def create_app(memory=None) -> FastAPI:
@@ -503,6 +524,15 @@ def create_app(memory=None) -> FastAPI:
     docs_url = "/docs" if enable_docs else None
     redoc_url = "/redoc" if enable_docs else None
     openapi_url = "/openapi.json" if enable_docs else None
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        yield
+        for scope in ("memory", "async_memory"):
+            mem = getattr(app.state, scope, None)
+            engine = getattr(getattr(mem, "store", None), "engine", None)
+            if engine is not None:
+                engine.dispose()
 
     app = FastAPI(
         title="SeptMuse Memory API",
@@ -547,6 +577,7 @@ Agent 记忆系统 REST API — 三维正交架构（内容类型 × 存储形�
         docs_url=docs_url,
         redoc_url=redoc_url,
         openapi_url=openapi_url,
+        lifespan=lifespan,
         contact={
             "name": "SeptMuse",
             "url": "https://github.com/solarseptem-ai/SeptMuse",
@@ -597,6 +628,10 @@ Agent 记忆系统 REST API — 三维正交架构（内容类型 × 存储形�
     from septmuse.api.auth import setup_auth
 
     setup_auth(app)
+
+    from septmuse.api.rate_limit import setup_rate_limit
+
+    setup_rate_limit(app)
 
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
