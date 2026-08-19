@@ -18,10 +18,52 @@
 
 from __future__ import annotations
 
+import json
+import re
 import time
 from abc import ABC, abstractmethod
+from typing import Any
 
 from septmuse.observability.collector import MetricsCollector
+
+
+def _robust_json_parse(raw: str) -> dict[str, Any]:
+    """从 LLM 输出中鲁棒地提取 JSON 对象。
+
+    尝试顺序: 直接解析 → markdown code block → 最外层花括号 → 自动补全缺失的闭合符号。
+    """
+    raw = raw.strip()
+
+    # 1. 直接解析
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+
+    # 2. markdown code block
+    code_block = re.search(r"```(?:json)?\s*(.*?)```", raw, re.DOTALL)
+    if code_block:
+        try:
+            return json.loads(code_block.group(1).strip())
+        except json.JSONDecodeError:
+            pass
+
+    # 3. 最外层 { ... }
+    brace_match = re.search(r"(\{.*\})", raw, re.DOTALL)
+    if brace_match:
+        try:
+            return json.loads(brace_match.group(1).strip())
+        except json.JSONDecodeError:
+            pass
+
+    # 4. 尝试修复常见截断: 补充缺失的 } 或 ]
+    for suffix in ["}", "]}", "]]", "}}", "}}]"]:
+        try:
+            return json.loads(raw + suffix)
+        except json.JSONDecodeError:
+            continue
+
+    raise json.JSONDecodeError(f"Failed to parse JSON from LLM output: {raw[:200]}", raw, 0)
 
 
 class LLM(ABC):
@@ -55,6 +97,20 @@ class LLM(ABC):
                 time.perf_counter() - start,
                 labels={"provider": self._provider_name()},
             )
+
+    def complete_json(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        schema: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """结构化 JSON 输出。
+
+        子类可 override 以使用 provider 原生 JSON mode（如 OpenAI response_format）。
+        默认 fallback 到文本解析 + _robust_json_parse。
+        """
+        raw = self.complete(system_prompt, user_prompt)
+        return _robust_json_parse(raw)
 
     def _provider_name(self) -> str:
         """返回 provider 名称（用于指标标签）。"""
