@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -80,3 +81,35 @@ class TestOllamaEmbedder:
 
             OllamaEmbedder()
             mock_ollama_client.pull.assert_called_once_with("nomic-embed-text")
+
+
+def test_ollama_embedder_accepts_base_url():
+    """OllamaEmbedder 应接受 base_url 参数（与 config 字段名一致）。"""
+    with patch("ollama.Client") as mock_client_cls:
+        mock_client = MagicMock()
+        mock_client.list.return_value = {"models": [{"name": "bge-m3:latest"}]}
+        mock_client_cls.return_value = mock_client
+
+        from septmuse.embedders.ollama import OllamaEmbedder
+
+        embedder = OllamaEmbedder(
+            model="bge-m3:latest",
+            base_url="http://localhost:7521",
+            embedding_dims=1024,
+        )
+        assert embedder.model == "bge-m3:latest"
+        assert embedder.dimension == 1024
+        mock_client_cls.assert_called_once_with(host="http://localhost:7521")
+
+
+def test_ollama_embedder_falls_back_to_ollama_host_env():
+    """无 base_url 时，应从 OLLAMA_HOST 环境变量回退。"""
+    with patch.dict(os.environ, {"OLLAMA_HOST": "http://localhost:7521"}), patch("ollama.Client") as mock_client_cls:
+        mock_client = MagicMock()
+        mock_client.list.return_value = {"models": [{"name": "nomic-embed-text:latest"}]}
+        mock_client_cls.return_value = mock_client
+
+        from septmuse.embedders.ollama import OllamaEmbedder
+
+        OllamaEmbedder()
+        mock_client_cls.assert_called_once_with(host="http://localhost:7521")

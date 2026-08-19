@@ -11,12 +11,11 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Ollama 嵌入 provider — 本地 Ollama 嵌入, 自动 pull 模型。
-
-零 API key, 本地 Ollama 服务。首次使用自动 pull 模型。
-"""
+"""Ollama 嵌入 provider."""
 
 from __future__ import annotations
+
+import os
 
 from septmuse.core.logging import get_logger
 from septmuse.embedders.base import Embedder
@@ -33,7 +32,7 @@ class OllamaEmbedder(Embedder):
     def __init__(
         self,
         model: str = DEFAULT_MODEL,
-        ollama_base_url: str = "http://localhost:11434",
+        base_url: str | None = None,
         embedding_dims: int = DEFAULT_DIMS,
     ) -> None:
         try:
@@ -41,10 +40,11 @@ class OllamaEmbedder(Embedder):
         except ImportError as e:
             raise ImportError("ollama package required: pip install septmuse[ollama]") from e
 
+        resolved_url = base_url or os.getenv("OLLAMA_HOST", "http://localhost:11434")
         self.backend_name = "ollama"
         self.model = model
         self._dim = embedding_dims
-        self._client = Client(host=ollama_base_url)
+        self._client = Client(host=resolved_url)
         self._ensure_model_exists()
         logger.info("ollama_embedder_ready", model=model, dim=self._dim)
 
@@ -80,7 +80,5 @@ class OllamaEmbedder(Embedder):
         response = self._client.embed(model=self.model, input=texts)
         embeddings = response.get("embeddings") or []
         if len(embeddings) != len(texts):
-            raise ValueError(
-                f"Ollama embed() returned {len(embeddings)} embeddings for {len(texts)} texts"
-            )
+            raise ValueError(f"Ollama embed() returned {len(embeddings)} embeddings for {len(texts)} texts")
         return embeddings
