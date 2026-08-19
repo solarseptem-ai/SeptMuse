@@ -147,6 +147,9 @@ class SearchPipeline:
         forgetting: Any | None = None,
         default_top_k: int = 5,
         default_threshold: float = 0.1,
+        llm: Any | None = None,
+        graph_searcher: Any | None = None,
+        progressive_retriever: Any | None = None,
     ) -> None:
         self._hybrid_retriever = hybrid_retriever
         self._vector_retriever = vector_retriever
@@ -155,6 +158,9 @@ class SearchPipeline:
         self._forgetting = forgetting
         self._default_top_k = default_top_k
         self._default_threshold = default_threshold
+        self._llm = llm
+        self._graph_searcher = graph_searcher
+        self._progressive_retriever = progressive_retriever
 
     def search(
         self,
@@ -194,21 +200,13 @@ class SearchPipeline:
             if r.forgetting:
                 pp.forgetting = True
             if r.graph_bfs:
-                logger.info("recipe_graph_bfs_not_routed", hint="GraphSearcher not wired into pipeline (future)")
+                cfg._graph_bfs = True
             if r.progressive:
-                logger.info(
-                    "recipe_progressive_not_routed", hint="ProgressiveRetriever not wired into pipeline (future)"
-                )
+                cfg._progressive = True
             if r.hyde:
-                logger.info("recipe_hyde_not_enabled", hint="requires LLM + prompt engineering (future)")
+                cfg.hyde = True
             if r.query_rewrite:
-                logger.info("recipe_query_rewrite_not_enabled", hint="requires LLM (future)")
-
-        # [2] HyDE / query_rewrite no-op
-        if cfg.hyde:
-            logger.info("hyde_not_enabled", hint="requires LLM + prompt engineering (future)")
-        if cfg.query_rewrite:
-            logger.info("query_rewrite_not_enabled", hint="requires LLM (future)")
+                cfg.query_rewrite = True
 
         # [3] 默认值 resolve (Q11: 管线持有 default_top_k/default_threshold)
         tk = cfg.top_k or self._default_top_k
@@ -218,17 +216,72 @@ class SearchPipeline:
         else:
             th = cfg.threshold if cfg.threshold is not None else self._default_threshold
 
-        # [4] 检索 (统一路径, Q2: Retriever protocol)
+        # [3.5] HyDE — 生成假设文档，替换向量检索的查询
+        hyde_doc = None
+        if cfg.hyde and self._llm is not None:
+            from septmuse.retrieval.hyde import generate_hypothetical_document
+
+            hyde_doc = generate_hypothetical_document(query, self._llm)
+            if hyde_doc:
+                logger.info("hyde_generated", doc_len=len(hyde_doc))
+
+        # [3.6] Query rewrite — 生成查询变体
+        queries = [query]
+        if cfg.query_rewrite and self._llm is not None:
+            from septmuse.retrieval.query_rewrite import rewrite_query
+
+            queries = rewrite_query(query, self._llm)
+            if len(queries) > 1:
+                logger.info("query_rewrite_done", variants=len(queries))
+
+        # [4] 检索
         retriever = self._hybrid_retriever if cfg.hybrid else self._vector_retriever
-        results = retriever.search(
-            query,
-            user_id=user_id,
-            session_id=session_id,
-            top_k=fetch_k,
-            threshold=th,
-            explain=cfg.explain,
-            filters=cfg.filters,
-        )
+        if getattr(cfg, "_progressive", False) and self._progressive_retriever is not None:
+            prog_results = self._progressive_retriever.retrieve(
+                query,
+                user_id=user_id,
+                top_k=fetch_k,
+                threshold=th,
+            )
+            results = [
+                HybridResult(
+                    id=r.id,
+                    memory=r.memory,
+                    score=r.score,
+                    vector_score=r.score,
+                    bm25_score=0.0,
+                    entity_boost=0.0,
+                    metadata=r.metadata,
+                    created_at=r.created_at,
+                )
+                for r in prog_results
+            ]
+        elif len(queries) > 1:
+            all_results: list = []
+            for q in queries:
+                search_query = hyde_doc or q
+                partial = retriever.search(
+                    search_query,
+                    user_id=user_id,
+                    session_id=session_id,
+                    top_k=fetch_k,
+                    threshold=th,
+                    explain=cfg.explain,
+                    filters=cfg.filters,
+                )
+                all_results.extend(partial)
+            results = _rrf_fuse_hybrid_results(all_results, fetch_k)
+        else:
+            search_query = hyde_doc or query
+            results = retriever.search(
+                search_query,
+                user_id=user_id,
+                session_id=session_id,
+                top_k=fetch_k,
+                threshold=th,
+                explain=cfg.explain,
+                filters=cfg.filters,
+            )
 
         # [5] reranker (统一一份, 消除重复)
         if cfg.reranker is not None and cfg.reranker != "noop":
@@ -270,6 +323,17 @@ class SearchPipeline:
             ]
         if not cfg.show_expired:
             hybrid_return = [r for r in hybrid_return if not _is_expired(r.get("metadata"))]
+
+        # [6.5] Graph BFS — 从 top-1 结果做 BFS 图遍历 + RRF 融合
+        if getattr(cfg, "_graph_bfs", False) and self._graph_searcher is not None and hybrid_return:
+            seed_id = hybrid_return[0].get("id", "")
+            if seed_id:
+                try:
+                    graph_results = self._graph_searcher.search_graph(seed_id)
+                    if graph_results:
+                        hybrid_return = _fuse_with_graph(hybrid_return, graph_results)
+                except Exception as e:
+                    logger.warning("graph_bfs_failed", error=str(e))
 
         logger.info("search_done", user_id=user_id, query=query[:50], hits=len(hybrid_return))
 
@@ -339,3 +403,26 @@ class SearchPipeline:
             return {"results": results, "injected_prompt": injected_prompt}
 
         return results
+
+
+def _rrf_fuse_hybrid_results(results: list, top_k: int) -> list:
+    """RRF 融合多路 HybridResult 检索结果。"""
+    from septmuse.retrieval.hybrid import RRF_K
+
+    scores: dict[str, float] = {}
+    by_id: dict[str, object] = {}
+    for r in results:
+        if r.id not in by_id:
+            by_id[r.id] = r
+            scores[r.id] = 0.0
+        scores[r.id] += 1.0 / (RRF_K + 1)
+
+    fused = sorted(by_id.values(), key=lambda r: scores[r.id], reverse=True)
+    return fused[:top_k]
+
+
+def _fuse_with_graph(hybrid_results: list[dict], graph_results: list[dict]) -> list[dict]:
+    """将 hybrid 结果与 graph BFS 结果 RRF 融合。"""
+    from septmuse.retrieval.graph_search import GraphSearcher
+
+    return GraphSearcher.rrf_fuse(hybrid_results, graph_results)

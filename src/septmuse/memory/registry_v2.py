@@ -118,55 +118,94 @@ class ComponentRegistry:
         from septmuse.pipelines.reset import ResetPipeline
         from septmuse.pipelines.search import SearchPipeline, VectorRetrieverAdapter
 
-        self.register("capture", lambda r: CapturePipeline(
-            r.store, r.embedder, typed_store=r.typed_store, llm=r.llm,
-            dedup_window=getattr(r._memory, "_dedup_window", None),
-        ))
-        self.register("search", lambda r: SearchPipeline(
-            hybrid_retriever=r._memory._get_hybrid_retriever(),
-            vector_retriever=VectorRetrieverAdapter(r.store, r.embedder),
-            reranker_factory=lambda name: _create_reranker(name, embedder=r.embedder, llm=r.llm),
-            embedder=r.embedder,
-            forgetting=r.get("forgetting"),
-            default_top_k=r.config.top_k,
-            default_threshold=r.config.threshold,
-        ))
-        self.register("recall", lambda r: RecallPipeline(
-            search_pipeline=r.get("search"),
-            meta=r.get("meta"),
-            token_budget=r.get("token_budget"),
-            working_memory=r.get("working_memory"),
-            summarizer=r.get("summarizer"),
-            typed_store=r.typed_store,
-            llm=r.llm,
-            recall_summarizer=r.get("recall_summarizer"),
-            conflict_annotator=r.get("conflict_annotator"),
-        ))
-        self.register("remember", lambda r: RememberPipeline(
-            store=r.store, embedder=r.embedder, episodic=r.episodic,
-            typed_store=r.typed_store, llm=r.llm, extractor=r.extractor,
-            entity_extractor=r.entity_extractor, entity_store=r.entity_store,
-            working_memory=r.get("working_memory"),
-            capture=r.get("capture"),
-            dedup_window=getattr(r._memory, "_dedup_window", None),
-            engine=r.engine,
-            importance_assessor=r.get("importance_assessor"),
-            classifier=r.get("classifier"),
-            deduplicator=r.get("deduplicator"),
-            catchup_queue=r.get("catchup_queue"),
-        ))
-        self.register("add", lambda r: AddPipeline(
-            store=r.store, embedder=r.embedder, semantic=r.semantic,
-            episodic=r.episodic, procedural=r.procedural,
-            extractor=r.extractor, entity_extractor=r.entity_extractor,
-            entity_store=r.entity_store, config_infer=r.config.infer,
-        ))
-        self.register("forget", lambda r: ForgetPipeline(
-            store=r.store, entity_store=r.entity_store,
-        ))
-        self.register("reset", lambda r: ResetPipeline(
-            store=r.store, entity_store=r.entity_store,
-        ))
+        self.register(
+            "capture",
+            lambda r: CapturePipeline(
+                r.store,
+                r.embedder,
+                typed_store=r.typed_store,
+                llm=r.llm,
+                dedup_window=getattr(r._memory, "_dedup_window", None),
+            ),
+        )
+        self.register(
+            "search",
+            lambda r: SearchPipeline(
+                hybrid_retriever=r._memory._get_hybrid_retriever(),
+                vector_retriever=VectorRetrieverAdapter(r.store, r.embedder),
+                reranker_factory=lambda name: _create_reranker(name, embedder=r.embedder, llm=r.llm),
+                embedder=r.embedder,
+                forgetting=r.get("forgetting"),
+                default_top_k=r.config.top_k,
+                default_threshold=r.config.threshold,
+                llm=r.llm,
+                graph_searcher=_create_graph_searcher(r),
+                progressive_retriever=_create_progressive_retriever(r),
+            ),
+        )
+        self.register(
+            "recall",
+            lambda r: RecallPipeline(
+                search_pipeline=r.get("search"),
+                meta=r.get("meta"),
+                token_budget=r.get("token_budget"),
+                working_memory=r.get("working_memory"),
+                summarizer=r.get("summarizer"),
+                typed_store=r.typed_store,
+                llm=r.llm,
+                recall_summarizer=r.get("recall_summarizer"),
+                conflict_annotator=r.get("conflict_annotator"),
+            ),
+        )
+        self.register(
+            "remember",
+            lambda r: RememberPipeline(
+                store=r.store,
+                embedder=r.embedder,
+                episodic=r.episodic,
+                typed_store=r.typed_store,
+                llm=r.llm,
+                extractor=r.extractor,
+                entity_extractor=r.entity_extractor,
+                entity_store=r.entity_store,
+                working_memory=r.get("working_memory"),
+                capture=r.get("capture"),
+                dedup_window=getattr(r._memory, "_dedup_window", None),
+                engine=r.engine,
+                importance_assessor=r.get("importance_assessor"),
+                classifier=r.get("classifier"),
+                deduplicator=r.get("deduplicator"),
+                catchup_queue=r.get("catchup_queue"),
+            ),
+        )
+        self.register(
+            "add",
+            lambda r: AddPipeline(
+                store=r.store,
+                embedder=r.embedder,
+                semantic=r.semantic,
+                episodic=r.episodic,
+                procedural=r.procedural,
+                extractor=r.extractor,
+                entity_extractor=r.entity_extractor,
+                entity_store=r.entity_store,
+                config_infer=r.config.infer,
+            ),
+        )
+        self.register(
+            "forget",
+            lambda r: ForgetPipeline(
+                store=r.store,
+                entity_store=r.entity_store,
+            ),
+        )
+        self.register(
+            "reset",
+            lambda r: ResetPipeline(
+                store=r.store,
+                entity_store=r.entity_store,
+            ),
+        )
 
         # ── 领域模块（domains）──
         from septmuse.domains.capture import CaptureModule
@@ -175,28 +214,57 @@ class ComponentRegistry:
         from septmuse.domains.search import SearchModule
         from septmuse.domains.temporal import TemporalModule
 
-        self.register("search_module", lambda r: SearchModule(
-            store=r.store, embedder=r.embedder, typed_store=r.typed_store,
-            llm=r.llm, entity_store=r.entity_store,
-        ))
-        self.register("evolution_module", lambda r: EvolutionModule(
-            store=r.store, embedder=r.embedder, typed_store=r.typed_store,
-            llm=r.llm, graph_store=r.graph_store,
-        ))
-        self.register("capture_module", lambda r: CaptureModule(
-            store=r.store, embedder=r.embedder, typed_store=r.typed_store,
-            llm=r.llm, entity_extractor=r.entity_extractor,
-            entity_store=r.entity_store, episodic=r.episodic,
-            semantic=r.semantic, procedural=r.procedural,
-            working_memory=r.get("working_memory"),
-        ))
-        self.register("entity_module", lambda r: EntityModule(
-            store=r.store, entity_store=r.entity_store,
-            entity_extractor=r.entity_extractor,
-        ))
-        self.register("temporal_module", lambda r: TemporalModule(
-            store=r.store, embedder=r.embedder, llm=r.llm,
-        ))
+        self.register(
+            "search_module",
+            lambda r: SearchModule(
+                store=r.store,
+                embedder=r.embedder,
+                typed_store=r.typed_store,
+                llm=r.llm,
+                entity_store=r.entity_store,
+            ),
+        )
+        self.register(
+            "evolution_module",
+            lambda r: EvolutionModule(
+                store=r.store,
+                embedder=r.embedder,
+                typed_store=r.typed_store,
+                llm=r.llm,
+                graph_store=r.graph_store,
+            ),
+        )
+        self.register(
+            "capture_module",
+            lambda r: CaptureModule(
+                store=r.store,
+                embedder=r.embedder,
+                typed_store=r.typed_store,
+                llm=r.llm,
+                entity_extractor=r.entity_extractor,
+                entity_store=r.entity_store,
+                episodic=r.episodic,
+                semantic=r.semantic,
+                procedural=r.procedural,
+                working_memory=r.get("working_memory"),
+            ),
+        )
+        self.register(
+            "entity_module",
+            lambda r: EntityModule(
+                store=r.store,
+                entity_store=r.entity_store,
+                entity_extractor=r.entity_extractor,
+            ),
+        )
+        self.register(
+            "temporal_module",
+            lambda r: TemporalModule(
+                store=r.store,
+                embedder=r.embedder,
+                llm=r.llm,
+            ),
+        )
 
         # ── 组件（components）──
         from septmuse.evolution.self_loop import SelfEvolutionLoop
@@ -207,9 +275,14 @@ class ComponentRegistry:
         from septmuse.retrieval.recall_summarizer import RecallSummarizer
         from septmuse.retrieval.token_budget import TokenBudget
 
-        self.register("meta", lambda r: MetacognitionLayer(
-            r.embedder, r.store, r.typed_store,
-        ))
+        self.register(
+            "meta",
+            lambda r: MetacognitionLayer(
+                r.embedder,
+                r.store,
+                r.typed_store,
+            ),
+        )
         self.register("recall_summarizer", lambda r: RecallSummarizer(llm=r.llm))
         self.register("conflict_annotator", lambda r: ConflictAnnotator(llm=r.llm))
         self.register("importance_assessor", lambda r: _create_importance_assessor(r))
@@ -217,22 +290,53 @@ class ComponentRegistry:
         self.register("deduplicator", lambda r: _create_deduplicator(r))
         self.register("catchup_queue", lambda r: _create_catchup_queue(r))
         self.register("working_memory", lambda r: _create_working_memory(r))
-        self.register("self_loop", lambda r: SelfEvolutionLoop(
-            r.store, r.graph_store, r.embedder, r.typed_store, llm=r.llm,
-        ))
-        self.register("summarizer", lambda r: Summarizer(
-            r.store, r.typed_store, r.llm,
-        ))
+        self.register(
+            "self_loop",
+            lambda r: SelfEvolutionLoop(
+                r.store,
+                r.graph_store,
+                r.embedder,
+                r.typed_store,
+                llm=r.llm,
+            ),
+        )
+        self.register(
+            "summarizer",
+            lambda r: Summarizer(
+                r.store,
+                r.typed_store,
+                r.llm,
+            ),
+        )
         self.register("forgetting", lambda r: ForgettingRetriever(r.typed_store))
-        self.register("token_budget", lambda r: TokenBudget(
-            budget=getattr(r.config, "token_budget", 2000),
-        ))
+        self.register(
+            "token_budget",
+            lambda r: TokenBudget(
+                budget=getattr(r.config, "token_budget", 2000),
+            ),
+        )
 
 
 def _create_reranker(name: str, *, embedder: Any = None, llm: Any = None) -> Any:
     """创建 reranker（工厂函数）。"""
     from septmuse.rerankers import create_reranker
+
     return create_reranker(name, embedder=embedder, llm=llm)
+
+
+def _create_graph_searcher(reg: ComponentRegistry) -> Any:
+    """工厂: GraphSearcher。"""
+    from septmuse.retrieval.graph_search import GraphSearcher
+
+    graph_store = getattr(reg._memory, "_graph_store", None) or reg.graph_store
+    return GraphSearcher(graph_store, reg.store)
+
+
+def _create_progressive_retriever(reg: ComponentRegistry) -> Any:
+    """工厂: ProgressiveRetriever。"""
+    from septmuse.retrieval.progressive import ProgressiveRetriever
+
+    return ProgressiveRetriever(reg.store, reg.typed_store, reg.embedder)
 
 
 def _create_working_memory(reg: ComponentRegistry) -> Any:
@@ -252,18 +356,21 @@ def _create_working_memory(reg: ComponentRegistry) -> Any:
 def _create_importance_assessor(reg: ComponentRegistry) -> Any:
     """工厂: ImportanceAssessor。"""
     from septmuse.capture.importance import ImportanceAssessor
+
     return ImportanceAssessor(llm=reg.llm)
 
 
 def _create_classifier(reg: ComponentRegistry) -> Any:
     """工厂: MemoryClassifier。"""
     from septmuse.capture.classifier import MemoryClassifier
+
     return MemoryClassifier(llm=reg.llm)
 
 
 def _create_deduplicator(reg: ComponentRegistry) -> Any:
     """工厂: SemanticDeduplicator。"""
     from septmuse.capture.dedup import SemanticDeduplicator
+
     return SemanticDeduplicator(reg.embedder, reg.store, llm=reg.llm)
 
 
@@ -274,6 +381,7 @@ def _create_catchup_queue(reg: ComponentRegistry) -> Any:
         return None
     try:
         from septmuse.evolution.catchup import LLMCatchUpQueue
+
         return LLMCatchUpQueue(engine)
     except Exception:
         return None
