@@ -57,23 +57,44 @@ LOCOMO-10 是 10 个多轮对话、~1540 道题的长对话记忆基准。4 个�
 - `--predict-only`：只跑 ingest+search，不耗 LLM。用 embedding 相似度对比 ground truth 做代理指标
 - `--full`：ingest+search+answer+judge，算端到端 accuracy。需要 Ollama 运行
 
-**运行方式**：
+**运行环境**：
+
+用户 Ollama 环境：
+- LLM：`qwen3.5:latest`（6.6 GB）
+- Embedder：`bge-m3:latest`（1.2 GB，1024 维）
+- Ollama 基址：`http://localhost:7521`
 
 ```powershell
 $env:PYTHONPATH = "src"
-$env:SEPTMUSE_EMBEDDER = "hash"
-$env:SEPTMUSE_TOKENIZER = "space"
-$env:SEPTMUSE_VECTOR_BACKEND = "sqlite"
 $env:SEPTMUSE_RATE_LIMIT = "0"
-$env:SEPTMUSE_LLM = "ollama"
-$env:SEPTMUSE_LLM_MODEL = "qwen2.5:7b"
 
-# predict-only（无需 Ollama）
+# LLM（OllamaLLM 已有 OLLAMA_HOST env 回退）
+$env:SEPTMUSE_LLM = "ollama"
+$env:SEPTMUSE_LLM_MODEL = "qwen3.5:latest"
+$env:OLLAMA_HOST = "http://localhost:7521"
+
+# Embedder（需先修 OllamaEmbedder 参数名，见下方 bugfix）
+$env:SEPTMUSE_EMBEDDER = "ollama"
+$env:SEPTMUSE_EMBEDDER_MODEL = "bge-m3:latest"
+$env:SEPTMUSE_EMBEDDER_BASE_URL = "http://localhost:7521"
+$env:SEPTMUSE_EMBEDDER_DIMS = 1024
+$env:SEPTMUSE_EMBEDDING_DIMS = 1024
+
+# 向量后端（LOCOMO 评估用 SQLite，不走 Qdrant）
+$env:SEPTMUSE_VECTOR_BACKEND = "sqlite"
+
+# predict-only（无需 Ollama LLM，但需 embedder）
 python scripts/eval_locomo.py --project-name baseline --conversations 0 --predict-only
 
-# full（需要 Ollama 运行）
+# full（需要 Ollama LLM + embedder 运行）
 python scripts/eval_locomo.py --project-name baseline --conversations 0 --full
 ```
+
+### Section 0: OllamaEmbedder 参数名 bugfix
+
+OllamaEmbedder 构造参数叫 `ollama_base_url`，但 config 字段叫 `base_url`。`ServiceProvider._config_to_kwargs()` 按构造参数名过滤，`base_url` 不匹配 `ollama_base_url`，导致 `SEPTMUSE_EMBEDDER_BASE_URL` 传不进去。
+
+**修复**：`src/septmuse/embedders/ollama.py` — 将 `ollama_base_url` 参数重命名为 `base_url`，与 config 字段一致。同时加 `OLLAMA_HOST` env 回退（与 OllamaLLM 一致）。
 
 **输出**：`results/locomo/` 下 per-question JSON + 汇总 JSON
 
@@ -181,10 +202,11 @@ Memory 构造 SearchPipeline 时传入已有组件（llm、graph_searcher 已在
 
 ## 实施顺序
 
-1. **LOCOMO harness（predict-only）** — 先建评估基线，跑 baseline
+0. **OllamaEmbedder 参数名 bugfix** — 改 `ollama_base_url` → `base_url` + 加 `OLLAMA_HOST` env 回退
+1. **LOCOMO harness（predict-only）** — 先建评估基线，用 bge-m3 embedder 跑 baseline
 2. **Graph BFS + Progressive 路由** — 不需要新文件，只改 SearchPipeline + 注入，最简单
-3. **HyDE + Query Rewrite** — 需要新文件 + LLM 集成
-4. **LOCOMO harness（full）** — 用 Ollama 跑完整评估，对比 baseline
+3. **HyDE + Query Rewrite** — 需要新文件 + LLM 集成（qwen3.5 做 HyDE/查询重写）
+4. **LOCOMO harness（full）** — 用 Ollama LLM 跑完整评估，对比 baseline
 
 ## 验证
 
