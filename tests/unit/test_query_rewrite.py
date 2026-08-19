@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -76,3 +77,32 @@ def test_query_rewrite_prompt_exists():
     from septmuse.prompts.rewrite import QUERY_REWRITE_PROMPT
     assert QUERY_REWRITE_PROMPT
     assert len(QUERY_REWRITE_PROMPT) > 50
+
+
+def test_rewrite_query_with_llm():
+    """有 LLM 时应返回原始查询 + 变体。"""
+    from septmuse.retrieval.query_rewrite import rewrite_query
+
+    llm = MagicMock()
+    llm.complete.return_value = "1. 张三李四的对话内容\n2. 张三李四讨论的话题"
+    result = rewrite_query("张三和李四聊过什么", llm)
+    assert len(result) == 3  # 原始 + 2 变体
+    assert result[0] == "张三和李四聊过什么"  # 原始排第一
+
+
+def test_rewrite_query_no_llm():
+    """无 LLM 时应只返回原始查询。"""
+    from septmuse.retrieval.query_rewrite import rewrite_query
+
+    result = rewrite_query("张三和李四聊过什么", None)
+    assert result == ["张三和李四聊过什么"]
+
+
+def test_rewrite_query_llm_error():
+    """LLM 异常时应只返回原始查询（降级）。"""
+    from septmuse.retrieval.query_rewrite import rewrite_query
+
+    llm = MagicMock()
+    llm.complete.side_effect = Exception("Ollama connection refused")
+    result = rewrite_query("张三和李四聊过什么", llm)
+    assert result == ["张三和李四聊过什么"]
