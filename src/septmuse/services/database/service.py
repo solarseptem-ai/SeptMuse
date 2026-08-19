@@ -11,23 +11,10 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""DatabaseService — 数据库引擎管理 + 跨方言建表。
-
-职责:
-- 从 config 解析 db_url（SEPTMUSE_DB_URL 环境变量 > config.database.db_url > config.db_path 回退 SQLite）
-- 自动加 async driver（sqlite+aiosqlite / postgresql+psycopg / mysql+aiomysql）
-- create_engine 创建引擎
-- SQLModel.metadata.create_all 跨方言建表
-- 提供 get_engine() / get_session_maker()
-
-零配置: db_url 未设 → 默认 SQLite (~/.septmuse/septmuse.db)
-切换: SEPTMUSE_DB_URL=mysql://user:pass@host:3306/septmuse
-      SEPTMUSE_DB_URL=postgresql://user:pass@host:5432/septmuse
-"""
+"""DatabaseService — 数据库引擎管理 + 跨方言建表。"""
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -48,17 +35,7 @@ logger = get_logger(__name__)
 
 
 class DatabaseService(Service):
-    """数据库服务 — 引擎管理 + 跨方言建表。
-
-    用法:
-        svc = DatabaseService(config)
-        engine = svc.get_engine()
-        # 建表
-        svc.create_tables()
-        # 用 engine 执行 SQL
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-    """
+    """数据库服务 — 引擎管理 + 跨方言建表。"""
 
     name = "database_service"
 
@@ -70,7 +47,7 @@ class DatabaseService(Service):
         self._dialect = self.database_url.split("://", 1)[0].split("+", 1)[0]
 
         connect_args = self._get_connect_args()
-        # :memory: SQLite 需要 StaticPool 共享单连接 (跨线程并发检索看到同一内存库)
+        # :memory: SQLite 需要 StaticPool
         if self._dialect == "sqlite" and self.database_url == "sqlite://":
             self.engine: Engine = create_engine(
                 self.database_url,
@@ -79,7 +56,6 @@ class DatabaseService(Service):
                 echo=False,
             )
         elif self._dialect in ("postgresql", "mysql"):
-            # PG/MySQL: 连接池大小 + 溢出 + 超时配置
             self.engine: Engine = create_engine(
                 self.database_url,
                 connect_args=connect_args,
@@ -91,14 +67,14 @@ class DatabaseService(Service):
         else:
             self.engine: Engine = create_engine(self.database_url, connect_args=connect_args, echo=False)
 
-        # SQLite PRAGMA 事件监听（只监听当前 engine, 避免全局污染）
+        # SQLite PRAGMA 事件监听
         if self._dialect == "sqlite":
             event.listen(self.engine, "connect", self._on_sqlite_connection)
 
         self.session_maker = sessionmaker(self.engine, expire_on_commit=False)
         self._async_engine: AsyncEngine | None = None
 
-        # 注册所有 SQLModel 表（确保 metadata 知道这些表）
+        # 注册 SQLModel 表
         for _model in (MemoryTable, HistoryTable, AccessLogTable):
             pass  # 导入即注册到 SQLModel.metadata
 
@@ -106,8 +82,8 @@ class DatabaseService(Service):
         logger.info("database_service_ready", url=self._safe_url(), dialect=self._dialect)
 
     def _resolve_db_url(self) -> str:
-        """解析 db_url: 环境变量 > config.database.db_url > config.db_path 回退 SQLite。"""
-        db_url = os.getenv("SEPTMUSE_DB_URL") or getattr(self._config.database, "db_url", None)
+        """解析 db_url: config.database.db_url > config.db_path 回退 SQLite。"""
+        db_url = getattr(self._config.database, "db_url", None)
         if db_url:
             return db_url
 
@@ -138,13 +114,14 @@ class DatabaseService(Service):
             cursor.close()
 
     def create_tables(self) -> None:
-        """建表委托给 store 自身（ORMMemoryStore._create_tables 等）。
+        """建表 + 迁移。"""
+        from sqlmodel import SQLModel
 
-        DatabaseService 只管 engine 生命周期, 不建表 — 避免和 store 的
-        CREATE TABLE IF NOT EXISTS + ALTER TABLE 迁移冲突。
-        后续如需跨方言建表, 可用 SQLModel.metadata.create_all(engine)。
-        """
-        logger.info("database_tables_delegate_to_store")
+        from septmuse.storage.migrations.runner import MigrationRunner
+
+        SQLModel.metadata.create_all(self.engine)
+        MigrationRunner(self.engine).run()
+        logger.info("database_tables_created")
 
     def get_engine(self) -> Engine:
         """返回 SQLAlchemy engine。"""

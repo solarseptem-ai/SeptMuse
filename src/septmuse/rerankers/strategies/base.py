@@ -9,15 +9,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Reranker 策略抽象基类 — 解决"文档怎么准备和重建"。
-
-策略解决文档准备和重建问题:
-- prepare: 把 HybridResult 列表转为送入 reranker 的纯文本列表 (list[str])
-- reconstruct: 把 reranker 返回的分数映射回 HybridResult
-
-一条记忆可能拆为多个 document (如对话拆分), reconstruct 时聚合取最高分。
-boost 权重在 reconstruct 中统一应用。
-"""
+"""Reranker 策略抽象基类 — 解决"文档怎么准备和重建"。"""
 
 from __future__ import annotations
 
@@ -35,12 +27,7 @@ class BaseRerankerStrategy(ABC):
 
     @abstractmethod
     def prepare(self, results: list[HybridResult]) -> tuple[list[dict[str, Any]], list[str]]:
-        """把 HybridResult 列表转为 (tracker, documents) 供 reranker 打分。
-
-        Returns:
-            tracker: 映射条目列表, 每条 {"result_index": int, ...}
-            documents: 纯文本列表, 送入 reranker
-        """
+        """把 HybridResult 列表转为 (tracker, documents) 供 reranker 打分。"""
         ...
 
     @abstractmethod
@@ -52,15 +39,7 @@ class BaseRerankerStrategy(ABC):
         top_k: int,
         search_filter: dict[str, Any] | None = None,
     ) -> list[HybridResult]:
-        """把 reranker 返回的 (doc_index, score) 映射回 HybridResult。
-
-        Args:
-            scored: reranker 输出 [(doc_index, score)] 降序
-            tracker: prepare 返回的映射条目
-            results: 原始 HybridResult 列表
-            top_k: 返回数量
-            search_filter: boost 权重 (匹配 metadata 字段加权)
-        """
+        """把 reranker 返回的 (doc_index, score) 映射回 HybridResult。"""
         ...
 
     def _apply_boost_to_result(

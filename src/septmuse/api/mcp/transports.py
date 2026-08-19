@@ -11,16 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""MCP transports — Streamable HTTP + SSE 挂载到 FastAPI。
-
-- SseServerTransport("/mcp/messages/") + @router.get SSE endpoint
-- StreamableHTTPServerTransport(mcp_session_id=None, is_json_response_enabled=True) stateless
-- capture_send 拦截 ASGI 响应避免 FastAPI double-response
-- @router.api_route streamable_http endpoint
-- contextvars 从 URL 路径参数 set user_id/client_name
-
-stdio transport 见 server.run_stdio (FastMCP.run 默认)。
-"""
+"""MCP transports — Streamable HTTP + SSE 挂载到 FastAPI。"""
 
 from __future__ import annotations
 

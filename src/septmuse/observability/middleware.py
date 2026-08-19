@@ -1,10 +1,4 @@
-"""PrometheusMiddleware — 自动记录 REST API RED 指标。
-
-RED = Rate / Errors / Duration
-- Rate: api_requests_total (Counter, endpoint+method+status)
-- Duration: api_request_duration_seconds (Histogram, endpoint+method)
-- In-flight: api_requests_in_flight (Gauge, endpoint)
-"""
+"""PrometheusMiddleware — 自动记录 REST API RED 指标。"""
 
 from __future__ import annotations
 

@@ -11,17 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""SQLite 图存储后端 — 零配置默认 GraphStore 实现。
-
-复用 ORMMemoryStore 的 raw_connection 和 lock (同一 SQLite 文件), 管理 memory_links + memory_nodes 表。
-
-参考模式:
-- 边表: memory_links (id/source_id/target_id/relation/score/created_at + UNIQUE)
-- 节点表: memory_nodes (id/properties JSON/created_at)
-- 幂等: INSERT OR IGNORE (边) / INSERT OR REPLACE (节点)
-- 多跳遍历: WITH RECURSIVE CTE (单次 SQL 完成多跳, 比 Python 循环快)
-- 社区检测: 纯 Python label_propagation (借鉴 graphiti)
-"""
+"""SQLite 图存储后端 — 零配置默认 GraphStore 实现。"""
 
 from __future__ import annotations
 
@@ -29,33 +19,20 @@ import json
 import threading
 import uuid
 from collections import defaultdict
-from datetime import datetime, timezone
 from typing import Any
 
 from septmuse.core.logging import get_logger
+from septmuse.core.utils import utcnow_iso
 from septmuse.storage.graph_stores.base import GraphEdge, GraphStore
 
 logger = get_logger(__name__)
 
 
-def _utcnow_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
 class SQLiteGraphStore(GraphStore):
-    """SQLite 图存储 (零配置默认, 复用 ORMMemoryStore raw_connection)。
-
-    用法:
-        from septmuse.storage.relational_stores.orm_store import ORMMemoryStore
-        store = ORMMemoryStore(engine)
-        raw_conn = store.engine.raw_connection()
-        graph = SQLiteGraphStore(raw_conn, threading.Lock())
-        graph.add_edge("mem-1", "mem-2", "related_to", 0.85)
-        edges = graph.get_edges("mem-1")
-    """
+    """SQLite 图存储 (零配置默认)。"""
 
     def __init__(self, conn: Any, lock: threading.Lock) -> None:
-        """共享 ORMMemoryStore 的 raw_connection 和 lock (同文件, 线程安全)。"""
+        """初始化，共享连接和锁。"""
         self.conn = conn
         self._lock = lock
         self._init_table()
@@ -100,7 +77,7 @@ class SQLiteGraphStore(GraphStore):
     ) -> str:
         """添加有向边, 幂等 (INSERT OR IGNORE + UNIQUE 约束)。返回 edge_id。"""
         edge_id = f"link-{uuid.uuid4()}"
-        now = _utcnow_iso()
+        now = utcnow_iso()
         with self._lock:
             self.conn.execute(
                 """
@@ -158,7 +135,7 @@ class SQLiteGraphStore(GraphStore):
 
     def add_node(self, node_id: str, properties: dict[str, Any] | None = None) -> None:
         """添加或更新节点 (幂等, INSERT OR REPLACE)。"""
-        now = _utcnow_iso()
+        now = utcnow_iso()
         props = json.dumps(properties or {}, ensure_ascii=False)
         with self._lock:
             self.conn.execute(
@@ -227,10 +204,7 @@ class SQLiteGraphStore(GraphStore):
         direction: str = "out",
         relation: str | None = None,
     ) -> list[dict[str, Any]]:
-        """BFS 遍历 (递归 CTE, 单次 SQL 完成多跳)。
-
-        direction: "out"=出边, "in"=入边, "both"=双向。
-        """
+        """BFS 遍历 (递归 CTE)。"""
         if max_depth < 1:
             return []
 
@@ -275,10 +249,7 @@ class SQLiteGraphStore(GraphStore):
     # ── 社区检测 (override: 纯 Python label_propagation) ──
 
     def detect_communities(self, algorithm: str = "label_propagation") -> dict[str, list[str]]:
-        """社区检测 — 纯 Python label_propagation (借鉴 graphiti)。
-
-        算法: 每个节点初始社区为自己, 迭代将节点分配到邻居中最多的社区, 直到收敛。
-        """
+        """社区检测 — 纯 Python label_propagation。"""
         if algorithm != "label_propagation":
             raise NotImplementedError(f"Algorithm '{algorithm}' not supported")
 

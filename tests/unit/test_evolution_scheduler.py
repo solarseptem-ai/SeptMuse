@@ -92,17 +92,10 @@ def test_process_catchup_llm_available():
 
 
 def test_get_user_ids():
-    """_get_user_ids 从 store 查 distinct user_id。"""
+    """_get_user_ids 从 store.get_user_ids() 查 distinct user_id (走 ABC)。"""
     mem = MagicMock()
     mem.store = MagicMock()
-    mock_engine = MagicMock()
-    mock_conn = MagicMock()
-    mock_result = MagicMock()
-    mock_result.fetchall.return_value = [("alice",), ("bob",)]
-    mock_conn.execute.return_value = mock_result
-    mock_engine.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
-    mock_engine.connect.return_value.__exit__ = MagicMock(return_value=False)
-    mem.store.engine = mock_engine
+    mem.store.get_user_ids.return_value = ["alice", "bob"]
 
     scheduler = EvolutionScheduler(mem, enabled=True)
     uids = scheduler._get_user_ids()

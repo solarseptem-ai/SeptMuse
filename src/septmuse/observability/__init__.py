@@ -7,13 +7,7 @@ import os
 
 
 def init_metrics(app, store, config) -> None:
-    """初始化可观测性指标系统。opt-in：SEPTMUSE_METRICS=true 时启用。
-
-    Args:
-        app: FastAPI 实例
-        store: MemoryStore 实例（用于业务指标查询）
-        config: MemoryConfig（用于 db_path）
-    """
+    """初始化可观测性指标系统。SEPTMUSE_METRICS=true 时启用。"""
     from septmuse.core.logging import get_logger
     from septmuse.observability.collector import MetricsCollector
 

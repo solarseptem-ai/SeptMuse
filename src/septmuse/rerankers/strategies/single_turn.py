@@ -9,11 +9,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""对话拆分策略 — 把对话记忆拆为 user+assistant pair 分别打分, 取最高分聚合。
-
-适用: 记忆 metadata.sources 是 [{"role":"user","content":...}, {"role":"assistant","content":...}] 列表。
-一条记忆 -> 多个 document (每 pair 一个), reconstruct 时按 result_index 聚合取最高分。
-"""
+"""对话拆分策略 — 把对话记忆拆为 user+assistant pair 分别打分，取最高分聚合。"""
 
 from __future__ import annotations
 
@@ -35,11 +31,9 @@ class SingleTurnStrategy(BaseRerankerStrategy):
             meta = r.metadata or {}
             sources = meta.get("sources", [])
             if not sources:
-                # 无 sources, 用 memory 本身
                 tracker.append({"result_index": i, "pair_index": -1})
                 documents.append(r.memory)
                 continue
-            # 拆分 user+assistant pair
             for j in range(0, len(sources), 2):
                 user_msg = sources[j].get("content", "") if j < len(sources) else ""
                 asst_msg = sources[j + 1].get("content", "") if j + 1 < len(sources) else ""
@@ -59,7 +53,6 @@ class SingleTurnStrategy(BaseRerankerStrategy):
     ) -> list[HybridResult]:
         from septmuse.retrieval.hybrid import HybridResult
 
-        # 按 result_index 聚合, 取最高分
         best: dict[int, float] = {}
         for doc_idx, score in scored:
             entry = tracker[doc_idx]

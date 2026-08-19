@@ -1,15 +1,4 @@
-"""三元组 LLM 联合抽取。
-
-单次 LLM 调用同时抽实体 + 关系边 (三元组), 优于分离抽取。
-孤儿节点丢弃 (每实体至少有一条连接边, 否则丢弃)。
-无 LLM 时 fallback 到 EntityExtractor + 简单规则生成三元组。
-
-SeptMuse 流程:
-1. LLM 模式: complete(TRIPLET_EXTRACTION_PROMPT) → {"entities": [...], "edges": [...]}
-2. 丢弃孤儿实体 (没有边连接的实体)
-3. 返回 list[Triplet]
-4. Fallback: EntityExtractor 抽实体 → 相邻实体对 + 中间文本作为关系
-"""
+"""三元组 LLM 联合抽取。"""
 
 from __future__ import annotations
 
@@ -134,10 +123,7 @@ def _extract_fallback(text: str, entity_extractor: Any) -> list[Triplet]:
 
 
 class TripletExtractor:
-    """三元组 LLM 联合抽取器。
-
-    依赖注入 LLM + EntityExtractor, 便于测试 (注入 MockLLM)。
-    """
+    """三元组 LLM 联合抽取器。"""
 
     def __init__(
         self,
@@ -186,10 +172,6 @@ def extract_triplets(
     llm: LLM | None = None,
     entity_extractor: Any | None = None,
 ) -> list[Triplet]:
-    """便捷函数: 抽取三元组。
-
-    >>> extract_triplets("Alice works at Google")
-    [Triplet(subject="Alice", predicate="works_at", object="Google")]
-    """
+    """抽取三元组。"""
     extractor = TripletExtractor(llm=llm, entity_extractor=entity_extractor)
     return extractor.extract(text)

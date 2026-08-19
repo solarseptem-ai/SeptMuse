@@ -11,10 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""src.septmuse.storage.file_stores package — 文件记忆 (Markdown)。
-
-LoRA 参数化记忆已迁移到 storage/parametric/。此处保留 re-export 向后兼容。
-"""
+"""文件记忆 (Markdown) — LoRA 已迁移到 parametric/，此处保留 re-export。"""
 
 from septmuse.storage.parametric.lora import LoRAConfig, LoRAMemory
 from septmuse.storage.parametric.lora_base import BaseParametricMemory

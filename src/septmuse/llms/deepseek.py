@@ -11,14 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""DeepSeek LLM provider — OpenAI 兼容 API。
-
-用法:
-    llm = DeepSeekLLM(api_key="...", model="deepseek-chat")
-    result = llm.complete(system_prompt, user_prompt)
-
-零配置: 从 DEEPSEEK_API_KEY 环境变量读取 key。
-"""
+"""DeepSeek LLM provider（OpenAI 兼容 API）。"""
 
 from __future__ import annotations
 
@@ -32,7 +25,7 @@ logger = get_logger(__name__)
 
 
 class DeepSeekLLM(LLM):
-    """DeepSeek LLM provider（OpenAI 兼容 API）。零配置: 从 DEEPSEEK_API_KEY 环境变量读取 key。"""
+    """DeepSeek LLM provider。"""
 
     provider_name = "deepseek"
 
@@ -57,7 +50,7 @@ class DeepSeekLLM(LLM):
         logger.info("deepseek_llm_ready", model=model)
 
     def _complete(self, system_prompt: str, user_prompt: str) -> str:
-        """调用 DeepSeek Chat Completions (对齐 LLM ABC)。"""
+        """调用 DeepSeek Chat Completions。"""
         try:
             response = self._client.chat.completions.create(
                 model=self.model,

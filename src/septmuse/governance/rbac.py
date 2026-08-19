@@ -11,15 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""跨 agent 权限治理 — RBAC 角色+权限矩阵 (架构文档 §7.2 自研)。
-
-Agno 仅共享无权限, 需 RBAC。SeptMuse 新增角色+权限矩阵:
-- owner: 用户本人, 全权限
-- agent: 被 owner 授权的 agent, 读写指定 namespace
-- observer: 只读
-
-权限: read / write / admin
-"""
+"""跨 agent 权限治理 — RBAC 角色+权限矩阵。"""
 
 from __future__ import annotations
 
@@ -76,14 +68,7 @@ class AccessCheckResult:
 
 
 class RBACManager:
-    """RBAC 权限管理器 (架构文档 §7.2 自研)。
-
-    用法:
-        rbac = RBACManager()
-        rbac.grant("alice", "bot1", Role.AGENT, namespaces=["semantic"])
-        result = rbac.check("alice", "bot1", Permission.WRITE, namespace="semantic")
-        assert result.allowed
-    """
+    """RBAC 权限管理器。"""
 
     def __init__(self) -> None:
         self._grants: dict[str, list[AccessGrant]] = {}  # user_id → grants

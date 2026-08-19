@@ -11,16 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""服务管理器。
-
-注册工厂 → 懒创建 → 单例缓存。deps.py 通过 get_service_manager() 获取全局单例,
-再 get(ServiceType.XXX) 取具体服务。
-
-用法:
-    manager = get_service_manager()
-    manager.register_factory(ServiceType.MEMORY_SERVICE, MemoryServiceFactory())
-    service = manager.get(ServiceType.MEMORY_SERVICE)
-"""
+"""服务管理器 — 注册工厂 + 懒创建 + 单例缓存。"""
 
 from __future__ import annotations
 
@@ -33,12 +24,7 @@ logger = get_logger(__name__)
 
 
 class ServiceManager:
-    """服务管理器——注册工厂 + 懒创建 + 单例缓存。
-
-    - register_factory: 注册 ServiceType → ServiceFactory 映射
-    - get: 首次调用 factory.create() 并缓存, 后续直接返回缓存
-    - are_factories_registered: 检查是否已注册 (deps.py 惰性初始化用)
-    """
+    """服务管理器 —— 注册工厂 + 懒创建 + 单例缓存。"""
 
     def __init__(self) -> None:
         self._factories: dict[ServiceType, ServiceFactory] = {}
@@ -63,15 +49,7 @@ class ServiceManager:
         service_type: ServiceType,
         default: ServiceFactory | None = None,
     ) -> Service:
-        """获取服务实例——首次调用 factory.create() 并缓存, 后续直接返回。
-
-        Args:
-            service_type: 服务类型枚举。
-            default: 如果该类型工厂未注册, 用此默认工厂创建。
-
-        Raises:
-            ValueError: 既无注册工厂也无 default。
-        """
+        """获取服务实例 —— 首次调用 factory.create() 并缓存，后续直接返回。"""
         if service_type in self._services:
             return self._services[service_type]
 

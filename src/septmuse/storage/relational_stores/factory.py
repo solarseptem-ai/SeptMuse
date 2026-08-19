@@ -26,7 +26,6 @@ qdrant-client 不可用时自动降级到 SQLAlchemyVectorStore (JSON + numpy �
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -42,7 +41,11 @@ logger = get_logger(__name__)
 
 
 class RelationalStoreFactory:
-    """根据 config 创建 ORMMemoryStore + 方言工厂的 vector_store + keyword_index。"""
+    """根据 config 创建 ORMMemoryStore + 方言工厂的 vector_store + keyword_index。
+
+    配置真源: 所有 Qdrant/Chroma 参数从 config.vector_store 读取,
+    不再散落 os.getenv 调用。
+    """
 
     @staticmethod
     def _resolve_vector_store(config: MemoryConfig, engine: Any, dialect: str) -> VectorStoreBase:
@@ -51,35 +54,31 @@ class RelationalStoreFactory:
         chroma 后端自带 HNSW ANN 索引, 但 chromadb 是 optional extra。
         未安装时自动降级到 SQLAlchemyVectorStore (全扫描) + 日志警告, 保证零配置不 crash。
         """
-        vs_backend = config.vector_store.backend
-        if vs_backend == "qdrant":
+        vs = config.vector_store
+        if vs.backend == "qdrant":
             try:
                 from septmuse.storage.vector_stores.qdrant import QdrantVectorStore
 
                 return QdrantVectorStore(
                     collection_name="septmuse",
-                    embedding_model_dims=config.vector_store.embedding_model_dims or 512,
-                    path=os.getenv("SEPTMUSE_QDRANT_PATH"),
-                    host=os.getenv("SEPTMUSE_QDRANT_HOST"),
-                    port=int(os.getenv("SEPTMUSE_QDRANT_PORT", "6333"))
-                    if os.getenv("SEPTMUSE_QDRANT_HOST")
-                    else None,
-                    url=os.getenv("SEPTMUSE_QDRANT_URL"),
-                    api_key=os.getenv("SEPTMUSE_QDRANT_API_KEY"),
+                    embedding_model_dims=vs.embedding_model_dims or 512,
+                    path=vs.qdrant_path,
+                    host=vs.qdrant_host,
+                    port=vs.qdrant_port if vs.qdrant_host else None,
+                    url=vs.qdrant_url,
+                    api_key=vs.qdrant_api_key,
                     enable_bm25=True,
                 )
             except ImportError:
                 logger.warning("qdrant_not_available_fallback_sqlite")
 
-        if vs_backend == "chroma":
+        if vs.backend == "chroma":
             try:
                 import chromadb  # noqa: F401
 
                 from septmuse.storage.vector_stores.chroma import ChromaVectorStore
 
-                persist_path = os.getenv(
-                    "SEPTMUSE_CHROMA_PERSIST_PATH", str(Path.home() / ".septmuse" / "chroma")
-                )
+                persist_path = vs.chroma_persist_path or str(Path.home() / ".septmuse" / "chroma")
                 return ChromaVectorStore(persist_path=persist_path)
             except ImportError:
                 logger.warning(
@@ -105,12 +104,13 @@ class RelationalStoreFactory:
         from septmuse.storage.relational_stores.orm_store import ORMMemoryStore
 
         db_svc = DatabaseService(config)
+        db_svc.create_tables()
         engine = db_svc.get_engine()
         dialect = db_svc.get_dialect()
 
         vector_store = RelationalStoreFactory._resolve_vector_store(config, engine, dialect)
         keyword_index = create_keyword_index(engine, dialect)
-        return ORMMemoryStore(engine, vector_store, keyword_index)
+        return ORMMemoryStore(engine, vector_store, keyword_index, owns_engine=False)
 
     @staticmethod
     def create_async(config: MemoryConfig) -> AsyncORMMemoryStore:
@@ -127,10 +127,11 @@ class RelationalStoreFactory:
         from septmuse.storage.relational_stores.async_orm_store import AsyncORMMemoryStore
 
         db_svc = DatabaseService(config)
+        db_svc.create_tables()
         async_engine = db_svc.get_async_engine()
         dialect = db_svc.get_dialect()
         sync_engine = db_svc.get_engine()
 
         vector_store = RelationalStoreFactory._resolve_vector_store(config, sync_engine, dialect)
         keyword_index = create_keyword_index(sync_engine, dialect)
-        return AsyncORMMemoryStore(async_engine, vector_store, keyword_index)
+        return AsyncORMMemoryStore(async_engine, vector_store, keyword_index, owns_engine=False)

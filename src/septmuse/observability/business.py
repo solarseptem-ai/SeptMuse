@@ -1,8 +1,4 @@
-"""BusinessMetricsCollector — pull-on-scrape 业务指标。
-
-实现 prometheus_client.Collector 接口，Prometheus 拉取 /metrics 时触发 collect()，
-查询 DB 算值，返回 GaugeMetricFamily。
-"""
+"""BusinessMetricsCollector — pull-on-scrape 业务指标。"""
 
 from __future__ import annotations
 
@@ -34,7 +30,7 @@ class BusinessMetricsCollector(Collector):
             return []
 
     def collect(self) -> Iterator[GaugeMetricFamily]:
-        # memories_total (按 state)
+        # memories_total
         states = self._query("SELECT state, COUNT(*) FROM memories GROUP BY state")
         if states:
             fam = GaugeMetricFamily(
@@ -64,7 +60,7 @@ class BusinessMetricsCollector(Collector):
                 value=float(entities[0][0]),
             )
 
-        # memory_size_bytes (按 type)
+        # memory_size_bytes
         sizes = self._query(
             "SELECT 'value' AS type, SUM(LENGTH(content)) AS size FROM memories "
             "UNION ALL "

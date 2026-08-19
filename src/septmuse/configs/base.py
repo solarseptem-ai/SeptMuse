@@ -11,47 +11,101 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""SeptMuse 记忆配置 — 顶层组合 (借鉴 mem0 configs/base.py MemoryConfig)。
-
-顶层 MemoryConfig 只组合子配置, 不含具体后端参数。
-每个子系统一个子目录, 每个后端一个 Config 类 (configs/<subsystem>/<backend>.py)。
-
-用法:
-    from septmuse.configs import MemoryConfig, default_config
-
-    config = default_config()
-    config.database.db_path
-    config.embedder.backend
-    config.llm
-"""
+"""SeptMuse 配置 — 子配置基类 + 顶层 MemoryConfig 组合。"""
 
 from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
-from pydantic import Field, model_validator
+from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict, YamlConfigSettingsSource
 
-from septmuse.configs.database import DatabaseConfig
-from septmuse.configs.embeddings.base import BaseEmbedderConfig
-from septmuse.configs.extraction.base import BaseEntityExtractorConfig
-from septmuse.configs.graph_stores.base import BaseGraphStoreConfig
-from septmuse.configs.keyword_index.base import BaseKeywordIndexConfig
-from septmuse.configs.llms.base import BaseLLMConfig
-from septmuse.configs.rerankers.base import BaseRerankerConfig
-from septmuse.configs.vector_stores.base import BaseVectorStoreConfig
+
+class DatabaseConfig(BaseModel):
+    """数据库连接配置。"""
+
+    db_url: str | None = Field(
+        default=None,
+        description="数据库连接 URL; None=用 db_path 回退 SQLite; mysql:// / postgresql:// 切换后端",
+    )
+    db_path: str | Path | None = Field(
+        default=None,
+        description="SQLite 路径; None → 默认 ~/.septmuse/septmuse.db; ':memory:' → 内存库",
+    )
+    connection_pool_size: int = Field(default=5, description="连接池大小 (PG 模式)")
+    connection_max_overflow: int = Field(default=10, description="连接池溢出上限 (PG 模式)")
+    connect_timeout: float = Field(default=30.0, description="连接超时秒数")
+    sqlite_pragmas: dict[str, Any] = Field(
+        default_factory=lambda: {"journal_mode": "WAL", "synchronous": "NORMAL", "busy_timeout": 5000},
+        description="SQLite PRAGMA 设置 (WAL 模式提升并发读写, busy_timeout 毫秒级等待)",
+    )
+
+
+class BaseEmbedderConfig(BaseModel):
+    """嵌入通用配置。"""
+
+    backend: str = Field(default="bge-zh")
+    model: str | None = Field(default=None, description="模型名")
+    base_url: str | None = Field(default=None, description="OpenAI 兼容端点")
+    embedding_dims: int | None = Field(default=None, description="嵌入维度, None=自动检测")
+    api_key: str | None = Field(default=None)
+
+
+class BaseLLMConfig(BaseModel):
+    """LLM 通用配置。"""
+
+    backend: str = Field(default="", description="provider 后端标识, 如 openai/ollama/anthropic/dashscope")
+    model: str | None = Field(default=None, description="模型名")
+    base_url: str | None = Field(default=None, description="OpenAI 兼容端点, 如 http://localhost:7521/v1")
+    temperature: float = Field(default=0.1, description="采样温度")
+    api_key: str | None = Field(default=None, description="API key")
+    max_tokens: int = Field(default=2000, description="最大 token 数")
+    top_p: float = Field(default=0.1, description="核采样参数")
+
+
+class BaseRerankerConfig(BaseModel):
+    """重排器通用配置。"""
+
+    backend: str = Field(default="noop")
+    top_k: int | None = Field(default=None, description="重排后返回数量")
+
+
+class BaseVectorStoreConfig(BaseModel):
+    """向量存储通用配置。"""
+
+    backend: str = Field(default="qdrant", description="向量后端")
+    embedding_model_dims: int = Field(default=512, description="嵌入维度")
+    # Qdrant 专用配置 (统一配置真源, 消除工厂方法中散落的 os.getenv)
+    qdrant_path: str | None = Field(default=None, description="Qdrant 本地嵌入路径")
+    qdrant_host: str | None = Field(default=None, description="Qdrant 远程 host")
+    qdrant_port: int = Field(default=6333, description="Qdrant 远程端口")
+    qdrant_url: str | None = Field(default=None, description="Qdrant 完整 URL")
+    qdrant_api_key: str | None = Field(default=None, description="Qdrant Cloud API key")
+    chroma_persist_path: str | None = Field(default=None, description="Chroma 持久化路径")
+
+
+class BaseGraphStoreConfig(BaseModel):
+    """图存储通用配置。"""
+
+    backend: str = Field(default="sqlite")
+
+
+class BaseKeywordIndexConfig(BaseModel):
+    """关键词索引通用配置。"""
+
+    backend: str = Field(default="sqlite_bm25")
+
+
+class BaseEntityExtractorConfig(BaseModel):
+    """实体抽取通用配置。"""
+
+    backend: str = Field(default="regex")
 
 
 class MemoryConfig(BaseSettings):
-    """SeptMuse 记忆系统配置 (顶层组合, 借鉴 mem0 MemoryConfig)。
-
-    每个子系统一个子配置, 通过 default_config() 从环境变量组装。
-    零配置默认: SQLite + bge-zh (OnnxEmbedder) + RegexExtractor + NoopReranker + verbatim。
-
-    配置优先级: init kwargs > 环境变量 > YAML > 代码默认。
-    旧版扁平环境变量 (如 SEPTMUSE_EMBEDDER) 通过 _flat_env_aliases 兼容。
-    """
+    """SeptMuse 记忆系统配置 (顶层组合)。"""
 
     model_config = SettingsConfigDict(
         env_prefix="SEPTMUSE_",
@@ -133,30 +187,52 @@ class MemoryConfig(BaseSettings):
     def settings_customise_sources(
         cls, settings_cls, init_settings, env_settings, dotenv_settings, file_secret_settings
     ):
-        """配置源优先级: init kwargs > YAML > 代码默认。
-
-        不使用默认 EnvSettingsSource: 它会把 SEPTMUSE_EMBEDDER=onnx 这样的扁平
-        环境变量直接映射到 embedder 字段并尝试 JSON 解析, 导致 SettingsError。
-        环境变量解析交给 _flat_env_aliases before-validator 手动处理, 保持旧版
-        扁平 env 向后兼容。
-        """
+        """配置源优先级: init kwargs > YAML > 代码默认。"""
         # 从 init kwargs 提取 _yaml_file 运行时覆盖 (pydantic-settings 不自动处理)
         init_kwargs = getattr(init_settings, "init_kwargs", None) or {}
         yaml_file_override = init_kwargs.pop("_yaml_file", None)
-        yaml_source = YamlConfigSettingsSource(settings_cls, yaml_file=yaml_file_override)
+
+        # 展开 ~ 为真实 home 目录 (跨平台: Linux/macOS ~/.septmuse → Windows %USERPROFILE%\.septmuse)
+        def _expand_yaml_files(files):
+            if files is None:
+                return None
+            if isinstance(files, str):
+                return str(Path(files).expanduser())
+            return [str(Path(f).expanduser()) for f in files]
+
+        if yaml_file_override is not None:
+            yaml_file = _expand_yaml_files(yaml_file_override)
+        else:
+            yaml_file = _expand_yaml_files(settings_cls.model_config.get("yaml_file"))
+        yaml_source = YamlConfigSettingsSource(settings_cls, yaml_file=yaml_file)
         return (init_settings, yaml_source)
 
     @model_validator(mode="before")
     @classmethod
     def _flat_env_aliases(cls, data):
-        """旧版扁平环境变量 → 嵌套字段（向后兼容）。
-
-        pydantic-settings 用 env_nested_delimiter='__' 解析嵌套环境变量,
-        但旧版用户习惯用 SEPTMUSE_EMBEDDER=onnx 这样的扁平形式。
-        本 validator 在校验前把扁平 env 映射到嵌套子配置的字段。
-        """
+        """旧版扁平环境变量 → 嵌套字段（向后兼容）。"""
         if not isinstance(data, dict):
             return data
+
+        # 嵌套环境变量: SEPTMUSE_DATABASE__DB_PATH → database.db_path
+        prefix = "SEPTMUSE_"
+        delimiter = "__"
+        for key, val in os.environ.items():
+            if not key.startswith(prefix) or delimiter not in key:
+                continue
+            # 去掉前缀，按 __ 分割
+            parts = key[len(prefix) :].split(delimiter)
+            if len(parts) < 2:
+                continue
+            section = parts[0].lower()
+            field = delimiter.join(parts[1:]).lower()
+            # 映射到已知子配置 (保持与模型字段名一致)
+            section_data = data.get(section)
+            if isinstance(section_data, dict):
+                section_data[field] = val
+            elif section_data is None or isinstance(section_data, str):
+                data[section] = {field: val}
+
         aliases = {
             "SEPTMUSE_DB_URL": ("database", "db_url"),
             "SEPTMUSE_DB_PATH": ("database", "db_path"),
@@ -173,6 +249,12 @@ class MemoryConfig(BaseSettings):
             "SEPTMUSE_LLM": ("llm", "backend"),
             "SEPTMUSE_LLM_MODEL": ("llm", "model"),
             "SEPTMUSE_LLM_BASE_URL": ("llm", "base_url"),
+            "SEPTMUSE_QDRANT_PATH": ("vector_store", "qdrant_path"),
+            "SEPTMUSE_QDRANT_HOST": ("vector_store", "qdrant_host"),
+            "SEPTMUSE_QDRANT_PORT": ("vector_store", "qdrant_port"),
+            "SEPTMUSE_QDRANT_URL": ("vector_store", "qdrant_url"),
+            "SEPTMUSE_QDRANT_API_KEY": ("vector_store", "qdrant_api_key"),
+            "SEPTMUSE_CHROMA_PERSIST_PATH": ("vector_store", "chroma_persist_path"),
         }
         for env_name, (section, field) in aliases.items():
             val = os.getenv(env_name)

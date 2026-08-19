@@ -11,22 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""语言检测 — CJK 字符比例启发式 (纯 Python, <1ms, 无外部依赖)。
-
-检测范围:
-- CJK Unified Ideographs (U+4E00-U+9FFF): 常用汉字
-- CJK Extension A (U+3400-U+4DBF): 罕用汉字
-
-不检测:
-- 平假名 (U+3040-U+309F) / 片假名 (U+30A0-U+30FF): 日文
-- 谚文 (U+AC00-U+D7AF): 韩文
-
-策略: CJK 字符占文本总字符数 > 30% → 'zh', 否则 'en'。
-默认 'en' (空字符串/纯数字/纯符号)。
-
-注意: 此函数用于 init 时选择嵌入模型, 不用于 per-query 切换
-(不同模型投影到不同语义空间, per-query 切换会破坏向量可比性)。
-"""
+"""语言检测 — CJK 字符比例启发式。"""
 
 from __future__ import annotations
 
@@ -43,11 +28,7 @@ def _is_cjk(char: str) -> bool:
 
 
 def detect_language(text: str) -> str:
-    """检测文本主语言: 'zh' (中文) 或 'en' (英文)。
-
-    CJK 字符比例 > 30% → 'zh'; 否则 'en'。
-    空字符串 → 'en' (安全默认)。
-    """
+    """检测文本主语言。"""
     if not text:
         return "en"
     total = len(text)

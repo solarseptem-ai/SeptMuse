@@ -22,49 +22,49 @@ import pytest
 
 from septmuse import MemoryConfig
 from septmuse.embedders.hash import HashEmbedder
-from septmuse.experimental import ExperimentalMemory
+from septmuse.memory.main import Memory
 
 
 @pytest.fixture()
-def mem() -> ExperimentalMemory:
-    return ExperimentalMemory(
+def mem() -> Memory:
+    return Memory(
         config=MemoryConfig(db_path=":memory:"),
         embedder=HashEmbedder(),
     )
 
 
 class TestFacadeCapture:
-    def test_capture_basic(self, mem: ExperimentalMemory) -> None:
+    def test_capture_basic(self, mem: Memory) -> None:
         result = mem.capture("alice likes python", user_id="alice")
         assert result["captured"]
         assert result["memory_id"] is not None
 
-    def test_capture_dedup(self, mem: ExperimentalMemory) -> None:
+    def test_capture_dedup(self, mem: Memory) -> None:
         mem.capture("hello world", user_id="alice")
         result = mem.capture("hello world", user_id="alice")
         assert not result["captured"]
         assert result["deduped"]
 
-    def test_capture_privacy(self, mem: ExperimentalMemory) -> None:
+    def test_capture_privacy(self, mem: Memory) -> None:
         result = mem.capture(f"key=sk-{'a' * 30}", user_id="alice")
         assert result["captured"]
         assert result["redacted"]
 
 
 class TestFacadeAdvancedRetrieval:
-    def test_search_hybrid(self, mem: ExperimentalMemory) -> None:
+    def test_search_hybrid(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice")
         results = mem.search_hybrid("alice python", user_id="alice")
         assert len(results) >= 1
         assert "score" in results[0]
 
-    def test_search_progressive(self, mem: ExperimentalMemory) -> None:
+    def test_search_progressive(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice")
         results = mem.search_progressive("alice python", user_id="alice")
         assert len(results) >= 1
         assert "memory_type" in results[0]
 
-    def test_search_with_strength(self, mem: ExperimentalMemory) -> None:
+    def test_search_with_strength(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice")
         results = mem.search_with_strength("alice", user_id="alice")
         assert len(results) >= 1
@@ -73,79 +73,79 @@ class TestFacadeAdvancedRetrieval:
 
 
 class TestFacadeGovernance:
-    def test_apply_token_budget(self, mem: ExperimentalMemory) -> None:
+    def test_apply_token_budget(self, mem: Memory) -> None:
         texts = ["a" * 40, "b" * 40, "c" * 40]
         result = mem.apply_token_budget(texts, budget=10)
         assert len(result) <= 3
 
-    def test_redact(self, mem: ExperimentalMemory) -> None:
+    def test_redact(self, mem: Memory) -> None:
         cleaned = mem.redact(f"sk-{'a' * 30}")
         assert "sk-" not in cleaned
 
 
 class TestFacadeEvolution:
-    def test_link_on_add(self, mem: ExperimentalMemory) -> None:
+    def test_link_on_add(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice")
         mem.add("alice likes coding", user_id="alice")
         all_mem = mem.store.get_all(user_id="alice")
         links = mem.link_on_add(all_mem[0]["id"], all_mem[0]["memory"], user_id="alice")
         assert isinstance(links, list)
 
-    def test_get_related(self, mem: ExperimentalMemory) -> None:
+    def test_get_related(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice")
         all_mem = mem.store.get_all(user_id="alice")
         related = mem.get_related(all_mem[0]["id"])
         assert isinstance(related, list)
 
-    def test_reflect_no_events(self, mem: ExperimentalMemory) -> None:
+    def test_reflect_no_events(self, mem: Memory) -> None:
         result = mem.reflect(user_id="alice")
-        assert result["proposed"] == 0
+        assert result["lessons_proposed"] == 0
 
-    def test_dream_empty(self, mem: ExperimentalMemory) -> None:
+    def test_dream_empty(self, mem: Memory) -> None:
         result = mem.dream(user_id="alice")
         assert result["processed"] == 0
 
 
 class TestFacadeSharing:
-    def test_list_agents_empty(self, mem: ExperimentalMemory) -> None:
+    def test_list_agents_empty(self, mem: Memory) -> None:
         assert mem.list_agents("alice") == []
 
-    def test_list_agents(self, mem: ExperimentalMemory) -> None:
+    def test_list_agents(self, mem: Memory) -> None:
         mem.add("hello", user_id="alice", agent_id="bot1")
         assert mem.list_agents("alice") == ["bot1"]
 
-    def test_is_cross_agent_false(self, mem: ExperimentalMemory) -> None:
+    def test_is_cross_agent_false(self, mem: Memory) -> None:
         mem.add("hello", user_id="alice", agent_id="bot1")
         assert not mem.is_cross_agent("alice")
 
-    def test_is_cross_agent_true(self, mem: ExperimentalMemory) -> None:
+    def test_is_cross_agent_true(self, mem: Memory) -> None:
         mem.add("hello", user_id="alice", agent_id="bot1")
         mem.add("hello", user_id="alice", agent_id="bot2")
         assert mem.is_cross_agent("alice")
 
 
 class TestFacadeCausal:
-    def test_add_causal_edge(self, mem: ExperimentalMemory) -> None:
+    def test_add_causal_edge(self, mem: Memory) -> None:
         e1 = mem.add_episode("deployed code", user_id="alice")
         e2 = mem.add_episode("tests passed", user_id="alice")
         result = mem.add_causal_edge(e1["id"], e2["id"], user_id="alice", relation="causes")
         assert result["relation"] == "causes"
 
-    def test_find_causes_empty(self, mem: ExperimentalMemory) -> None:
+    def test_find_causes_empty(self, mem: Memory) -> None:
         mem.add_episode("event", user_id="alice")
         events = mem.get_timeline(user_id="alice")
         if events:
             result = mem.find_causes(events[0]["id"], user_id="alice")
             assert isinstance(result, list)
 
-    def test_find_effects_empty(self, mem: ExperimentalMemory) -> None:
+    def test_find_effects_empty(self, mem: Memory) -> None:
         mem.add_episode("event", user_id="alice")
         events = mem.get_timeline(user_id="alice")
         if events:
             result = mem.find_effects(events[0]["id"], user_id="alice")
             assert isinstance(result, list)
 
-    def test_counterfactual_no_edge(self, mem: ExperimentalMemory) -> None:
+    def test_counterfactual_no_edge(self, mem: Memory) -> None:
         e1 = mem.add_episode("event A", user_id="alice")
         e2 = mem.add_episode("event B", user_id="alice")
         result = mem.counterfactual(e1["id"], e2["id"], user_id="alice")
@@ -153,44 +153,44 @@ class TestFacadeCausal:
 
 
 class TestFacadeForgetting:
-    def test_rehearse(self, mem: ExperimentalMemory) -> None:
+    def test_rehearse(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice")
         mid = mem.store.get_all(user_id="alice")[0]["id"]
         result = mem.rehearse(mid, user_id="alice")
         assert "strength" in result
         assert result["access_count"] == 1
 
-    def test_find_rehearse_candidates_empty(self, mem: ExperimentalMemory) -> None:
+    def test_find_rehearse_candidates_empty(self, mem: Memory) -> None:
         result = mem.find_rehearse_candidates(user_id="alice")
         assert result == []
 
 
 class TestFacadeMetacognition:
-    def test_meta_route(self, mem: ExperimentalMemory) -> None:
+    def test_meta_route(self, mem: Memory) -> None:
         result = mem.meta_route("alice likes python")
         assert "namespaces" in result
         assert "fallback" in result
         assert len(result["namespaces"]) > 0
 
-    def test_coverage_report_empty(self, mem: ExperimentalMemory) -> None:
+    def test_coverage_report_empty(self, mem: Memory) -> None:
         result = mem.coverage_report(user_id="alice")
         assert result["overall_score"] == 0.0
         assert len(result["namespaces"]) == 4
         assert "summary" in result
 
-    def test_coverage_report_with_data(self, mem: ExperimentalMemory) -> None:
+    def test_coverage_report_with_data(self, mem: Memory) -> None:
         for i in range(6):
             mem.add(f"memory {i}", user_id="alice")
         result = mem.coverage_report(user_id="alice")
         assert result["overall_score"] > 0
         assert "verbatim" in result["strong_areas"]
 
-    def test_adapt_strategy_empty(self, mem: ExperimentalMemory) -> None:
+    def test_adapt_strategy_empty(self, mem: Memory) -> None:
         result = mem.adapt_strategy(user_id="alice")
         assert "overall_action" in result
         assert result["overall_action"] == "trigger_clarification"
 
-    def test_adapt_strategy_strong(self, mem: ExperimentalMemory) -> None:
+    def test_adapt_strategy_strong(self, mem: Memory) -> None:
         for i in range(15):
             mem.add(f"memory {i}", user_id="alice")
         result = mem.adapt_strategy(user_id="alice")
@@ -198,7 +198,7 @@ class TestFacadeMetacognition:
 
 
 class TestFacadeMethodCount:
-    def test_all_methods_exposed(self, mem: ExperimentalMemory) -> None:
+    def test_all_methods_exposed(self, mem: Memory) -> None:
         """验证 facade 暴露了足够的方法 (>30)。"""
         methods = [m for m in dir(mem) if not m.startswith("_") and callable(getattr(mem, m, None))]
         assert len(methods) >= 30, f"Expected >= 30 methods, got {len(methods)}: {methods}"

@@ -26,7 +26,6 @@ import pytest
 
 from septmuse import Memory, MemoryConfig
 from septmuse.embedders.hash import HashEmbedder
-from septmuse.experimental import ExperimentalMemory
 
 
 @pytest.fixture()
@@ -153,9 +152,9 @@ class TestResolveEmbedder:
     def test_resolve_hash_default(self, monkeypatch) -> None:
         monkeypatch.delenv("SEPTMUSE_EMBEDDER", raising=False)
         monkeypatch.delenv("SEPTMUSE_EMBEDDING_DIMS", raising=False)
-        from septmuse.memory.main import _resolve_embedder
+        from septmuse.embedders.resolver import resolve_embedder
 
-        emb = _resolve_embedder(MemoryConfig())
+        emb = resolve_embedder(MemoryConfig())
         # 默认 bge-zh (OnnxEmbedder), onnxruntime 不可用时降级到 HashEmbedder
         try:
             import onnxruntime  # noqa: F401
@@ -173,9 +172,9 @@ class TestResolveEmbedder:
         except ImportError:
             pytest.skip("onnxruntime 未安装")
 
-        from septmuse.memory.main import _resolve_embedder
+        from septmuse.embedders.resolver import resolve_embedder
 
-        emb = _resolve_embedder(MemoryConfig())
+        emb = resolve_embedder(MemoryConfig())
         from septmuse.embedders.onnx import OnnxEmbedder
 
         assert isinstance(emb, OnnxEmbedder)
@@ -188,9 +187,9 @@ class TestResolveEmbedder:
         except ImportError:
             pytest.skip("onnxruntime 未安装")
 
-        from septmuse.memory.main import _resolve_embedder
+        from septmuse.embedders.resolver import resolve_embedder
 
-        emb = _resolve_embedder(MemoryConfig())
+        emb = resolve_embedder(MemoryConfig())
         from septmuse.embedders.onnx import OnnxEmbedder
 
         assert isinstance(emb, OnnxEmbedder)
@@ -203,9 +202,9 @@ class TestResolveEmbedder:
         except ImportError:
             pytest.skip("onnxruntime 未安装")
 
-        from septmuse.memory.main import _resolve_embedder
+        from septmuse.embedders.resolver import resolve_embedder
 
-        emb = _resolve_embedder(MemoryConfig())
+        emb = resolve_embedder(MemoryConfig())
         from septmuse.embedders.auto import AutoOnnxEmbedder
 
         assert isinstance(emb, AutoOnnxEmbedder)
@@ -217,7 +216,7 @@ class TestResolveEmbedderOpenAI:
     def test_resolve_openai_embedder_from_config(self, monkeypatch) -> None:
         monkeypatch.delenv("SEPTMUSE_EMBEDDER", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-        from septmuse.memory.main import _resolve_embedder
+        from septmuse.embedders.resolver import resolve_embedder
 
         config = MemoryConfig(
             embedder_backend="openai",
@@ -225,7 +224,7 @@ class TestResolveEmbedderOpenAI:
             embedder_base_url="http://localhost:7521/v1",
             embedder_dims=1024,
         )
-        emb = _resolve_embedder(config)
+        emb = resolve_embedder(config)
         from septmuse.embedders.openai import OpenAIEmbedder
 
         assert isinstance(emb, OpenAIEmbedder)
@@ -234,7 +233,7 @@ class TestResolveEmbedderOpenAI:
 
     def test_resolve_openai_embedder_no_key_no_crash(self, monkeypatch) -> None:
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-        from septmuse.memory.main import _resolve_embedder
+        from septmuse.embedders.resolver import resolve_embedder
 
         config = MemoryConfig(
             embedder_backend="openai",
@@ -242,20 +241,20 @@ class TestResolveEmbedderOpenAI:
             embedder_base_url="http://localhost:7521/v1",
             embedder_dims=1024,
         )
-        emb = _resolve_embedder(config)
+        emb = resolve_embedder(config)
         assert emb.dimension == 1024
 
     def test_resolve_openai_embedder_default_dims(self, monkeypatch) -> None:
         monkeypatch.delenv("SEPTMUSE_EMBEDDER", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-        from septmuse.memory.main import _resolve_embedder
+        from septmuse.embedders.resolver import resolve_embedder
 
         config = MemoryConfig(
             embedder_backend="openai",
             embedder_model="text-embedding-3-small",
             embedder_base_url="http://localhost:7521/v1",
         )
-        emb = _resolve_embedder(config)
+        emb = resolve_embedder(config)
         assert emb.dimension == 1536
 
 
@@ -314,7 +313,7 @@ class TestEntityIntegration:
 
     def test_add_auto_extracts_entities(self, tmp_path):
         config = MemoryConfig(db_path=str(tmp_path / "test.db"))
-        m = ExperimentalMemory(config=config)
+        m = Memory(config=config)
         m.add("Alice works at Google", user_id="u1")
 
         entities = m.list_entities(user_id="u1")
@@ -327,7 +326,7 @@ class TestEntityIntegration:
 
     def test_add_auto_extract_disabled(self, tmp_path):
         config = MemoryConfig(db_path=str(tmp_path / "test.db"))
-        m = ExperimentalMemory(config=config)
+        m = Memory(config=config)
         m.add("Alice works at Google", user_id="u1", auto_extract_entities=False)
 
         entities = m.list_entities(user_id="u1")
@@ -336,7 +335,7 @@ class TestEntityIntegration:
 
     def test_delete_cleans_entity_refs(self, tmp_path):
         config = MemoryConfig(db_path=str(tmp_path / "test.db"))
-        m = ExperimentalMemory(config=config)
+        m = Memory(config=config)
         result = m.add("Alice works at Google", user_id="u1")
         memory_id = result["results"][0]["id"]
 
@@ -352,7 +351,7 @@ class TestEntityIntegration:
 
     def test_extract_entities_no_store(self, tmp_path):
         config = MemoryConfig(db_path=str(tmp_path / "test.db"))
-        m = ExperimentalMemory(config=config)
+        m = Memory(config=config)
         entities = m.extract_entities("Alice works at Google")
         texts_types = {(e["text"], e["type"]) for e in entities}
         assert any(e[0] == "Alice" for e in texts_types)
@@ -361,7 +360,7 @@ class TestEntityIntegration:
 
     def test_list_entities_by_type(self, tmp_path):
         config = MemoryConfig(db_path=str(tmp_path / "test.db"))
-        m = ExperimentalMemory(config=config)
+        m = Memory(config=config)
         m.add("Alice works at Google using Python", user_id="u1")
         proper_entities = m.list_entities(user_id="u1", entity_type="PROPER")
         assert all(e["entity_type"] == "PROPER" for e in proper_entities)
@@ -373,9 +372,9 @@ class TestEntityMethods:
 
     def test_extract_entities(self, tmp_path):
         from septmuse.configs.defaults import MemoryConfig
-        from septmuse.experimental import ExperimentalMemory
+        from septmuse.memory.main import Memory
 
-        m = ExperimentalMemory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
+        m = Memory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
         entities = m.extract_entities("Alice works at Google")
         texts_types = {(e["text"], e["type"]) for e in entities}
         assert any(e[0] == "Alice" for e in texts_types)
@@ -384,9 +383,9 @@ class TestEntityMethods:
 
     def test_add_entity_manual(self, tmp_path):
         from septmuse.configs.defaults import MemoryConfig
-        from septmuse.experimental import ExperimentalMemory
+        from septmuse.memory.main import Memory
 
-        m = ExperimentalMemory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
+        m = Memory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
         result = m.add_entity("CustomEntity", "PROPER", "mem-001", user_id="u1")
         assert result["event"] == "ADD"
         assert result["entity"] == "CustomEntity"
@@ -396,9 +395,9 @@ class TestEntityMethods:
 
     def test_search_entities(self, tmp_path):
         from septmuse.configs.defaults import MemoryConfig
-        from septmuse.experimental import ExperimentalMemory
+        from septmuse.memory.main import Memory
 
-        m = ExperimentalMemory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
+        m = Memory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
         m.add("Alice works at Google", user_id="u1")
         results = m.search_entities("Google", user_id="u1")
         assert len(results) > 0
@@ -407,9 +406,9 @@ class TestEntityMethods:
 
     def test_get_entity_neighbors(self, tmp_path):
         from septmuse.configs.defaults import MemoryConfig
-        from septmuse.experimental import ExperimentalMemory
+        from septmuse.memory.main import Memory
 
-        m = ExperimentalMemory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
+        m = Memory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
         result = m.add("Alice works at Google", user_id="u1")
         memory_id = result["results"][0]["id"]
         entities = m.list_entities(user_id="u1")
@@ -420,9 +419,9 @@ class TestEntityMethods:
 
     def test_list_entities_by_type(self, tmp_path):
         from septmuse.configs.defaults import MemoryConfig
-        from septmuse.experimental import ExperimentalMemory
+        from septmuse.memory.main import Memory
 
-        m = ExperimentalMemory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
+        m = Memory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
         m.add("Alice works at Google using Python", user_id="u1")
         proper_entities = m.list_entities(user_id="u1", entity_type="PROPER")
         assert all(e["entity_type"] == "PROPER" for e in proper_entities)

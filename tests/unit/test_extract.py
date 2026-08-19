@@ -27,8 +27,8 @@ import pytest
 
 from septmuse import MemoryConfig
 from septmuse.embedders.hash import HashEmbedder
-from septmuse.experimental import ExperimentalMemory
 from septmuse.llms.mock import MockLLM
+from septmuse.memory.main import Memory
 from septmuse.models.extract import (
     fact_to_triple,
     normalize_facts,
@@ -37,8 +37,8 @@ from septmuse.models.extract import (
 
 
 @pytest.fixture()
-def mem() -> ExperimentalMemory:
-    return ExperimentalMemory(
+def mem() -> Memory:
+    return Memory(
         config=MemoryConfig(db_path=":memory:"),
         embedder=HashEmbedder(),
         llm=MockLLM(),
@@ -105,14 +105,14 @@ class TestMockLLM:
 
 
 class TestFacadeAddInfer:
-    def test_infer_true_extracts_facts(self, mem: ExperimentalMemory) -> None:
+    def test_infer_true_extracts_facts(self, mem: Memory) -> None:
         r = mem.add("Hi, my name is Alice. I like python.", user_id="alice", infer=True)
         assert len(r["results"]) >= 2
         facts = [item["memory"] for item in r["results"]]
         assert any("Name is Alice" in f for f in facts)
         assert any("Likes python" in f for f in facts)
 
-    def test_infer_true_stores_triples(self, mem: ExperimentalMemory) -> None:
+    def test_infer_true_stores_triples(self, mem: Memory) -> None:
         mem.add("my name is Bob. I like hiking.", user_id="bob", infer=True)
         facts = mem.semantic.get_all_facts(user_id="bob")
         assert len(facts) >= 2
@@ -121,13 +121,13 @@ class TestFacadeAddInfer:
         assert len(name_facts) == 1
         assert name_facts[0].object == "Bob"
 
-    def test_infer_true_confidence_inferred(self, mem: ExperimentalMemory) -> None:
+    def test_infer_true_confidence_inferred(self, mem: Memory) -> None:
         mem.add("my name is Alice", user_id="alice", infer=True)
         facts = mem.semantic.get_all_facts(user_id="alice")
         assert all(f.confidence == 0.7 for f in facts)
         assert all(f.provenance == "inferred" for f in facts)
 
-    def test_infer_true_dual_write(self, mem: ExperimentalMemory) -> None:
+    def test_infer_true_dual_write(self, mem: Memory) -> None:
         """cognify 双写: SemanticFact + verbatim memory 都有。"""
         mem.add("my name is Alice. I like coffee.", user_id="alice", infer=True)
         # verbatim 检索
@@ -137,7 +137,7 @@ class TestFacadeAddInfer:
         facts = mem.search_facts("alice", user_id="alice", top_k=5)
         assert len(facts) >= 1
 
-    def test_infer_false_verbatim(self, mem: ExperimentalMemory) -> None:
+    def test_infer_false_verbatim(self, mem: Memory) -> None:
         r = mem.add("plain text", user_id="u1", infer=False)
         assert len(r["results"]) == 1
         assert r["results"][0]["memory"] == "plain text"
@@ -145,13 +145,13 @@ class TestFacadeAddInfer:
 
     def test_no_llm_falls_back_verbatim(self) -> None:
         """无 LLM 时 infer=True 回退 verbatim (不崩)。"""
-        m = ExperimentalMemory(config=MemoryConfig(db_path=":memory:"), embedder=HashEmbedder())
+        m = Memory(config=MemoryConfig(db_path=":memory:"), embedder=HashEmbedder())
         r = m.add("my name is Alice", user_id="alice", infer=True)
         # 无 LLM, 回退 verbatim
         assert len(r["results"]) == 1
         assert "my name is Alice" in r["results"][0]["memory"]
 
-    def test_search_after_extract(self, mem: ExperimentalMemory) -> None:
+    def test_search_after_extract(self, mem: Memory) -> None:
         """抽取后语义检索召回抽取的事实。"""
         mem.add("my name is Alice. I like python.", user_id="alice", infer=True)
         hits = mem.search_facts("alice name", user_id="alice", top_k=5)

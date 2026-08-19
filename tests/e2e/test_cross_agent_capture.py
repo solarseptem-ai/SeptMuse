@@ -22,13 +22,13 @@ import pytest
 
 from septmuse import MemoryConfig
 from septmuse.embedders.hash import HashEmbedder
-from septmuse.experimental import ExperimentalMemory
+from septmuse.memory.main import Memory
 
 pytestmark = pytest.mark.e2e
 
 
-def _new_session(db_path: str) -> ExperimentalMemory:
-    return ExperimentalMemory(config=MemoryConfig(db_path=db_path), embedder=HashEmbedder())
+def _new_session(db_path: str) -> Memory:
+    return Memory(config=MemoryConfig(db_path=db_path), embedder=HashEmbedder())
 
 
 class TestCrossAgentSharing:

@@ -26,7 +26,7 @@ import pytest
 
 from septmuse import MemoryConfig
 from septmuse.embedders.hash import HashEmbedder
-from septmuse.experimental import ExperimentalMemory
+from septmuse.memory.main import Memory
 from septmuse.models.strength import (
     ARCHIVE_THRESHOLD,
     REHEARSE_BASE_VALUE_THRESHOLD,
@@ -39,8 +39,8 @@ UTC = timezone.utc
 
 
 @pytest.fixture()
-def mem() -> ExperimentalMemory:
-    return ExperimentalMemory(
+def mem() -> Memory:
+    return Memory(
         config=MemoryConfig(db_path=":memory:"),
         embedder=HashEmbedder(),
     )
@@ -142,7 +142,7 @@ class TestMemoryStrength:
 
 
 class TestForgettingRetriever:
-    def test_apply_strength_basic(self, mem: ExperimentalMemory) -> None:
+    def test_apply_strength_basic(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice")
         results = mem.search("alice", user_id="alice")
         assert len(results) > 0
@@ -153,12 +153,12 @@ class TestForgettingRetriever:
         assert weighted[0].final_score > 0
         # 加权平均: final = 0.7*relevance + 0.3*strength, 两者都在[0,1]
 
-    def test_apply_strength_empty(self, mem: ExperimentalMemory) -> None:
+    def test_apply_strength_empty(self, mem: Memory) -> None:
         retriever = ForgettingRetriever(mem.typed_store)
         weighted = retriever.apply_strength([], user_id="alice")
         assert weighted == []
 
-    def test_apply_strength_sorts_by_final_score(self, mem: ExperimentalMemory) -> None:
+    def test_apply_strength_sorts_by_final_score(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice")
         mem.add("bob likes java", user_id="alice")
         results = mem.search("likes", user_id="alice")
@@ -167,12 +167,12 @@ class TestForgettingRetriever:
         if len(weighted) >= 2:
             assert weighted[0].final_score >= weighted[1].final_score
 
-    def test_find_rehearse_candidates_empty(self, mem: ExperimentalMemory) -> None:
+    def test_find_rehearse_candidates_empty(self, mem: Memory) -> None:
         retriever = ForgettingRetriever(mem.typed_store)
         candidates = retriever.find_rehearse_candidates(user_id="alice")
         assert candidates == []
 
-    def test_find_rehearse_candidates_stale(self, mem: ExperimentalMemory) -> None:
+    def test_find_rehearse_candidates_stale(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice")
         # Create strength record with high base_value and old last_accessed
         mid = mem.store.get_all(user_id="alice")[0]["id"]
@@ -189,7 +189,7 @@ class TestForgettingRetriever:
         # Should find the stale high-value memory
         assert len(candidates) >= 1
 
-    def test_rehearse_single(self, mem: ExperimentalMemory) -> None:
+    def test_rehearse_single(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice")
         mid = mem.store.get_all(user_id="alice")[0]["id"]
         retriever = ForgettingRetriever(mem.typed_store)
@@ -197,7 +197,7 @@ class TestForgettingRetriever:
         assert result is not None
         assert result.access_count == 1
 
-    def test_rehearse_batch(self, mem: ExperimentalMemory) -> None:
+    def test_rehearse_batch(self, mem: Memory) -> None:
         mem.add("memory 1", user_id="alice")
         mem.add("memory 2", user_id="alice")
         ids = [m["id"] for m in mem.store.get_all(user_id="alice")]
@@ -205,12 +205,12 @@ class TestForgettingRetriever:
         count = retriever.rehearse_batch(ids, user_id="alice")
         assert count == 2
 
-    def test_archive_stale_empty(self, mem: ExperimentalMemory) -> None:
+    def test_archive_stale_empty(self, mem: Memory) -> None:
         retriever = ForgettingRetriever(mem.typed_store)
         archived = retriever.archive_stale(user_id="alice")
         assert archived == []
 
-    def test_archived_filtered_from_results(self, mem: ExperimentalMemory) -> None:
+    def test_archived_filtered_from_results(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice")
         mid = mem.store.get_all(user_id="alice")[0]["id"]
         # Manually archive

@@ -1,19 +1,23 @@
-"""输入校验工具 (对齐 mem0 _validate_and_trim_entity_id 等)."""
+#  Copyright 2026 The sonhhxg0529 Authors. All Rights Reserved.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+"""输入校验工具。"""
 
 from __future__ import annotations
 
 
 def validate_entity_id(value: str | None, name: str = "entity_id") -> str | None:
-    """校验并 trim entity ID (user_id/agent_id/session_id).
-
-    - None → None (可选参数未提供)
-    - 非字符串 → str(value)
-    - trim 前后空格
-    - 拒空/纯空格 → ValueError
-    - 拒内部空格 → ValueError
-
-    Returns: trimmed entity_id
-    """
+    """校验并 trim entity ID。"""
     if value is None:
         return None
     if not isinstance(value, str):
@@ -27,13 +31,7 @@ def validate_entity_id(value: str | None, name: str = "entity_id") -> str | None
 
 
 def validate_search_params(threshold: float | None = None, top_k: int | None = None) -> None:
-    """校验 search 参数.
-
-    - threshold: [0, 1] 范围
-    - top_k: 非负整数
-
-    Raises: ValueError if invalid
-    """
+    """校验 search 参数。"""
     if threshold is not None:
         if not isinstance(threshold, (int, float)) or isinstance(threshold, bool):
             raise ValueError(f"threshold must be a number, got {type(threshold).__name__}")
@@ -47,14 +45,7 @@ def validate_search_params(threshold: float | None = None, top_k: int | None = N
 
 
 def validate_search_query(query: str) -> str:
-    """校验并 trim search query.
-
-    - 必须是字符串
-    - trim 前后空格
-    - 拒空/纯空格 → ValueError
-
-    Returns: trimmed query
-    """
+    """校验并 trim search query。"""
     if not isinstance(query, str):
         raise ValueError(f"Invalid query: must be a string, got {type(query).__name__}.")
     trimmed = query.strip()

@@ -6,8 +6,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import text
 
-from septmuse.configs.base import MemoryConfig
-from septmuse.configs.database import DatabaseConfig
+from septmuse.configs.base import DatabaseConfig, MemoryConfig
 from septmuse.services.database.factory import DatabaseServiceFactory
 from septmuse.services.database.service import DatabaseService
 

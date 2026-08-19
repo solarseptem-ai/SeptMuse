@@ -18,7 +18,7 @@ from __future__ import annotations
 from sqlalchemy import create_engine, inspect, text
 
 from septmuse.configs.defaults import MemoryConfig
-from septmuse.experimental import ExperimentalMemory
+from septmuse.memory.main import Memory
 from septmuse.storage.relational_stores.orm_store import ORMMemoryStore
 
 
@@ -157,7 +157,7 @@ class TestInvalidate:
 
 class TestMemoryAddValidAt:
     def test_add_with_valid_at(self, tmp_path):
-        m = ExperimentalMemory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
+        m = Memory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
         result = m.add("Alice works at Google", user_id="u1", valid_at="2024-01-01")
         assert len(result["results"]) == 1
         mid = result["results"][0]["id"]
@@ -165,14 +165,14 @@ class TestMemoryAddValidAt:
         assert mem is not None
 
     def test_add_without_valid_at(self, tmp_path):
-        m = ExperimentalMemory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
+        m = Memory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
         result = m.add("hello world", user_id="u1")
         assert len(result["results"]) == 1
 
 
 class TestMemoryInvalidate:
     def test_invalidate_existing(self, tmp_path):
-        m = ExperimentalMemory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
+        m = Memory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
         result = m.add("Alice at Google", user_id="u1", valid_at="2024-01-01")
         mid = result["results"][0]["id"]
         inv = m.invalidate(mid, invalid_at="2025-01-01")
@@ -180,12 +180,12 @@ class TestMemoryInvalidate:
         assert inv["invalid_at"] == "2025-01-01"
 
     def test_invalidate_not_found(self, tmp_path):
-        m = ExperimentalMemory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
+        m = Memory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
         inv = m.invalidate("nonexistent")
         assert inv["event"] == "NOT_FOUND"
 
     def test_invalidate_default_time(self, tmp_path):
-        m = ExperimentalMemory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
+        m = Memory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
         result = m.add("test", user_id="u1")
         mid = result["results"][0]["id"]
         inv = m.invalidate(mid)
@@ -195,7 +195,7 @@ class TestMemoryInvalidate:
 
 class TestMemorySearchAt:
     def test_search_at_returns_valid_facts(self, tmp_path):
-        m = ExperimentalMemory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
+        m = Memory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
         m.add("Alice works at Google", user_id="u1", valid_at="2024-01-01")
         m.add("Alice works at Apple", user_id="u1", valid_at="2025-01-01")
         results = m.search_at("2024-06-01", "Alice", user_id="u1")
@@ -203,19 +203,19 @@ class TestMemorySearchAt:
         assert any("Google" in r["memory"] for r in results)
 
     def test_search_at_excludes_future(self, tmp_path):
-        m = ExperimentalMemory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
+        m = Memory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
         m.add("future fact", user_id="u1", valid_at="2025-01-01")
         results = m.search_at("2024-06-01", "future", user_id="u1")
         assert len(results) == 0
 
     def test_search_at_includes_null_valid_at(self, tmp_path):
-        m = ExperimentalMemory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
+        m = Memory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
         m.add("no time constraint", user_id="u1")
         results = m.search_at("2024-06-01", "time", user_id="u1")
         assert len(results) >= 1
 
     def test_search_at_excludes_invalidated(self, tmp_path):
-        m = ExperimentalMemory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
+        m = Memory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
         result = m.add("old fact", user_id="u1", valid_at="2024-01-01")
         mid = result["results"][0]["id"]
         m.invalidate(mid, invalid_at="2024-06-01")

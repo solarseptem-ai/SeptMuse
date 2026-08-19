@@ -11,15 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""LLMService — LLM 服务实现。
-
-包装 LLM ABC, 提供:
-- LLM provider 生命周期管理 (延迟初始化 + 缓存)
-- 从环境变量 / config 解析 LLM provider
-- 统一 complete 接口
-- 可用性检查 + 统计信息
-- 降级策略 (verbatim 模式时 LLM 不可用)
-"""
+"""LLMService — LLM 服务实现。"""
 
 from __future__ import annotations
 
@@ -35,21 +27,7 @@ logger = get_logger(__name__)
 
 
 class LLMService(Service):
-    """LLM 服务 — 包装 LLM provider (借鉴 Langflow 服务模式)。
-
-    职责:
-    - 延迟创建 LLM 实例 (首次 complete 调用时才连接)
-    - 支持 5 种 provider: openai / ollama / anthropic / dashscope
-    - 支持 verbatim 模式 (LLM 不可用时降级)
-    - 统计请求数和错误信息
-
-    用法:
-        svc = LLMService()
-        if svc.is_available:
-            result = svc.complete("你是一个助手", "你好")
-        else:
-            print("LLM 未配置, 使用 verbatim 模式")
-    """
+    """LLM 服务 — 包装 LLM provider。"""
 
     name = "llm_service"
 
@@ -106,11 +84,7 @@ class LLMService(Service):
         }
 
     def complete(self, system_prompt: str, user_prompt: str) -> str:
-        """同步补全, 返回 LLM 输出文本。
-
-        Raises:
-            RuntimeError: LLM 未配置时调用。
-        """
+        """同步补全，返回 LLM 输出文本。"""
         if self.llm is None:
             raise RuntimeError(
                 "LLM not configured. Set SEPTMUSE_LLM env var (openai/ollama/anthropic/dashscope) "

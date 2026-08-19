@@ -89,16 +89,16 @@ class TestV2SubcomponentABC:
         """isinstance 判断短期 vs 长期。"""
         monkeypatch.setenv("SEPTMUSE_DB_PATH", str(tmp_path / "abc_test.db"))
         from septmuse.configs import default_config
-        from septmuse.memory import V2Memory
+        from septmuse.memory import Memory
 
-        v2 = V2Memory(config=default_config())
-        assert isinstance(v2.working_memory, ShortTermMemory)
-        assert isinstance(v2.working_memory, MemoryABC)
-        assert not isinstance(v2.working_memory, LongTermMemory)
+        mem = Memory(config=default_config())
+        assert isinstance(mem.working_memory, ShortTermMemory)
+        assert isinstance(mem.working_memory, MemoryABC)
+        assert not isinstance(mem.working_memory, LongTermMemory)
 
-        assert isinstance(v2.semantic, LongTermMemory)
-        assert isinstance(v2.semantic, MemoryABC)
-        assert not isinstance(v2.semantic, ShortTermMemory)
+        assert isinstance(mem.semantic, LongTermMemory)
+        assert isinstance(mem.semantic, MemoryABC)
+        assert not isinstance(mem.semantic, ShortTermMemory)
 
-        assert isinstance(v2.episodic, LongTermMemory)
-        assert isinstance(v2.procedural, LongTermMemory)
+        assert isinstance(mem.episodic, LongTermMemory)
+        assert isinstance(mem.procedural, LongTermMemory)

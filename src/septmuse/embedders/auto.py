@@ -11,16 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""AutoOnnxEmbedder — init 时语言检测, 自动选 ONNX 嵌入模型。
-
-策略:
-1. SEPTMUSE_LANG 环境变量 > sample_text 检测 > 默认 'zh' (中文优先项目)
-2. 'zh' → Xenova/paraphrase-multilingual-MiniLM-L12-v2 (多语言, 384 dim)
-3. 'en' → Xenova/all-MiniLM-L6-v2 (英文, 384 dim)
-
-关键: 整个 session 用同一个模型 (不同模型投影到不同语义空间,
-per-query 切换会破坏向量可比性)。
-"""
+"""AutoOnnxEmbedder — init 时语言检测, 自动选 ONNX 嵌入模型。"""
 
 from __future__ import annotations
 

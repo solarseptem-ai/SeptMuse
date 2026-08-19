@@ -1,15 +1,4 @@
-"""mem0 风格 filters dict 解析器 — filters dict → SQL WHERE 子句 + 参数。
-
-支持:
-- 直接值: {"key": "value"} → key = ?
-- 操作符: eq/ne/gt/gte/lt/lte/in/nin/contains/icontains
-- 通配符: {"key": "*"} → key IS NOT NULL
-- 逻辑运算: AND/OR/NOT
-- 实体字段: user_id/agent_id/session_id/run_id/state
-- metadata 字段: 任意 key → json_extract(metadata, '$.key')
-
-run_id 映射到 session_id（mem0 兼容）。
-"""
+"""mem0 风格 filters dict 解析器 — 转换为 SQL WHERE 子句 + 参数。"""
 from __future__ import annotations
 
 from typing import Any
@@ -32,18 +21,10 @@ _COMPARE_OPS = {
 
 
 class FiltersParser:
-    """解析 mem0 风格 filters dict → SQL WHERE 子句 + 参数列表。"""
+    """解析 filters dict → SQL WHERE 子句 + 参数列表。"""
 
     def parse(self, filters: dict[str, Any] | None, backend: str = "sqlite") -> tuple[str, list[Any]]:
-        """解析 filters → (where_clause, params)。
-
-        Args:
-            filters: mem0 风格 filters dict
-            backend: "sqlite" 或 "postgres"
-
-        Returns:
-            (where_clause, params): WHERE 子句和参数列表。空 filters 返回 ("", [])。
-        """
+        """解析 filters → (where_clause, params)。"""
         if not filters:
             return "", []
         return self._parse_dict(filters, backend)

@@ -1,16 +1,4 @@
-"""冲突解决 + 实体去重 (借鉴 graphiti edge_operations resolve_edge_contradictions + node_operations 三段式去重)。
-
-功能:
-1. 矛盾事实检测: 相同 (subject, predicate) 不同 object → 冲突
-2. 冲突解决: 无 LLM 用规则 (新覆盖旧), 有 LLM 判定是否真矛盾
-3. 实体去重: 精确归一化 + 模糊字符串相似度 + LLM 兜底
-4. 双时态失效: 复用 P2-Task 1 invalidate (verbatim memory 层)
-
-SeptMuse 简化 (对齐 karpathy-guidelines):
-- 不引入 MinHash/LSH, 用 difflib.SequenceMatcher (标准库, 零依赖)
-- LLM 兜底可选 (无 LLM 时跳过第三段)
-- type 升级留 TODO (当前 entity_type 不参与去重)
-"""
+"""冲突解决 + 实体去重。"""
 
 from __future__ import annotations
 
@@ -39,13 +27,7 @@ def _string_similarity(a: str, b: str) -> float:
 
 
 class ConflictResolver:
-    """冲突解决 + 实体去重 (借鉴 graphiti edge_operations + node_operations)。
-
-    用法:
-        resolver = ConflictResolver(typed_store, store, llm)
-        result = resolver.resolve_conflicts(user_id="u1")
-        dedup_result = resolver.deduplicate_entities(user_id="u1")
-    """
+    """冲突解决 + 实体去重。"""
 
     def __init__(
         self,
@@ -60,10 +42,7 @@ class ConflictResolver:
         self.similarity_threshold = similarity_threshold
 
     def detect_conflicts(self, *, user_id: str) -> list[dict[str, Any]]:
-        """检测矛盾事实: 相同 (subject, predicate) 不同 object。
-
-        Returns: [{"key": (subject, predicate), "facts": [fact_dict, ...]}]
-        """
+        """检测矛盾事实。"""
         facts = self.typed_store.get_all_facts(user_id=user_id)
         groups: dict[tuple[str, str], list[Any]] = defaultdict(list)
 
@@ -95,13 +74,7 @@ class ConflictResolver:
         return conflicts
 
     def resolve_conflicts(self, *, user_id: str) -> dict[str, Any]:
-        """解决矛盾事实: 新事实覆盖旧事实 (验收: 矛盾事实自动失效旧事实)。
-
-        无 LLM: 保留最新 (created_at 最大), 软删除其余。
-        有 LLM: 可让 LLM 判定是否真矛盾 (TODO: LLM 判定逻辑)。
-
-        Returns: {"conflicts_found": int, "resolved": int, "invalidated_ids": [...]}
-        """
+        """解决矛盾事实: 新事实覆盖旧事实。"""
         conflicts = self.detect_conflicts(user_id=user_id)
         if not conflicts:
             return {"conflicts_found": 0, "resolved": 0, "invalidated_ids": []}
@@ -135,14 +108,7 @@ class ConflictResolver:
         }
 
     def deduplicate_entities(self, *, user_id: str) -> dict[str, Any]:
-        """实体去重三段式 (验收: "Google"/"google"/"Google Inc" 自动合并)。
-
-        1. 精确归一化名匹配 (恒跑)
-        2. 模糊字符串相似度 (difflib, >= threshold)
-        3. LLM 兜底 (可选, 无 LLM 跳过)
-
-        Returns: {"duplicates_found": int, "merged": int, "merged_pairs": [...]}
-        """
+        """实体去重。"""
         facts = self.typed_store.get_all_facts(user_id=user_id)
 
         all_entities: set[str] = set()

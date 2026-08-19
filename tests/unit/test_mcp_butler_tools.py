@@ -10,7 +10,7 @@ import pytest
 
 @pytest.fixture
 def mock_memory():
-    """Mock ExperimentalMemory with V2 methods."""
+    """Mock Memory with V2 methods."""
     m = MagicMock()
     m.remember.return_value = {
         "captured": True,

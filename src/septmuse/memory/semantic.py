@@ -11,13 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""V2 语义记忆子组件 — SemanticFact CRUD + 向量检索 + 置信度加权。
-
-继承 LongTermMemory ABC, 委托 TypedMemoryStore。
-数据模型共享 models/semantic.py 的 SemanticFact, 不 import models/ 的操作类。
-
-详见 docs/specs/2026-08-04-v2-memory-architecture.md §2.3 + §4。
-"""
+"""V2 语义记忆子组件 — SemanticFact CRUD + 向量检索 + 置信度加权。"""
 
 from __future__ import annotations
 
@@ -32,13 +26,7 @@ logger = get_logger(__name__)
 
 
 class SemanticMemory(LongTermMemory):
-    """V2 语义记忆 — 三元组 CRUD + 向量检索。
-
-    构造参数 (与 V1 models/fact.py 一致):
-        sm = SemanticMemory(store=typed_store, embedder=embedder)
-
-    与 V1 区别: 继承 LongTermMemory ABC, 实现 invalidate/get_history/get_all。
-    """
+    """V2 语义记忆 — 三元组 CRUD + 向量检索。"""
 
     def __init__(self, store: TypedMemoryStore, embedder: Embedder) -> None:
         self.store = store
@@ -126,3 +114,84 @@ class SemanticMemory(LongTermMemory):
             }
             for f in facts[:limit]
         ]
+
+    def get_user_profile(self, user_id: str, *, include_temporal: bool = True) -> Any:
+        """从 SemanticFact 聚合用户结构化画像。"""
+        from sqlmodel import Session, select
+
+        from septmuse.models.profile import UserProfile, UserProfileValue, _classify
+        from septmuse.models.semantic import SemanticFact
+
+        engine = getattr(self.store, "engine", None)
+        if engine is None:
+            return UserProfile(user_id=user_id)
+
+        with Session(engine) as session:
+            stmt = select(SemanticFact).where(SemanticFact.user_id == user_id)
+            facts = session.exec(stmt).all()
+
+        predicate_facts: dict[str, list[SemanticFact]] = {}
+        for f in facts:
+            predicate_facts.setdefault(f.predicate, []).append(f)
+
+        attributes: dict[str, UserProfileValue] = {}
+        preferences: dict[str, UserProfileValue] = {}
+        relationships: dict[str, UserProfileValue] = {}
+        plans: list[UserProfileValue] = []
+        raw_facts: list[dict] = []
+
+        active_count = 0
+        deleted_count = 0
+
+        for predicate, pfacts in predicate_facts.items():
+            pfacts_sorted = sorted(pfacts, key=lambda f: f.updated_at, reverse=True)
+            for f in pfacts_sorted:
+                if f.is_deleted:
+                    deleted_count += 1
+                else:
+                    active_count += 1
+
+            latest = pfacts_sorted[0]
+            is_current = not latest.is_deleted
+
+            if not include_temporal and not is_current:
+                continue
+
+            bucket = _classify(predicate)
+            value_obj = UserProfileValue(
+                value=latest.object,
+                confidence=latest.confidence,
+                updated_at=latest.updated_at.isoformat() if latest.updated_at else None,
+                is_current=is_current,
+                source_fact_ids=[latest.id],
+            )
+
+            if bucket == "attributes":
+                attributes[predicate] = value_obj
+            elif bucket == "preferences":
+                preferences[predicate] = value_obj
+            elif bucket == "relationships":
+                relationships[predicate] = value_obj
+            elif bucket == "plans":
+                plans.append(value_obj)
+            else:
+                raw_facts.append({
+                    "predicate": predicate, "value": latest.object,
+                    "confidence": latest.confidence,
+                    "updated_at": latest.updated_at.isoformat() if latest.updated_at else None,
+                    "is_current": is_current, "fact_id": latest.id,
+                })
+
+        return UserProfile(
+            user_id=user_id,
+            attributes=attributes,
+            preferences=preferences,
+            plans=plans,
+            relationships=relationships,
+            raw_facts=raw_facts,
+            temporal_summary={
+                "active": active_count,
+                "deleted": deleted_count,
+                "total": active_count + deleted_count,
+            },
+        )

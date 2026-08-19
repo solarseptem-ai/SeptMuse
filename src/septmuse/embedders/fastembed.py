@@ -11,10 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""FastEmbed 嵌入 provider — 轻量 ONNX, 无 torch。
-
-与 OnnxEmbedder 功能重叠, 但使用 fastembed 库 (不同模型生态)。
-"""
+"""FastEmbed 嵌入 provider。"""
 
 from __future__ import annotations
 

@@ -14,7 +14,7 @@ import pytest
 
 from septmuse.configs.defaults import MemoryConfig
 from septmuse.embedders.hash import HashEmbedder
-from septmuse.experimental import ExperimentalMemory
+from septmuse.memory.main import Memory
 from septmuse.retrieval.recipes import RECIPES, SearchRecipe, get_recipe, list_recipes
 
 
@@ -24,8 +24,8 @@ def tmp_db(tmp_path: Path) -> str:
 
 
 @pytest.fixture()
-def memory(tmp_db: str) -> ExperimentalMemory:
-    m = ExperimentalMemory(config=MemoryConfig(db_path=tmp_db), embedder=HashEmbedder(dim=128))
+def memory(tmp_db: str) -> Memory:
+    m = Memory(config=MemoryConfig(db_path=tmp_db), embedder=HashEmbedder(dim=128))
     m.add("Alice likes Python and vim", user_id="u1")
     m.add("Alice works at Google in London", user_id="u1")
     m.add("Bob prefers TypeScript and emacs", user_id="u1")
@@ -110,53 +110,53 @@ class TestRecipeConfigs:
 
 
 class TestRecipeExecution:
-    def test_search_with_hybrid_rrf_recipe(self, memory: ExperimentalMemory):
+    def test_search_with_hybrid_rrf_recipe(self, memory: Memory):
         """验收: m.search(recipe="HYBRID_RRF") 正确执行。"""
         results = memory.search("Python", user_id="u1", recipe="HYBRID_RRF")
         assert isinstance(results, list)
 
-    def test_search_with_hybrid_rrf_entity_recipe(self, memory: ExperimentalMemory):
+    def test_search_with_hybrid_rrf_entity_recipe(self, memory: Memory):
         """验收: m.search(recipe="HYBRID_RRF_ENTITY") 正确执行 (explain=True)。"""
         results = memory.search("Python", user_id="u1", recipe="HYBRID_RRF_ENTITY")
         assert isinstance(results, list)
 
-    def test_search_with_mmr_recipe(self, memory: ExperimentalMemory):
+    def test_search_with_mmr_recipe(self, memory: Memory):
         """验收: m.search(recipe="HYBRID_RRF_MMR") 正确执行。"""
         results = memory.search("Python", user_id="u1", recipe="HYBRID_RRF_MMR")
         assert isinstance(results, list)
 
-    def test_search_with_cross_encoder_recipe(self, memory: ExperimentalMemory):
+    def test_search_with_cross_encoder_recipe(self, memory: Memory):
         """验收: m.search(recipe="HYBRID_RRF_CROSS_ENCODER") 正确执行 (降级 noop)。"""
         results = memory.search("Python", user_id="u1", recipe="HYBRID_RRF_CROSS_ENCODER")
         assert isinstance(results, list)
 
-    def test_recipe_param_overridable(self, memory: ExperimentalMemory):
+    def test_recipe_param_overridable(self, memory: Memory):
         """验收: recipe 参数可覆盖 (recipe="HYBRID_RRF", top_k=20)。"""
         results = memory.search("Python", user_id="u1", recipe="HYBRID_RRF", top_k=20)
         assert isinstance(results, list)
         assert len(results) <= 20
 
-    def test_search_with_forgetting_recipe(self, memory: ExperimentalMemory):
+    def test_search_with_forgetting_recipe(self, memory: Memory):
         """验收: m.search(recipe="FORGETTING") 正确执行。"""
         results = memory.search("Python", user_id="u1", recipe="FORGETTING")
         assert isinstance(results, list)
 
-    def test_search_with_progressive_recipe(self, memory: ExperimentalMemory):
+    def test_search_with_progressive_recipe(self, memory: Memory):
         """验收: m.search(recipe="PROGRESSIVE") 正确执行。"""
         results = memory.search("Python", user_id="u1", recipe="PROGRESSIVE")
         assert isinstance(results, list)
 
-    def test_search_with_unknown_recipe_raises(self, memory: ExperimentalMemory):
+    def test_search_with_unknown_recipe_raises(self, memory: Memory):
         """未知 recipe 抛 ValueError。"""
         with pytest.raises(ValueError, match="Unknown recipe"):
             memory.search("Python", user_id="u1", recipe="NONEXISTENT")
 
-    def test_search_without_recipe_uses_defaults(self, memory: ExperimentalMemory):
+    def test_search_without_recipe_uses_defaults(self, memory: Memory):
         """无 recipe 时用默认参数 (hybrid=True, reranker=noop)。"""
         results = memory.search("Python", user_id="u1")
         assert isinstance(results, list)
 
-    def test_search_with_optimal_recipe(self, memory: ExperimentalMemory):
+    def test_search_with_optimal_recipe(self, memory: Memory):
         """验收: m.search(recipe="OPTIMAL") 正确执行 (全链路最优)。"""
         results = memory.search("Python", user_id="u1", recipe="OPTIMAL")
         assert isinstance(results, list)

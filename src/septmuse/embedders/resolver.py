@@ -11,12 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Embedder 解析 — 集中实现, 消除三处重复 (main.py / async_main.py / service.py)。
-
-支持: hash / st / onnx / onnx-zh / auto / bge-zh / openai
-默认 bge-zh (中文语义嵌入, ~95MB, ModelScope 下载, 无 API key, 无 torch)。
-onnxruntime 不可用时自动降级到 HashEmbedder (非语义, 但零配置可用)。
-"""
+"""Embedder 解析。"""
 
 from __future__ import annotations
 
@@ -28,10 +23,7 @@ logger = get_logger(__name__)
 
 
 def resolve_embedder(config: MemoryConfig) -> Embedder:
-    """从配置解析并创建 Embedder 实例 (通过 ServiceProvider 延迟 import)。
-
-    bge-zh / onnx / onnx-zh / auto 后端需要 onnxruntime, 不可用时降级到 HashEmbedder。
-    """
+    """从配置解析并创建 Embedder 实例。"""
     from septmuse.services.providers import embedder_provider
 
     backend = config.embedder.backend.lower()

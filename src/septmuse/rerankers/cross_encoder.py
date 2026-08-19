@@ -9,12 +9,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""ONNX cross-encoder reranker — bge-reranker-v2-m3 量化版。
-
-模型: Xenova/bge-reranker-v2-m3 (ONNX 量化, ~50MB, ModelScope 下载)。
-推理: (query, document) pair -> logit -> sigmoid 归一化到 [0,1]。
-降级: onnxruntime/tokenizers 未安装或模型加载失败时降级为透传 + warning。
-"""
+"""ONNX cross-encoder reranker。"""
 
 from __future__ import annotations
 
@@ -140,14 +135,12 @@ class CrossEncoderReranker(BaseReranker):
         for start in range(0, len(documents), self._batch_size):
             batch_docs = documents[start : start + self._batch_size]
             try:
-                # 批量编码 (query, doc) pairs + 单次 ONNX forward
                 encodings = [self._tokenizer.encode(query, doc) for doc in batch_docs]
                 feeds = self._build_batch_feeds(encodings)
                 outputs = self._session.run(None, feeds)
                 logits = outputs[0]
                 if logits.ndim > 1:
-                    logits = logits.squeeze(-1)  # [batch, 1] → [batch]
-                # normalize=True: sigmoid 归一化到 [0,1]; False: 原始 logit
+                    logits = logits.squeeze(-1)
                 scores = 1.0 / (1.0 + np.exp(-logits)) if self._normalize else logits
                 for i, score in enumerate(scores):
                     scored.append((start + i, float(score)))

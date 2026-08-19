@@ -11,10 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""记忆访问审计日志 (sync + async)。
-
-吞错 (日志失败不阻塞业务), 通过 hasattr 检查 store 是否支持 _record_access_log (向后兼容)。
-"""
+"""记忆访问审计日志。"""
 
 from __future__ import annotations
 
@@ -37,18 +34,7 @@ def record_access(
     access_type: str,
     metadata: dict[str, Any] | None = None,
 ) -> str | None:
-    """记录记忆访问日志 (sync 版)。
-
-    Args:
-        store: 记忆存储后端 (必须支持 _record_access_log 方法)
-        memory_id: 被访问的记忆 ID
-        app_id: 访问方应用 ID
-        access_type: "search" / "get" / "delete" / "list"
-        metadata: 额外信息 {"query":.., "score":..}
-
-    Returns:
-        log_id 或 None (记录失败时返回 None, 不抛异常)
-    """
+    """记录记忆访问日志 (sync 版)。"""
     try:
         if hasattr(store, "_record_access_log"):
             return store._record_access_log(memory_id, app_id, access_type, metadata)
@@ -69,18 +55,7 @@ async def async_record_access(
     access_type: str,
     metadata: dict[str, Any] | None = None,
 ) -> str | None:
-    """异步记录记忆访问日志 (async 版)。
-
-    Args:
-        store: 异步记忆存储后端 (必须支持 _record_access_log 方法)
-        memory_id: 被访问的记忆 ID
-        app_id: 访问方应用 ID
-        access_type: "search" / "get" / "delete" / "list"
-        metadata: 额外信息
-
-    Returns:
-        log_id 或 None (记录失败时返回 None, 不抛异常)
-    """
+    """异步记录记忆访问日志 (async 版)。"""
     try:
         if hasattr(store, "_record_access_log"):
             return await store._record_access_log(memory_id, app_id, access_type, metadata)

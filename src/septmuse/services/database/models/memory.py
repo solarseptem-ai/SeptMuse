@@ -29,7 +29,7 @@ class MemoryTable(SQLModel, table=True):
     agent_id: str | None = None
     session_id: str | None = None
     content: str
-    # metadata 是 Python 保留名, 用 sa_column 映射到数据库列名
+    # metadata 是保留名，用 sa_column 映射
     metadata_json: str = Field(default="{}", sa_column=Column("metadata", Text))
     created_at: str | None = None
     updated_at: str | None = None

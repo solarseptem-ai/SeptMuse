@@ -11,12 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""实体抽取器 (架构文档 §5.1)。
-
-默认 RegexEntityExtractor (纯 Python regex + 词表, 零配置)。
-spacy: pip install septmuse[ner], spaCy NER + noun_chunks。
-none: 禁用实体抽取。
-"""
+"""实体抽取器。"""
 
 from __future__ import annotations
 
@@ -212,11 +207,7 @@ def _normalize_entity_text(text: str) -> str:
 
 
 class RegexEntityExtractor(EntityExtractor):
-    """纯 Python regex + 词表后端 (默认, 零配置)。
-
-    4 类实体: PROPER / QUOTED / TOPIC / IDENTIFIER。
-    ~120 泛化词黑名单 + span 去重冲突解决。
-    """
+    """纯 Python regex + 词表后端。"""
 
     def extract(self, text: str) -> list[Entity]:
         candidates: list[Entity] = []
@@ -286,12 +277,7 @@ class RegexEntityExtractor(EntityExtractor):
 
     @staticmethod
     def _resolve_candidates(candidates: list[Entity]) -> list[Entity]:
-        """span 去重冲突解决。
-
-        1. 按 start 排序
-        2. 同一 (text, entity_type) 只保留第一个
-        3. 跨类型冲突: 长 span 优先, 相同长度时 PROPER > QUOTED > TOPIC > IDENTIFIER
-        """
+        """span 去重冲突解决。"""
         if not candidates:
             return []
         candidates.sort(key=lambda e: (e.start, -(e.end - e.start)))
@@ -314,10 +300,7 @@ class RegexEntityExtractor(EntityExtractor):
 
 
 class SpacyEntityExtractor(EntityExtractor):
-    """spaCy NER + noun_chunks 后端 (pip install septmuse[ner])。
-
-    spaCy 不可用时 _resolve_entity_extractor 自动降级到 RegexEntityExtractor。
-    """
+    """spaCy NER + noun_chunks 后端。"""
 
     def __init__(self, model_name: str = "en_core_web_sm"):
         try:
@@ -365,12 +348,7 @@ class SpacyEntityExtractor(EntityExtractor):
 
 
 def _resolve_entity_extractor(config: MemoryConfig) -> EntityExtractor | None:
-    """解析实体抽取器 (通过 ServiceProvider, 类似 _resolve_embedder 模式)。
-
-    默认 RegexEntityExtractor (零配置, 纯 Python)。
-    spacy: pip install septmuse[ner], spaCy NER + noun_chunks。
-    none: 禁用实体抽取。
-    """
+    """解析实体抽取器。"""
     from septmuse.services.providers import entity_extractor_provider
 
     backend = config.entity_extractor.backend.lower()

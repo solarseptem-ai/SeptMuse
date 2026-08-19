@@ -11,14 +11,13 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""ORMMemoryStore — SQLModel ORM 跨方言记忆存储。
+"""ORMMemoryStore — SQLModel ORM 记忆存储 facade。
 
-一套代码跑 SQLite/MySQL/PostgreSQL。从 DatabaseService 拿 engine，
-CRUD 全用 SQLModel select() / session.add()。SQLModel.metadata.create_all()
-自动生成对应方言的 DDL。
+委托 MemoryRepository 处理全部 SQL CRUD，自身只协调：
+- vector_store / keyword_index 双写
+- engine 暴露 (duck typing for TypedMemoryStore 共享)
 
-向量以 JSON list[float] 存储, 检索用 numpy 余弦相似 (跨方言通用)。
-组合 vector_store + keyword_index 双写 (方言工厂创建, P3/P4 实现)。
+一套代码跑 SQLite/MySQL/PostgreSQL。
 """
 
 from __future__ import annotations
@@ -27,89 +26,24 @@ import contextlib
 import hashlib
 import json
 import uuid
-from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import desc, or_
+from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
-from sqlmodel import Session, SQLModel, select
+from sqlmodel import Session, SQLModel
 
 from septmuse.core.logging import get_logger
-from septmuse.services.database.models import AccessLogTable, HistoryTable, MemoryTable
+from septmuse.core.utils import utcnow_iso
+from septmuse.services.database.models import HistoryTable, MemoryTable
 from septmuse.storage.base import MemoryStore
+from septmuse.storage.relational_stores.repositories.memory import MemoryRepository
 
 logger = get_logger(__name__)
 
 
-def _utcnow_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-# 支持的过滤操作符
-_FILTER_OPERATORS = frozenset({
-    "eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "contains", "icontains",
-})
-
-
-def _apply_operator(stmt: Any, col: Any, op: str, value: Any) -> Any:
-    """将单个操作符应用到 SQLAlchemy select 语句 (对齐 mem0 高级过滤)。"""
-    if op == "eq":
-        return stmt.where(col == value)
-    if op == "ne":
-        return stmt.where(col != value)
-    if op == "gt":
-        return stmt.where(col > value)
-    if op == "gte":
-        return stmt.where(col >= value)
-    if op == "lt":
-        return stmt.where(col < value)
-    if op == "lte":
-        return stmt.where(col <= value)
-    if op == "in":
-        return stmt.where(col.in_(value))
-    if op == "nin":
-        return stmt.where(~col.in_(value))
-    if op == "contains":
-        return stmt.where(col.contains(value))
-    if op == "icontains":
-        return stmt.where(col.icontains(value))
-    return stmt
-
-
-def _apply_metadata_filters(
-    stmt: Any,
-    filters: dict[str, Any] | None,
-    model: type,
-    *,
-    skip_keys: set[str] | None = None,
-) -> Any:
-    """将 filters 字典应用到 SQLAlchemy select 语句。
-
-    支持两种格式:
-    - 精确匹配: {"key": "value"} (向后兼容)
-    - 操作符: {"key": {"eq"/"ne"/"gt"/"gte"/"lt"/"lte"/"in"/"nin"/"contains"/"icontains": value}}
-    """
-    if not filters:
-        return stmt
-    clean = dict(filters)
-    for skip in (skip_keys or set()):
-        clean.pop(skip, None)
-    for key, value in clean.items():
-        if not hasattr(model, key):
-            continue
-        col = getattr(model, key)
-        if isinstance(value, dict):
-            for op, op_val in value.items():
-                if op in _FILTER_OPERATORS:
-                    stmt = _apply_operator(stmt, col, op, op_val)
-        else:
-            stmt = stmt.where(col == value)
-    return stmt
-
-
 class ORMMemoryStore(MemoryStore):
-    """SQLModel ORM 记忆存储 — 跨方言 CRUD。
+    """SQLModel ORM 记忆存储 facade — 跨方言 CRUD。
 
     用法:
         from sqlalchemy import create_engine
@@ -123,17 +57,21 @@ class ORMMemoryStore(MemoryStore):
         engine: Engine,
         vector_store: Any | None = None,
         keyword_index: Any | None = None,
+        owns_engine: bool = True,
     ) -> None:
         self._engine = engine
-        self._session_maker = sessionmaker(engine, expire_on_commit=False)
+        self._session_maker = sessionmaker(engine, class_=Session, expire_on_commit=False)
+        self._owns_engine = owns_engine
+        self._repo = MemoryRepository(self._session_maker)
         if vector_store is None:
             from septmuse.storage.vector_stores.sqlalchemy_vec import SQLAlchemyVectorStore
 
             vector_store = SQLAlchemyVectorStore(engine)
         self._vector_store = vector_store
         self._keyword_index = keyword_index
-        self._create_tables()
-        logger.info("orm_store_ready", dialect=engine.dialect.name)
+        if self._owns_engine:
+            self._create_tables()
+        logger.info("orm_store_ready", dialect=engine.dialect.name, owns_engine=owns_engine)
 
     @property
     def engine(self) -> Engine:
@@ -143,28 +81,25 @@ class ORMMemoryStore(MemoryStore):
     def _create_tables(self) -> None:
         """建表 — SQLModel.metadata.create_all 跨方言 DDL + MigrationRunner 补旧 DB 缺列。"""
         SQLModel.metadata.create_all(self._engine)
-        # 运行迁移: 旧 DB (SQLiteMemoryStore 创建) 可能缺 archived_at 等列
         from septmuse.storage.migrations.runner import MigrationRunner
 
         MigrationRunner(self._engine).run()
 
     def close(self) -> None:
-        """释放引擎资源。"""
-        self._engine.dispose()
+        """释放引擎资源 (仅当 owns_engine=True 时 dispose)。"""
+        if self._owns_engine:
+            self._engine.dispose()
 
     def reset(self) -> None:
-        """重置存储 (删表数据 + 双写清理).
-
-        清除 memories / history / memory_access_logs 三表数据,
-        并重置 vector_store + keyword_index。
-        """
-        from sqlalchemy import text
-
-        with Session(self._engine) as session:
+        """重置存储 (删表数据 + 双写清理)."""
+        with contextlib.suppress(Exception):
+            self._repo._session_maker.bind = self._engine  # type: ignore[attr-defined]
+        # 直接执行 DELETE，不走 Repository（避免 Repository 暴露 reset 语义）
+        with self._repo._session_maker() as session:  # type: ignore[call-arg]
             for table_name in ["memories", "history", "memory_access_logs"]:
                 with contextlib.suppress(Exception):
-                    session.exec(text(f"DELETE FROM {table_name}"))
-            session.commit()
+                    session.exec(text(f"DELETE FROM {table_name}"))  # type: ignore[attr-defined]
+            session.commit()  # type: ignore[attr-defined]
         # 双写清理: vector_store
         if self._vector_store is not None:
             try:
@@ -183,6 +118,10 @@ class ORMMemoryStore(MemoryStore):
                 pass
         logger.info("orm_store_reset_done")
 
+    # ------------------------------------------------------------------
+    # 核心 CRUD — facade 协调 Repository + vector/keyword 双写
+    # ------------------------------------------------------------------
+
     def add(
         self,
         content: str,
@@ -196,32 +135,11 @@ class ORMMemoryStore(MemoryStore):
     ) -> str:
         """添加记忆, 返回 memory_id。"""
         mid = f"mem-{uuid.uuid4()}"
-        now = _utcnow_iso()
-        with Session(self._engine) as session:
-            mem = MemoryTable(
-                id=mid,
-                user_id=user_id,
-                agent_id=agent_id,
-                session_id=session_id,
-                content=content,
-                metadata_json=json.dumps(metadata or {}),
-                created_at=now,
-                updated_at=now,
-                valid_at=valid_at,
-                is_deleted=0,
-                state="active",
-            )
-            session.add(mem)
-            session.add(HistoryTable(
-                id=str(uuid.uuid4()),
-                memory_id=mid,
-                old_memory=None,
-                new_memory=content,
-                event="ADD",
-                created_at=now,
-                is_deleted=0,
-            ))
-            session.commit()
+        self._repo.add(
+            mid, content,
+            user_id=user_id, agent_id=agent_id, session_id=session_id,
+            metadata=metadata, valid_at=valid_at,
+        )
         # 双写: vector_store + keyword_index
         if self._vector_store is not None:
             self._vector_store.insert_vectors(
@@ -243,22 +161,10 @@ class ORMMemoryStore(MemoryStore):
         metadata: dict[str, Any] | None = None,
         valid_at: str | None = None,
     ) -> list[str]:
-        """批量添加记忆, 返回 memory_id 列表 (单次 commit, 对齐 mem0 V3 Phase 6)。
-
-        含批次内 hash 去重 (MD5, 对齐 mem0 Phase 5): 同批次相同内容的记录只存一条。
-        跨批次去重靠 P0-1 增量决策 (已有记忆注入 prompt)。
-
-        Args:
-            records: [(content, embedding), ...] 列表
-            user_id: 用户 ID (必填)
-            agent_id / session_id / metadata / valid_at: 同 add()
-
-        Returns:
-            memory_id 列表, 顺序与 records 一致 (去重的记录 id 为 None)
-        """
+        """批量添加记忆, 返回 memory_id 列表 (单次 commit)。"""
         if not records:
             return []
-        now = _utcnow_iso()
+        now = utcnow_iso()
         mids: list[str | None] = [None] * len(records)
         mem_rows: list[MemoryTable] = []
         hist_rows: list[HistoryTable] = []
@@ -302,14 +208,9 @@ class ORMMemoryStore(MemoryStore):
 
         if not mem_rows:
             logger.info("memory_batch_all_duplicates", count=len(records), user_id=user_id)
-            return mids
+            return mids  # type: ignore[return-value]
 
-        with Session(self._engine) as session:
-            for mem in mem_rows:
-                session.add(mem)
-            for h_row in hist_rows:
-                session.add(h_row)
-            session.commit()
+        self._repo.add_batch(mids, mem_rows, hist_rows)
 
         # 批量双写
         if self._vector_store is not None and all_embeddings:
@@ -322,26 +223,11 @@ class ORMMemoryStore(MemoryStore):
         logger.info(
             "memory_batch_added", count=len(all_ids), duplicates=len(records) - len(all_ids), user_id=user_id
         )
-        return mids
+        return mids  # type: ignore[return-value]
 
     def get(self, memory_id: str) -> dict[str, Any] | None:
         """取单条, 不存在返回 None。"""
-        with Session(self._engine) as session:
-            stmt = select(MemoryTable).where(
-                MemoryTable.id == memory_id,
-                MemoryTable.is_deleted == 0,
-                or_(MemoryTable.state == "active", MemoryTable.state.is_(None)),
-            )
-            mem = session.exec(stmt).first()
-            if mem is None:
-                return None
-            return {
-                "id": mem.id,
-                "memory": mem.content,
-                "metadata": json.loads(mem.metadata_json) if mem.metadata_json else {},
-                "created_at": mem.created_at,
-                "state": mem.state or "active",
-            }
+        return self._repo.get(memory_id)
 
     def search(
         self,
@@ -353,15 +239,10 @@ class ORMMemoryStore(MemoryStore):
         threshold: float = 0.1,
         filters: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        """向量检索 (委托给 _vector_store ANN 索引, 不再自行 numpy 余弦)。
-
-        流程: _vector_store.search_vectors → 取 ID → MemoryTable 查 content + metadata + 高级过滤。
-        score: 相似度 (越高越相似, 范围 [0, 1])。
-        """
+        """向量检索 (委托给 _vector_store ANN 索引 + Repository 查内容)。"""
         if self._vector_store is None:
             return []
 
-        # session_id 可来自参数或 filters 字典
         effective_session_id = session_id
         if effective_session_id is None and filters:
             effective_session_id = filters.get("session_id")
@@ -381,17 +262,11 @@ class ORMMemoryStore(MemoryStore):
             return []
 
         score_map = {r.id: r.score for r in vec_results}
-
-        with Session(self._engine) as session:
-            stmt = select(MemoryTable).where(
-                MemoryTable.id.in_(list(score_map.keys())),
-                MemoryTable.is_deleted == 0,
-                or_(MemoryTable.state == "active", MemoryTable.state.is_(None)),
-            )
-            if effective_session_id is not None:
-                stmt = stmt.where(MemoryTable.session_id == effective_session_id)
-            stmt = _apply_metadata_filters(stmt, filters, MemoryTable, skip_keys={"session_id", "run_id"})
-            rows = session.exec(stmt).all()
+        rows = self._repo.search_by_ids(
+            list(score_map.keys()),
+            session_id=effective_session_id,
+            filters=filters,
+        )
 
         results: list[dict[str, Any]] = []
         for mem in rows:
@@ -409,53 +284,13 @@ class ORMMemoryStore(MemoryStore):
         self, *, user_id: str, session_id: str | None = None, filters: dict[str, Any] | None = None
     ) -> list[dict[str, Any]]:
         """列出该用户全部未删除记忆。"""
-        with Session(self._engine) as session:
-            stmt = select(MemoryTable).where(
-                MemoryTable.user_id == user_id,
-                MemoryTable.is_deleted == 0,
-                or_(MemoryTable.state == "active", MemoryTable.state.is_(None)),
-            )
-            if session_id is not None:
-                stmt = stmt.where(MemoryTable.session_id == session_id)
-            # 高级过滤 (eq/ne/gt/gte/lt/lte/in/nin/contains/icontains, 对齐 mem0)
-            skip = {"session_id", "run_id"} if session_id is not None else set()
-            stmt = _apply_metadata_filters(stmt, filters, MemoryTable, skip_keys=skip)
-            rows = session.exec(stmt).all()
-        return [
-            {
-                "id": mem.id,
-                "memory": mem.content,
-                "metadata": json.loads(mem.metadata_json) if mem.metadata_json else {},
-                "created_at": mem.created_at,
-                "updated_at": mem.updated_at,
-            }
-            for mem in rows
-        ]
+        return self._repo.get_all(user_id=user_id, session_id=session_id, filters=filters)
 
     def delete(self, memory_id: str) -> None:
-        """软删除 (标记 is_deleted + state='deleted' + history 记录)。"""
-        now = _utcnow_iso()
-        with Session(self._engine) as session:
-            stmt = select(MemoryTable).where(MemoryTable.id == memory_id)
-            mem = session.exec(stmt).first()
-            if mem is None:
-                return
-            mem.is_deleted = 1
-            mem.state = "deleted"
-            mem.deleted_at = now
-            mem.updated_at = now
-            session.add(mem)
-            session.add(HistoryTable(
-                id=str(uuid.uuid4()),
-                memory_id=memory_id,
-                old_memory=mem.content,
-                new_memory=None,
-                event="DELETE",
-                created_at=now,
-                is_deleted=1,
-            ))
-            session.commit()
-        # 双写清理
+        """软删除 (Repository SQL + vector/keyword 清理)。"""
+        old_content = self._repo.delete(memory_id)
+        if old_content is None:
+            return
         if self._vector_store is not None:
             self._vector_store.delete_vector(memory_id)
         if self._keyword_index is not None:
@@ -471,39 +306,18 @@ class ORMMemoryStore(MemoryStore):
         metadata: dict[str, Any] | None = None,
     ) -> bool:
         """更新记忆 content + embedding + metadata, 记录 history。"""
-        now = _utcnow_iso()
-        with Session(self._engine) as session:
-            stmt = select(MemoryTable).where(
-                MemoryTable.id == memory_id,
-                MemoryTable.is_deleted == 0,
-            )
-            mem = session.exec(stmt).first()
-            if mem is None:
-                return False
-            old_content = mem.content
-            old_meta = json.loads(mem.metadata_json) if mem.metadata_json else {}
-            vs_user_id = mem.user_id
-            vs_agent_id = mem.agent_id
-            vs_session_id = mem.session_id
-            mem.content = content
-            mem.metadata_json = json.dumps(metadata if metadata is not None else old_meta)
-            mem.updated_at = now
-            session.add(mem)
-            session.add(HistoryTable(
-                id=str(uuid.uuid4()),
-                memory_id=memory_id,
-                old_memory=old_content,
-                new_memory=content,
-                event="UPDATE",
-                created_at=now,
-                is_deleted=0,
-            ))
-            session.commit()
-        # 双写更新 (带 payload, 否则过滤搜索找不到更新后的向量)
+        result = self._repo.update(memory_id, content, metadata=metadata)
+        if result is None:
+            return False
+        # 双写更新
         if self._vector_store is not None:
             self._vector_store.update_vector(
                 memory_id, embedding,
-                payload={"user_id": vs_user_id, "agent_id": vs_agent_id, "session_id": vs_session_id},
+                payload={
+                    "user_id": result["user_id"],
+                    "agent_id": result["agent_id"],
+                    "session_id": result["session_id"],
+                },
             )
         if self._keyword_index is not None:
             self._keyword_index.add_docs({memory_id: content})
@@ -511,24 +325,8 @@ class ORMMemoryStore(MemoryStore):
         return True
 
     def get_history(self, memory_id: str) -> list[dict[str, Any]]:
-        """获取记忆变更历史 (ADD/UPDATE/DELETE 记录)。"""
-        with Session(self._engine) as session:
-            stmt = select(HistoryTable).where(
-                HistoryTable.memory_id == memory_id
-            ).order_by(HistoryTable.created_at)
-            rows = session.exec(stmt).all()
-        return [
-            {
-                "id": h.id,
-                "memory_id": h.memory_id,
-                "old_memory": h.old_memory,
-                "new_memory": h.new_memory,
-                "event": h.event,
-                "created_at": h.created_at,
-                "is_deleted": bool(h.is_deleted),
-            }
-            for h in rows
-        ]
+        """获取记忆变更历史。"""
+        return self._repo.get_history(memory_id)
 
     def _record_access_log(
         self,
@@ -537,140 +335,42 @@ class ORMMemoryStore(MemoryStore):
         access_type: str,
         metadata: dict[str, Any] | None = None,
     ) -> str | None:
-        """记录记忆访问日志（审计用）。"""
-        log_id = str(uuid.uuid4())
-        now = _utcnow_iso()
-        with Session(self._engine) as session:
-            session.add(AccessLogTable(
-                id=log_id,
-                memory_id=memory_id,
-                app_id=app_id,
-                access_type=access_type,
-                metadata_json=json.dumps(metadata) if metadata else None,
-                accessed_at=now,
-            ))
-            session.commit()
-        return log_id
+        """记录记忆访问日志。"""
+        return self._repo.record_access_log(memory_id, app_id, access_type, metadata)
 
     def get_access_logs(self, memory_id: str, limit: int = 100) -> list[dict[str, Any]]:
-        """查询记忆访问日志（按 accessed_at 降序）。"""
-        with Session(self._engine) as session:
-            stmt = select(AccessLogTable).where(
-                AccessLogTable.memory_id == memory_id
-            ).order_by(AccessLogTable.accessed_at.desc()).limit(limit)
-            rows = session.exec(stmt).all()
-        return [
-            {
-                "id": log.id,
-                "memory_id": log.memory_id,
-                "app_id": log.app_id,
-                "access_type": log.access_type,
-                "metadata": json.loads(log.metadata_json) if log.metadata_json else None,
-                "accessed_at": log.accessed_at,
-            }
-            for log in rows
-        ]
+        """查询记忆访问日志。"""
+        return self._repo.get_access_logs(memory_id, limit)
 
     # ------------------------------------------------------------------
-    # 时态 (双时态建模, 借鉴 graphiti EntityEdge)
+    # 时态 — 全委托 Repository
     # ------------------------------------------------------------------
 
     def invalidate(self, memory_id: str, *, invalid_at: str | None = None) -> dict[str, Any]:
-        """标记事实不再为真（设置 invalid_at + expired_at, 不删除记忆）。"""
-        existing = self.get(memory_id)
+        """标记事实不再为真。"""
+        existing = self._repo.get(memory_id)
         if existing is None:
             return {"id": memory_id, "event": "NOT_FOUND"}
-        inv = invalid_at or _utcnow_iso()
-        exp = _utcnow_iso()
-        now = _utcnow_iso()
-        with Session(self._engine) as session:
-            stmt = select(MemoryTable).where(MemoryTable.id == memory_id)
-            mem = session.exec(stmt).first()
-            if mem is None:
-                return {"id": memory_id, "event": "NOT_FOUND"}
-            mem.invalid_at = inv
-            mem.expired_at = exp
-            mem.updated_at = now
-            session.add(mem)
-            session.add(HistoryTable(
-                id=str(uuid.uuid4()),
-                memory_id=memory_id,
-                old_memory=mem.content,
-                new_memory=None,
-                event="INVALIDATE",
-                created_at=now,
-                is_deleted=0,
-            ))
-            session.commit()
-        logger.info("memory_invalidated", memory_id=memory_id, invalid_at=inv)
-        return {"id": memory_id, "invalid_at": inv, "expired_at": exp, "event": "INVALIDATE"}
+        result = self._repo.invalidate(memory_id, invalid_at=invalid_at)
+        if result is None:
+            return {"id": memory_id, "event": "NOT_FOUND"}
+        logger.info("memory_invalidated", memory_id=memory_id, invalid_at=result["invalid_at"])
+        return result
 
     def get_temporal_valid(
         self, reference_time: str, *, user_id: str, session_id: str | None = None
     ) -> list[dict[str, Any]]:
-        """查询某时刻为真的记忆 (valid_at <= t AND (invalid_at IS NULL OR invalid_at > t))。"""
-        with Session(self._engine) as session:
-            stmt = select(MemoryTable).where(
-                MemoryTable.user_id == user_id,
-                MemoryTable.is_deleted == 0,
-                or_(
-                    MemoryTable.valid_at.is_(None),  # 无时间约束, 始终返回
-                    MemoryTable.valid_at <= reference_time,
-                ),
-                or_(
-                    MemoryTable.invalid_at.is_(None),  # 未失效
-                    MemoryTable.invalid_at > reference_time,
-                ),
-            )
-            if session_id is not None:
-                stmt = stmt.where(MemoryTable.session_id == session_id)
-            rows = session.exec(stmt).all()
-        return [
-            {
-                "id": mem.id,
-                "memory": mem.content,
-                "metadata": json.loads(mem.metadata_json) if mem.metadata_json else {},
-                "created_at": mem.created_at,
-                "valid_at": mem.valid_at,
-                "invalid_at": mem.invalid_at,
-            }
-            for mem in rows
-        ]
+        """查询某时刻为真的记忆。"""
+        return self._repo.get_temporal_valid(reference_time, user_id=user_id, session_id=session_id)
 
     def get_temporal_interval(
         self, start: str, end: str, *, user_id: str, session_id: str | None = None
     ) -> list[dict[str, Any]]:
         """查询时间区间 [start, end) 内为真的记忆。"""
-        with Session(self._engine) as session:
-            stmt = select(MemoryTable).where(
-                MemoryTable.user_id == user_id,
-                MemoryTable.is_deleted == 0,
-                or_(
-                    MemoryTable.valid_at.is_(None),
-                    MemoryTable.valid_at <= end,
-                ),
-                or_(
-                    MemoryTable.invalid_at.is_(None),
-                    MemoryTable.invalid_at > start,
-                ),
-            )
-            if session_id is not None:
-                stmt = stmt.where(MemoryTable.session_id == session_id)
-            rows = session.exec(stmt).all()
-        return [
-            {
-                "id": mem.id,
-                "memory": mem.content,
-                "metadata": json.loads(mem.metadata_json) if mem.metadata_json else {},
-                "created_at": mem.created_at,
-                "valid_at": mem.valid_at,
-                "invalid_at": mem.invalid_at,
-            }
-            for mem in rows
-        ]
+        return self._repo.get_temporal_interval(start, end, user_id=user_id, session_id=session_id)
 
     # ------------------------------------------------------------------
-    # 关键词检索 (BM25, 依赖 keyword_index)
+    # 关键词检索 — facade 协调 keyword_index + Repository
     # ------------------------------------------------------------------
 
     def keyword_search(
@@ -683,65 +383,29 @@ class ORMMemoryStore(MemoryStore):
         if not scores:
             return []
         results: list[dict[str, Any]] = []
-        with Session(self._engine) as session:
-            for doc_id, score in scores.items():
-                stmt = select(MemoryTable).where(
-                    MemoryTable.id == doc_id,
-                    MemoryTable.user_id == user_id,
-                    MemoryTable.is_deleted == 0,
-                )
-                if session_id is not None:
-                    stmt = stmt.where(MemoryTable.session_id == session_id)
-                mem = session.exec(stmt).first()
-                if mem is not None:
-                    results.append({
-                        "id": mem.id,
-                        "memory": mem.content,
-                        "score": float(score),
-                        "metadata": json.loads(mem.metadata_json) if mem.metadata_json else {},
-                        "created_at": mem.created_at,
-                    })
+        for doc_id, score in scores.items():
+            mem = self._repo.get_by_id_for_keyword(doc_id, user_id=user_id, session_id=session_id)
+            if mem is not None:
+                mem["score"] = float(score)
+                results.append(mem)
         return results[:top_k]
 
     # ------------------------------------------------------------------
-    # 关系查询 (跨 agent 共享)
+    # 关系查询 (跨 agent 共享) — 全委托 Repository
     # ------------------------------------------------------------------
 
     def list_agents(self, user_id: str) -> list[str]:
         """列出该用户的所有 agent_id (去重, 排除 NULL)。"""
-        with Session(self._engine) as session:
-            stmt = select(MemoryTable.agent_id).where(
-                MemoryTable.user_id == user_id,
-                MemoryTable.is_deleted == 0,
-                MemoryTable.agent_id.isnot(None),
-            ).distinct()
-            return list(session.exec(stmt).all())
+        return self._repo.list_agents(user_id)
 
     def list_users(self, agent_id: str) -> list[str]:
         """列出该 agent 的所有 user_id (去重)。"""
-        with Session(self._engine) as session:
-            stmt = select(MemoryTable.user_id).where(
-                MemoryTable.agent_id == agent_id,
-                MemoryTable.is_deleted == 0,
-            ).distinct()
-            return list(session.exec(stmt).all())
+        return self._repo.list_users(agent_id)
+
+    def get_user_ids(self) -> list[str]:
+        """列出所有有活跃记忆的 user_id (去重)。"""
+        return self._repo.get_user_ids()
 
     def get_shared_memories(self, user_id: str, limit: int = 100) -> list[dict[str, Any]]:
-        """获取跨 agent 共享的记忆 (不限 agent_id, 按 created_at 降序)。"""
-        with Session(self._engine) as session:
-            stmt = select(MemoryTable).where(
-                MemoryTable.user_id == user_id,
-                MemoryTable.is_deleted == 0,
-            ).order_by(desc(MemoryTable.created_at)).limit(limit)
-            rows = session.exec(stmt).all()
-        return [
-            {
-                "id": mem.id,
-                "user_id": mem.user_id,
-                "memory": mem.content,
-                "metadata": json.loads(mem.metadata_json) if mem.metadata_json else {},
-                "created_at": mem.created_at,
-                "agent_id": mem.agent_id,
-            }
-            for mem in rows
-        ]
+        """获取跨 agent 共享的记忆。"""
+        return self._repo.get_shared_memories(user_id, limit)

@@ -11,16 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""PostToolUse hook — 编码 agent 零侵入记忆捕获 (架构文档 §5.1)。
-
-SeptMuse 设计:
-- PostToolUseHook: 接收 tool 调用结果, 提取文本, 过 CapturePipeline 存储
-- capture_send: MCP transport 层的便捷方法
-
-本模块实现 PostToolUse 设计 (架构文档 §5.1)。
-
-详见 docs/specs/agent-memory-architecture.md §5.1 捕获方式。
-"""
+"""PostToolUse hook — 编码 agent 零侵入记忆捕获。"""
 
 from __future__ import annotations
 
@@ -28,7 +19,7 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-from septmuse.capture.pipeline import CapturePipeline, PipelineResult
+from septmuse.pipelines.capture import CapturePipeline, PipelineResult
 from septmuse.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -36,14 +27,7 @@ logger = get_logger(__name__)
 
 @dataclass
 class ToolCallEvent:
-    """PostToolUse 事件。
-
-    字段:
-    - tool_name: 工具名 (如 "Bash", "Read", "Edit")
-    - tool_input: 工具输入参数
-    - tool_output: 工具输出 (文本)
-    - session_id: 会话 ID
-    """
+    """PostToolUse 事件。"""
 
     tool_name: str
     tool_input: dict[str, Any]
@@ -52,17 +36,7 @@ class ToolCallEvent:
 
 
 class PostToolUseHook:
-    """PostToolUse 钩子 — 编码 agent 零侵入记忆捕获。
-
-    每次 tool 调用后自动捕获输出到记忆系统 (架构文档 §5.1)。
-
-    用法:
-        hook = PostToolUseHook(pipeline)
-        result = hook.on_post_tool_use(
-            ToolCallEvent(tool_name="Bash", tool_input={"command": "ls"}, tool_output="file1\nfile2"),
-            user_id="alice",
-        )
-    """
+    """PostToolUse 钩子 — 编码 agent 零侵入记忆捕获。"""
 
     def __init__(self, pipeline: CapturePipeline) -> None:
         self.pipeline = pipeline
@@ -74,10 +48,7 @@ class PostToolUseHook:
         user_id: str,
         agent_id: str | None = None,
     ) -> PipelineResult:
-        """处理 PostToolUse 事件, 捕获到记忆。
-
-        从 tool_output 提取文本, 过 CapturePipeline 存储。
-        """
+        """处理 PostToolUse 事件，捕获到记忆。"""
         text = self._extract_text(event)
         if not text:
             return PipelineResult(original_text="", errors=["no text extracted"])
@@ -91,10 +62,7 @@ class PostToolUseHook:
         return self.pipeline.capture(text, user_id=user_id, agent_id=agent_id, metadata=metadata)
 
     def _extract_text(self, event: ToolCallEvent) -> str:
-        """从 ToolCallEvent 提取可记忆文本。
-
-        策略: tool_output 是主要文本来源; 如果太短或为空, 尝试 tool_input。
-        """
+        """从 ToolCallEvent 提取可记忆文本。"""
         text = event.tool_output.strip()
         if not text:
             # 如果输出为空, 从 input 提取 (如 command 字段)
@@ -116,8 +84,5 @@ class PostToolUseHook:
         agent_id: str | None = None,
         tool_name: str = "manual",
     ) -> PipelineResult:
-        """便捷方法: 手动捕获文本。
-
-        不经过 ToolCallEvent, 直接进 pipeline。
-        """
+        """手动捕获文本。"""
         return self.pipeline.capture(content, user_id=user_id, agent_id=agent_id, metadata={"tool_name": tool_name})

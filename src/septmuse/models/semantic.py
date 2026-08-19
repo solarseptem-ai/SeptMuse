@@ -11,13 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""语义记忆数据模型 — 三元组事实 + 身份子类。
-
-三元组结构 (subject/predicate/object/context) + namespace 多租户。
-SeptMuse 增量 (架构文档 §3.2.2): confidence + provenance (创新: 区分事实/推断)。
-
-详见 docs/specs/agent-memory-architecture.md §3.2.2。
-"""
+"""语义记忆数据模型。"""
 
 from __future__ import annotations
 
@@ -39,12 +33,7 @@ def _new_id() -> str:
 
 
 class SemanticFact(SQLModel, table=True):
-    """语义事实 — 三元组 + 置信度 + 溯源 (架构文档 §3.2.2)。
-
-    三元组: subject/predicate/object/context。
-    多租户: (org_id, user_id)。
-    SeptMuse 创新: confidence + provenance (区分用户陈述/推断/工具结果/观察)。
-    """
+    """语义事实。"""
 
     __tablename__ = "septmuse_facts"  # type: ignore[assignment]
 
@@ -91,5 +80,5 @@ class SemanticFact(SQLModel, table=True):
 
 
 def is_identity(fact: SemanticFact) -> bool:
-    """判断是否身份记忆子类 (架构文档 §3.2.2: 身份归语义子类, 打 identity 标签)。"""
+    """判断是否身份记忆子类。"""
     return "identity" in (fact.tags or [])

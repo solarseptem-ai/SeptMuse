@@ -31,7 +31,7 @@ from sqlalchemy import desc
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from septmuse.core.logging import get_logger
-from septmuse.models.block import Block, default_blocks
+from septmuse.models.block import Block  # noqa: F401 — SQLModel table registration
 from septmuse.models.causal import CausalEdge
 from septmuse.models.episodic import EpisodeType, EpisodicEvent
 from septmuse.models.procedural import ProceduralRule
@@ -44,10 +44,6 @@ logger = get_logger(__name__)
 
 def _default_db_path() -> Path:
     return Path.home() / ".septmuse" / "septmuse.db"
-
-
-def _utcnow_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 class TypedMemoryStore:
@@ -603,68 +599,6 @@ class TypedMemoryStore:
             if not include_archived:
                 stmt = stmt.where(MemoryStrength.archived == False)  # noqa: E712
             return list(session.exec(stmt).all())
-
-    # ------------------------------------------------------------------
-    # 工作记忆 Block CRUD (架构文档 §3.1.1, 对齐 Letta Block)
-    # ------------------------------------------------------------------
-
-    def get_blocks(self, agent_id: str) -> list[Block]:
-        """加载 agent 的全部 block (持久化 → 内存)。"""
-        with Session(self.engine) as session:
-            stmt = select(Block).where(Block.agent_id == agent_id)
-            return list(session.exec(stmt).all())
-
-    def save_block(self, block: Block) -> Block:
-        """保存 block (INSERT or UPDATE, 按 id upsert)。"""
-        with Session(self.engine) as session:
-            existing = session.get(Block, block.id)
-            if existing:
-                existing.label = block.label
-                existing.value = block.value
-                existing.limit = block.limit
-                existing.read_only = block.read_only
-                existing.tags = block.tags
-                existing.touch()
-                session.add(existing)
-            else:
-                session.add(block)
-            session.commit()
-            session.refresh(existing or block)
-            return existing or block
-
-    def update_block_value(self, agent_id: str, label: str, value: str) -> Block | None:
-        """更新 block value (对齐 WorkingMemory.update_block_value)。"""
-        with Session(self.engine) as session:
-            stmt = select(Block).where(Block.agent_id == agent_id, Block.label == label)
-            block = session.exec(stmt).first()
-            if not block:
-                return None
-            block.value = value
-            block.touch()
-            session.add(block)
-            session.commit()
-            session.refresh(block)
-            return block
-
-    def delete_block(self, agent_id: str, label: str) -> bool:
-        """删除 block。"""
-        with Session(self.engine) as session:
-            stmt = select(Block).where(Block.agent_id == agent_id, Block.label == label)
-            block = session.exec(stmt).first()
-            if not block:
-                return False
-            session.delete(block)
-            session.commit()
-            return True
-
-    def ensure_default_blocks(self, agent_id: str) -> list[Block]:
-        """确保 agent 有默认 block (human + persona), 无则创建。"""
-        blocks = self.get_blocks(agent_id)
-        if blocks:
-            return blocks
-        for block in default_blocks(agent_id):
-            self.save_block(block)
-        return self.get_blocks(agent_id)
 
     def close(self) -> None:
         # 仅 dispose 自建 engine; 共享 engine 由所有者 (ORMMemoryStore) 负责

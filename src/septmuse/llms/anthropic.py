@@ -11,17 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Anthropic LLM provider。
-
-对齐 septmuse.llms.base.LLM ABC,
-调用 Anthropic Messages API。
-
-用法:
-    llm = AnthropicLLM(api_key="sk-ant-...", model="claude-3-5-haiku-latest")
-    response = llm.complete(system_prompt, user_prompt)
-
-零配置: 从 ANTHROPIC_API_KEY 环境变量读取 key。
-"""
+"""Anthropic LLM provider。"""
 
 from __future__ import annotations
 
@@ -35,11 +25,7 @@ logger = get_logger(__name__)
 
 
 class AnthropicLLM(LLM):
-    """Anthropic Messages provider。
-
-    零配置: 从 ANTHROPIC_API_KEY 环境变量读取。
-    自定义: AnthropicLLM(api_key="sk-ant-...", model="claude-3-5-haiku-latest")。
-    """
+    """Anthropic Messages provider。"""
 
     provider_name = "anthropic"
 
@@ -65,10 +51,7 @@ class AnthropicLLM(LLM):
         logger.info("anthropic_llm_ready", model=model)
 
     def _complete(self, system_prompt: str, user_prompt: str) -> str:
-        """调用 Anthropic Messages API (对齐 LLM ABC)。
-
-        Anthropic API 要求 system 消息单独传 (不在 messages 列表中)。
-        """
+        """调用 Anthropic Messages API。"""
         try:
             response = self._client.messages.create(
                 model=self.model,

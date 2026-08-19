@@ -383,7 +383,7 @@ class TestResolveLLM:
 
 class TestMemoryAutoResolve:
     def test_memory_auto_creates_llm(self, monkeypatch, tmp_path):
-        """ExperimentalMemory(config) with llm_provider set → auto-creates LLM."""
+        """Memory(config) with llm_provider set → auto-creates LLM."""
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         mock_module = types.ModuleType("openai")
 
@@ -395,17 +395,17 @@ class TestMemoryAutoResolve:
         monkeypatch.setitem(sys.modules, "openai", mock_module)
 
         from septmuse.configs.defaults import MemoryConfig
-        from septmuse.experimental import ExperimentalMemory
+        from septmuse.memory.main import Memory
 
         config = MemoryConfig(db_path=str(tmp_path / "test.db"), llm_provider="openai")
-        m = ExperimentalMemory(config=config)
+        m = Memory(config=config)
         assert m.llm is not None
 
     def test_memory_no_llm_when_provider_none(self, tmp_path):
-        """ExperimentalMemory(config) with llm_provider=None → llm is None."""
+        """Memory(config) with llm_provider=None → llm is None."""
         from septmuse.configs.defaults import MemoryConfig
-        from septmuse.experimental import ExperimentalMemory
+        from septmuse.memory.main import Memory
 
         config = MemoryConfig(db_path=str(tmp_path / "test.db"), llm_provider=None)
-        m = ExperimentalMemory(config=config)
+        m = Memory(config=config)
         assert m.llm is None

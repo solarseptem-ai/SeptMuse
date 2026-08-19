@@ -11,11 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""boost 权重通用函数 — 匹配 search_filter 的结果 score 加权。
-
-匹配逻辑: 检查 result.metadata 中对应字段的值是否与 search_filter 中的值匹配。
-匹配则 score *= (1 + weight), clamp [0, 1]。
-"""
+"""boost 权重通用函数 — 匹配 search_filter 的结果 score 加权。"""
 
 from __future__ import annotations
 
@@ -34,17 +30,7 @@ def apply_boost(
     search_filter: dict[str, Any] | None,
     boost_weights: dict[str, float] | None = None,
 ) -> float:
-    """对匹配 search_filter 的结果加权 boost。
-
-    Args:
-        result: 检索结果项 (含 metadata)
-        base_score: 基础分数
-        search_filter: boost 过滤字典 (如 {"user_id": "alice", "tags": ["python"]})
-        boost_weights: 字段权重 (None=用 DEFAULT_BOOST_WEIGHTS)
-
-    Returns:
-        加权后的分数 [0, 1]
-    """
+    """对匹配 search_filter 的结果加权 boost。"""
     if not search_filter:
         return base_score
 

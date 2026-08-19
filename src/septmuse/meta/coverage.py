@@ -11,15 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""L1 覆盖自描述 — "我记住了什么/记不住什么" (架构文档 §6.3 自研)。
-
-ReMe 仅 L0 路由命名空间, agent 不"知道"自己记住了什么。
-SeptMuse 扩展元认知为三层, L1 扫描所有命名空间生成覆盖报告。
-
-CoverageReport 存为语义记忆, 打 `meta` + `coverage` 标签, 跨会话累积。
-
-详见 docs/specs/agent-memory-architecture.md §6.3 元认知。
-"""
+"""L1 覆盖自描述 — 扫描所有命名空间生成记忆覆盖报告。"""
 
 from __future__ import annotations
 
@@ -49,7 +41,7 @@ class NamespaceStats:
 
 @dataclass
 class CoverageReport:
-    """记忆覆盖报告 (L1 自描述, 架构文档 §6.3)。"""
+    """记忆覆盖报告。"""
 
     user_id: str
     namespaces: list[NamespaceStats] = field(default_factory=list)
@@ -76,19 +68,7 @@ class CoverageReport:
 
 
 class CoverageAnalyzer:
-    """L1 覆盖分析器 (架构文档 §6.3 自研)。
-
-    扫描所有命名空间, 按主题/时间/置信度统计覆盖, 生成自述报告。
-
-    用法:
-        analyzer = CoverageAnalyzer(store, typed_store)
-        report = analyzer.analyze(user_id="alice")
-        print(report.summary())
-        # "Coverage report for alice:
-        #  verbatim: 5 items, score=0.50 (weak)
-        #  semantic: 3 items, score=0.30 (weak)
-        #  ..."
-    """
+    """L1 覆盖分析器。"""
 
     def __init__(self, store: MemoryStore, typed_store: TypedMemoryStore) -> None:
         self.store = store
@@ -98,7 +78,7 @@ class CoverageAnalyzer:
         """生成覆盖报告 (扫描全部命名空间)。"""
         report = CoverageReport(user_id=user_id)
 
-        # 1. verbatim memories
+        # verbatim 记忆
         verbatim = self.store.get_all(user_id=user_id)
         verbatim_topics = [m["memory"][:30] for m in verbatim[:5]]
         report.namespaces.append(
@@ -111,7 +91,7 @@ class CoverageAnalyzer:
             )
         )
 
-        # 2. semantic facts
+        # 语义事实
         facts = self.typed_store.get_all_facts(user_id=user_id)
         avg_conf = sum(f.confidence for f in facts) / len(facts) if facts else 0.0
         fact_topics = [f"{f.subject} {f.predicate} {f.object}"[:30] for f in facts[:5]]
@@ -125,7 +105,7 @@ class CoverageAnalyzer:
             )
         )
 
-        # 3. episodic events
+        # 情节事件
         episodes = self.typed_store.get_episodes(user_id=user_id, limit=1000)
         ep_topics = [e.content[:30] for e in episodes[:5] if e.content]
         report.namespaces.append(
@@ -138,7 +118,7 @@ class CoverageAnalyzer:
             )
         )
 
-        # 4. procedural rules
+        # 过程规则
         rules = self.typed_store.get_all_rules(user_id=user_id, include_deprecated=True)
         active_rules = [r for r in rules if not r.deprecated and not r.is_deleted]
         avg_rule_conf = sum(r.confidence for r in active_rules) / len(active_rules) if active_rules else 0.0
@@ -153,7 +133,7 @@ class CoverageAnalyzer:
             )
         )
 
-        # 5. 计算总体分数 + 强弱区域
+        # 计算总体分数和强弱区域
         if report.namespaces:
             report.overall_score = sum(ns.coverage_score for ns in report.namespaces) / len(report.namespaces)
         report.weak_areas = [ns.namespace for ns in report.namespaces if ns.coverage_score < 0.3]

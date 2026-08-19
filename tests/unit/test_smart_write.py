@@ -11,16 +11,16 @@ import pytest
 
 @pytest.fixture
 def tmp_memory():
-    """Create ExperimentalMemory with temp DB."""
+    """Create Memory with temp DB."""
     db = tempfile.mktemp(suffix=".db")
     os.environ["SEPTMUSE_DB_PATH"] = db
     os.environ["SEPTMUSE_EMBEDDER"] = "hash"
     os.environ["SEPTMUSE_TOKENIZER"] = "space"
     from septmuse.configs.base import MemoryConfig
     from septmuse.embedders.hash import HashEmbedder
-    from septmuse.experimental import ExperimentalMemory
+    from septmuse.memory.main import Memory
 
-    mem = ExperimentalMemory(config=MemoryConfig(db_path=db), embedder=HashEmbedder())
+    mem = Memory(config=MemoryConfig(db_path=db), embedder=HashEmbedder())
     yield mem
     for f in [db, db + "-wal", db + "-shm"]:
         with contextlib.suppress(OSError):

@@ -11,21 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Zettelkasten 链接生长 — add 时自动找语义关系建链接。
-
-机制:
-- 对每个新节点, 用 embedding 余弦相似度找语义相关已有节点, 创建边
-- 查询已有边防重复建边
-- existing_edges_map 去重
-
-SeptMuse 简化:
-- 不用 ontology resolver, 用 embedding 余弦相似度找关联
-- 独立 memory_links 表存储链接 (不修改 memories 表)
-- 双向链接 (source→target + target→source)
-- 去重: 同 source+target+relation 不重复建
-
-详见 docs/specs/agent-memory-architecture.md §5.4 演化。
-"""
+"""Zettelkasten 链接生长 — add 时自动找语义关系建链接。"""
 
 from __future__ import annotations
 
@@ -55,16 +41,7 @@ class MemoryLink:
 
 
 class ZettelLinker:
-    """Zettelkasten 链接生长器。
-
-    每次 add 后自动找语义相似的已有记忆, 创建双向链接。
-    用 GraphStore (SQLiteGraphStore / AGEGraphStore) 存储链接, 不修改 memories 表。
-
-    用法:
-        linker = ZettelLinker(store, graph_store, embedder)
-        links = linker.link_on_add("mem-123", "alice likes python", emb, user_id="alice")
-        related = linker.get_links("mem-123")
-    """
+    """Zettelkasten 链接生长器。"""
 
     def __init__(
         self,
@@ -89,12 +66,7 @@ class ZettelLinker:
         user_id: str,
         relation: str = "related_to",
     ) -> list[MemoryLink]:
-        """add 后自动找链接。
-
-        1. 向量检索相似记忆 (store.search)
-        2. 过滤自身 + 已有链接 (retrieve_existing_edges 去重)
-        3. 创建双向链接 (graph_store.add_edge)
-        """
+        """add 后自动找链接。"""
         candidates = self.store.search(
             embedding,
             user_id=user_id,

@@ -11,12 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""数据库服务层。
-
-- DatabaseService: 引擎管理 + 跨方言建表
-- DatabaseServiceFactory: 工厂
-- models: SQLModel 表定义（Memory/History/AccessLog/Entity）
-"""
+"""数据库服务层。"""
 
 from septmuse.services.database.factory import DatabaseServiceFactory
 from septmuse.services.database.service import DatabaseService

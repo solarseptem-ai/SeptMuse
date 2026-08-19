@@ -11,15 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""token 预算裁剪 — 检索注入前裁剪记忆到 token 预算内。
-
-借鉴:
-- Agent Memory (默认 2000 tokens)
-- Hermes (默认 800 tokens)
-
-实现: 按近似 token 计数 (chars/4) 贪心填充, 高分优先, 超预算截断。
-详见 docs/specs/agent-memory-architecture.md §5.3 治理。
-"""
+"""token 预算裁剪 — 检索注入前裁剪记忆到 token 预算内。"""
 
 from __future__ import annotations
 
@@ -72,25 +64,13 @@ class BudgetResult:
 
 
 class TokenBudget:
-    """token 预算裁剪器 (对齐 Agent Memory / Hermes)。
-
-    用法:
-        budget = TokenBudget(budget=2000)
-        result = budget.fit(items)  # 高分优先填充, 超预算截断
-        prompt = "\\n".join(result.texts)
-
-    贪心策略: 按 score 降序排序, 逐条累加 token, 超预算则跳过 (不截断单条)。
-    """
+    """token 预算裁剪器。"""
 
     def __init__(self, budget: int = DEFAULT_TOKEN_BUDGET) -> None:
         self.budget = budget
 
     def fit(self, items: list[BudgetItem]) -> BudgetResult:
-        """贪心填充: 按分数降序排序, 累加 token 直到预算耗尽。
-
-        Returns:
-            BudgetResult: items=已选, used_tokens, dropped=被丢弃数
-        """
+        """按分数降序贪心填充, 超预算则跳过。"""
         sorted_items = sorted(items, key=lambda x: x.score, reverse=True)
         chosen: list[BudgetItem] = []
         used = 0
@@ -108,7 +88,7 @@ class TokenBudget:
         return BudgetResult(items=chosen, used_tokens=used, budget=self.budget, dropped=dropped)
 
     def fit_texts(self, texts: list[str], scores: list[float] | None = None) -> list[str]:
-        """便捷方法: 直接传文本列表 (+可选分数), 返回裁剪后文本列表。"""
+        """直接传文本列表, 返回裁剪后文本列表。"""
         if scores is None:
             scores = [0.0] * len(texts)
         items = [BudgetItem(text=t, score=s) for t, s in zip(texts, scores, strict=True)]

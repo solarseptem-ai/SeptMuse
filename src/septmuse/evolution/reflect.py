@@ -11,26 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""反思升华 — session 结束时提取教训, 固化为程序规则。
-
-三阶段流程:
-- LOAD: 取 QA turns + context
-- CURATE: batch, LLM propose lessons
-- ACCEPT: check existing, write/reject
-- PUBLISH: render and store
-
-数据结构: ProposedLesson (working_statement, member_entry_ids) →
-WrittenLesson (accept, reason, statement, entities)
-参数: MIN_GATE_CONFIDENCE=0.75, CURATOR_BLOCKS_PER_BATCH=6
-
-SeptMuse 简化:
-- 不用 batch curator, 对每条 episodic reasoning 直接 LLM 抽取 lesson
-- 不用 vector search check existing (procedural store 已有 confidence 退化)
-- MockLLM: 规则抽取 (look for "should/always/never/must" patterns)
-- 无 LLM: 从 reasoning 的 thoughts/action 字段直接提取
-
-详见 docs/specs/agent-memory-architecture.md §5.4 演化。
-"""
+"""反思升华 — session 结束时提取教训, 固化为程序规则。"""
 
 from __future__ import annotations
 
@@ -65,15 +46,7 @@ class ReflectionResult:
 
 
 class SessionReflector:
-    """反思升华器 (三阶段: curate → accept → publish)。
-
-    从 episodic reasoning events 提取教训, 存为 procedural rules。
-
-    用法:
-        reflector = SessionReflector(typed_store, llm=mock_llm)
-        result = reflector.reflect(user_id="alice", limit=20)
-        # result.rule_ids = ["rule-uuid-1", "rule-uuid-2", ...]
-    """
+    """反思升华器。"""
 
     def __init__(
         self,
@@ -90,13 +63,7 @@ class SessionReflector:
         limit: int = 20,
         namespace: str = "reflection",
     ) -> ReflectionResult:
-        """执行反思: 从 episodic reasoning 提取教训 → 存为 procedural rules。
-
-        流程:
-        1. LOAD: 取 episodic reasoning events
-        2. CURATE: LLM 提取 lessons (或 heuristic)
-        3. ACCEPT: 存为 procedural rules (confidence 退化机制)
-        """
+        """从 episodic reasoning 提取教训并存为 procedural rules。"""
         result = ReflectionResult()
 
         # 1. LOAD: 取 reasoning events
@@ -136,11 +103,7 @@ class SessionReflector:
         return events
 
     def _extract_lessons(self, event: EpisodicEvent) -> list[LessonProposal]:
-        """从 reasoning event 提取 lessons。
-
-        有 LLM: 用 LLM 从 event.thoughts + event.action 提取
-        无 LLM: 从 event.thoughts/action 直接提取 (heuristic: 取非空行)
-        """
+        """从 reasoning event 提取 lessons。"""
         if self.llm is not None:
             return self._llm_extract(event)
         return self._heuristic_extract(event)
@@ -205,15 +168,7 @@ class SessionReflector:
         namespace: str,
         result: ReflectionResult,
     ) -> bool:
-        """writer/rejecter: 判定 lesson 是否值得写入。
-
-        三层过滤:
-        1. 基本验证 (非空, >=5 字符)
-        2. 新颖性搜索 (检查已有规则, 相似则拒绝)
-        3. LLM 判定 (有 LLM 时, 让 LLM 决定 accept/reject)
-
-        返回 True=接受, False=拒绝。
-        """
+        """判定 lesson 是否值得写入。"""
         if not proposal.statement or len(proposal.statement) < 5:
             return False
 

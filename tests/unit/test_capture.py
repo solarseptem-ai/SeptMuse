@@ -27,19 +27,19 @@ from septmuse.capture.hooks import PostToolUseHook, ToolCallEvent
 from septmuse.capture.pipeline import CapturePipeline
 from septmuse.capture.sanitize import PrivacyFilter
 from septmuse.embedders.hash import HashEmbedder
-from septmuse.experimental import ExperimentalMemory
+from septmuse.memory.main import Memory
 
 
 @pytest.fixture()
-def mem() -> ExperimentalMemory:
-    return ExperimentalMemory(
+def mem() -> Memory:
+    return Memory(
         config=MemoryConfig(db_path=":memory:"),
         embedder=HashEmbedder(),
     )
 
 
 @pytest.fixture()
-def pipeline(mem: ExperimentalMemory) -> CapturePipeline:
+def pipeline(mem: Memory) -> CapturePipeline:
     return CapturePipeline(
         store=mem.store,
         embedder=mem.embedder,
@@ -84,7 +84,7 @@ class TestCapturePipeline:
         result = pipeline.capture("hello world", user_id="bob")
         assert result.captured
 
-    def test_capture_privacy_redact(self, mem: ExperimentalMemory) -> None:
+    def test_capture_privacy_redact(self, mem: Memory) -> None:
         pipeline = CapturePipeline(
             store=mem.store,
             embedder=mem.embedder,
@@ -102,7 +102,7 @@ class TestCapturePipeline:
         assert result.captured
         assert not result.redacted
 
-    def test_capture_stored_in_store(self, pipeline: CapturePipeline, mem: ExperimentalMemory) -> None:
+    def test_capture_stored_in_store(self, pipeline: CapturePipeline, mem: Memory) -> None:
         result = pipeline.capture("alice likes python", user_id="alice")
         assert result.captured
         # Verify it was actually stored
@@ -192,7 +192,7 @@ class TestPostToolUseHook:
         result = hook.capture_send("manual capture text", user_id="alice")
         assert result.captured
 
-    def test_capture_privacy_in_hook(self, mem: ExperimentalMemory) -> None:
+    def test_capture_privacy_in_hook(self, mem: Memory) -> None:
         pipeline = CapturePipeline(
             store=mem.store,
             embedder=mem.embedder,

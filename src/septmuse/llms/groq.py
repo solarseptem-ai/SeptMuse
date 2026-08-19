@@ -11,14 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Groq LLM provider — 超低延迟推理。
-
-用法:
-    llm = GroqLLM(api_key="...", model="llama-3.1-70b-versatile")
-    result = llm.complete(system_prompt, user_prompt)
-
-零配置: 从 GROQ_API_KEY 环境变量读取 key。
-"""
+"""Groq LLM provider。"""
 
 from __future__ import annotations
 
@@ -32,7 +25,7 @@ logger = get_logger(__name__)
 
 
 class GroqLLM(LLM):
-    """Groq LLM provider。零配置: 从 GROQ_API_KEY 环境变量读取 key。"""
+    """Groq LLM provider。"""
 
     provider_name = "groq"
 
@@ -47,7 +40,7 @@ class GroqLLM(LLM):
         logger.info("groq_llm_ready", model=model)
 
     def _complete(self, system_prompt: str, user_prompt: str) -> str:
-        """调用 Groq Chat Completions (对齐 LLM ABC)。"""
+        """调用 Groq Chat Completions。"""
         try:
             response = self._client.chat.completions.create(
                 model=self.model,

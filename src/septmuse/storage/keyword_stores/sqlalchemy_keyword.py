@@ -11,42 +11,23 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""SQLAlchemy 通用关键词索引 — 跨方言 LIKE + TF 评分。
-
-任何 SQLAlchemy engine (SQLite/MySQL/PostgreSQL) 均可用。
-文档存 keyword_docs 表, 检索在 Python 侧做分词匹配 + TF 评分。
-upsert 用 DELETE + INSERT 两步模式 (跨方言兼容, 对齐 SQLAlchemyVectorStore)。
-"""
+"""SQLAlchemy 通用关键词索引 — 跨方言 LIKE + TF 评分。"""
 
 from __future__ import annotations
-
-import re
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlmodel import Session
 
 from septmuse.core.logging import get_logger
+from septmuse.core.tokenizer import tokenize
 from septmuse.storage.keyword_stores.base import KeywordIndexBase
 
 logger = get_logger(__name__)
 
 
-def _tokenize(text_str: str) -> list[str]:
-    """分词: 中英文混合, 英文按词、中文按字 (对齐 sqlite_bm25._tokenize)。"""
-    return re.findall(r"[a-z0-9]+|[^\s\W]", text_str.lower())
-
-
 class SQLAlchemyKeywordIndex(KeywordIndexBase):
-    """SQLAlchemy 通用关键词索引 (跨方言, Python 侧 TF 评分)。
-
-    用法:
-        from sqlalchemy import create_engine
-        engine = create_engine("sqlite:///test.db")
-        idx = SQLAlchemyKeywordIndex(engine)
-        idx.add_docs({"m1": "hello world"})
-        results = idx.retrieve("hello", limit=5)
-    """
+    """SQLAlchemy 通用关键词索引 (跨方言, Python 侧 TF 评分)。"""
 
     def __init__(self, engine: Engine) -> None:
         self._engine = engine
@@ -82,7 +63,7 @@ class SQLAlchemyKeywordIndex(KeywordIndexBase):
 
     def retrieve(self, query: str, limit: int = 5) -> dict[str, float]:
         """检索: Python 侧 TF 评分, 返回 {doc_id: score} (score [0,1], 越高越相关)。"""
-        query_tokens = _tokenize(query)
+        query_tokens = tokenize(query)
         if not query_tokens:
             return {}
         with self._engine.connect() as conn:
@@ -90,7 +71,7 @@ class SQLAlchemyKeywordIndex(KeywordIndexBase):
         qset = set(query_tokens)
         scores: dict[str, float] = {}
         for doc_id, doc_text in rows:
-            doc_tokens = set(_tokenize(doc_text or ""))
+            doc_tokens = set(tokenize(doc_text or ""))
             matched = len(qset & doc_tokens)
             if matched > 0:
                 scores[doc_id] = matched / len(qset)

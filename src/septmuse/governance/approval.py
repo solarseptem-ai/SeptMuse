@@ -11,20 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""写校验 + hash 去重 — 记忆写入前拦截 (架构文档 §5.3)。
-
-写校验:
-- entity ID 必须是非空 str, trim, 拒绝内部空格
-- 至少一个 session ID (user_id 或 agent_id)
-- hash 去重: existing_hashes + seen_hashes 双重去重
-
-SeptMuse 简化:
-- SHA-256 hash (比 md5 更安全)
-- 内存窗口去重 (DedupWindow, 默认 5min 时间窗)
-- ValidationResult 返回 allowed/reason/dedup
-
-详见 docs/specs/agent-memory-architecture.md §5.3 治理。
-"""
+"""写校验 + hash 去重 — 记忆写入前拦截。"""
 
 from __future__ import annotations
 
@@ -46,14 +33,7 @@ def compute_hash(text: str) -> str:
 
 
 def validate_entity_id(value: str | int | None, name: str = "user_id") -> str | None:
-    """校验 + trim entity ID。
-
-    - None → None (可选字段)
-    - 非空 str → trim 后返回
-    - 空串/纯空格 → None
-    - int → str(int) (兼容)
-    - 含内部空格 → raise ValueError
-    """
+    """校验并 trim entity ID。"""
     if value is None:
         return None
     if isinstance(value, int):
@@ -79,28 +59,14 @@ class ValidationResult:
 
 
 class DedupWindow:
-    """时间窗去重 (5min 窗口 + 内存 seen_hashes)。
-
-    用法:
-        window = DedupWindow(window_seconds=300)
-        if window.is_duplicate(text):
-            skip  # 5min 内已写过
-        else:
-            window.add(text)
-            write(text)
-    """
+    """时间窗去重。"""
 
     def __init__(self, window_seconds: int = DEFAULT_DEDUP_WINDOW_SECONDS) -> None:
         self.window_seconds = window_seconds
         self._seen: dict[str, float] = {}  # hash → timestamp
 
     def is_duplicate(self, text: str, *, scope: str | None = None) -> bool:
-        """检测文本 hash 是否在时间窗内已见过。
-
-        Args:
-            text: 文本
-            scope: 作用域 (如 user_id), 相同文本在不同 scope 下不重复 (per-user 去重)
-        """
+        """检测文本 hash 是否在时间窗内已见过。"""
         key = f"{scope}:{text}" if scope else text
         h = compute_hash(key)
         now = time.monotonic()
@@ -123,16 +89,7 @@ class DedupWindow:
 
 
 class WriteValidator:
-    """写校验器 (参数校验 + hash 去重)。
-
-    用法:
-        validator = WriteValidator()
-        result = validator.validate(text, user_id="alice")
-        if not result.allowed:
-            skip  # 校验失败
-        if result.dedup:
-            skip  # 重复
-    """
+    """写校验器 (参数校验 + hash 去重)。"""
 
     def __init__(self, dedup_window: DedupWindow | None = None) -> None:
         self.dedup = dedup_window or DedupWindow()
@@ -144,14 +101,7 @@ class WriteValidator:
         user_id: str | None = None,
         agent_id: str | None = None,
     ) -> ValidationResult:
-        """写入前校验 (参数校验 + hash 去重)。
-
-        校验:
-        1. text 非空
-        2. user_id 或 agent_id 至少一个
-        3. entity ID 格式校验
-        4. hash 去重 (5min 时间窗, per-user scope)
-        """
+        """写入前校验 (参数校验 + hash 去重)。"""
         # 1. text 非空
         if not text or not text.strip():
             return ValidationResult(allowed=False, reason="text is empty")

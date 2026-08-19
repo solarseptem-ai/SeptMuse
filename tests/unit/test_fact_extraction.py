@@ -15,9 +15,9 @@ import pytest
 
 from septmuse.configs.defaults import MemoryConfig
 from septmuse.embedders.hash import HashEmbedder
-from septmuse.experimental import ExperimentalMemory
 from septmuse.llms.base import LLM
 from septmuse.llms.mock import MockLLM
+from septmuse.memory.main import Memory
 from septmuse.models.extract import FactExtractor, normalize_facts
 from septmuse.prompts.extract import ADDITIVE_EXTRACTION_PROMPT, FACT_EXTRACTION_PROMPT
 from septmuse.storage.relational_stores.typed_store import TypedMemoryStore
@@ -150,7 +150,7 @@ class TestExtractAndStore:
 class TestMemoryAddInfer:
     def test_add_infer_true_extracts_facts(self, tmp_db: str):
         """验收: m.add(infer=True) 抽取事实 (用 MockLLM)。"""
-        m = ExperimentalMemory(
+        m = Memory(
             config=MemoryConfig(db_path=tmp_db),
             embedder=HashEmbedder(dim=128),
             llm=MockLLM(),
@@ -162,7 +162,7 @@ class TestMemoryAddInfer:
 
     def test_add_infer_false_stores_verbatim(self, tmp_db: str):
         """infer=False 存原文。"""
-        m = ExperimentalMemory(
+        m = Memory(
             config=MemoryConfig(db_path=tmp_db),
             embedder=HashEmbedder(dim=128),
             llm=MockLLM(),
@@ -174,7 +174,7 @@ class TestMemoryAddInfer:
 
     def test_inferred_facts_searchable(self, tmp_db: str):
         """验收: 抽取的事实质量 >= 直接存原文的检索效果。"""
-        m = ExperimentalMemory(
+        m = Memory(
             config=MemoryConfig(db_path=tmp_db),
             embedder=HashEmbedder(dim=128),
             llm=MockLLM(),

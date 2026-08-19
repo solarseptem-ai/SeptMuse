@@ -11,14 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Google Gemini LLM provider。
-
-用法:
-    llm = GeminiLLM(api_key="...", model="gemini-1.5-flash")
-    result = llm.complete(system_prompt, user_prompt)
-
-零配置: 从 GEMINI_API_KEY 环境变量读取 key。
-"""
+"""Google Gemini LLM provider。"""
 
 from __future__ import annotations
 
@@ -32,7 +25,7 @@ logger = get_logger(__name__)
 
 
 class GeminiLLM(LLM):
-    """Google Gemini LLM provider。零配置: 从 GEMINI_API_KEY 环境变量读取 key。"""
+    """Google Gemini LLM provider。"""
 
     provider_name = "gemini"
 
@@ -49,7 +42,7 @@ class GeminiLLM(LLM):
         logger.info("gemini_llm_ready", model=model)
 
     def _complete(self, system_prompt: str, user_prompt: str) -> str:
-        """调用 Gemini generate_content (对齐 LLM ABC)。"""
+        """调用 Gemini generate_content。"""
         try:
             response = self._model.generate_content(f"{system_prompt}\n\n{user_prompt}")
             content = response.text or ""

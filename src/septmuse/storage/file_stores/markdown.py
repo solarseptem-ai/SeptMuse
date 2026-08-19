@@ -11,17 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""文件记忆后端 — Markdown + frontmatter + wikilinks (人可读真相源)。
-
-源码参考 ReMe/schema/file_node.py + file_link.py + file_front_matter.py:
-- FileFrontMatter: name/description + extra="allow" (保留未知字段)
-- FileLink: source_path/target_path/target_anchor/predicate (dataview-style typed-link)
-- FileNode: path + links + front_matter
-
-Basic Memory 模式 (架构文档 §5): Markdown=真相源, SQLite=索引, 双向同步。
-
-详见 docs/specs/agent-memory-architecture.md §5 (L5 文件记忆)。
-"""
+"""文件记忆后端 — Markdown + frontmatter + wikilinks (人可读真相源)。"""
 
 from __future__ import annotations
 
@@ -49,7 +39,7 @@ def _utcnow_iso() -> str:
 
 
 class FileFrontMatter(BaseModel):
-    """Markdown front matter; 未知键保留为 extras (源码参考 ReMe FileFrontMatter)。"""
+    """Markdown front matter，未知键保留为 extras。"""
 
     model_config = ConfigDict(extra="allow")
 
@@ -62,11 +52,7 @@ class FileFrontMatter(BaseModel):
 
 
 class FileLink(BaseModel):
-    """文件间 wikilink 关系 (源码参考 ReMe FileLink)。
-
-    格式: [[target_path]] 或 [[target_path#anchor]]
-    predicate:: [[target]] (dataview-style typed-link)
-    """
+    """文件间 wikilink 关系。"""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -77,7 +63,7 @@ class FileLink(BaseModel):
 
 
 class FileNode(BaseModel):
-    """文件节点 (源码参考 ReMe FileNode): path + front_matter + links。"""
+    """文件节点: path + front_matter + links。"""
 
     path: str = Field(description="相对工作区路径")
     st_mtime: float = Field(description="文件系统 mtime")
@@ -91,17 +77,7 @@ class FileNode(BaseModel):
 
 
 def parse_front_matter(content: str) -> tuple[FileFrontMatter, str]:
-    """解析 Markdown frontmatter (YAML 简化解析, 无 PyYAML 依赖)。
-
-    frontmatter 格式:
-        ---
-        name: doc
-        description: ...
-        ---
-        # 正文
-
-    返回 (front_matter, body)。
-    """
+    """解析 Markdown frontmatter，返回 (front_matter, body)。"""
     fm = FileFrontMatter()
     if not content.startswith("---"):
         return fm, content
@@ -164,15 +140,7 @@ def render_markdown(node: FileNode, body: str) -> str:
 
 
 class FileMemoryStore:
-    """文件记忆存储 (架构文档 §5, 借鉴 Basic Memory + ReMe)。
-
-    原则 (源码参考 ReMe AGENTS.md):
-    - 用户记忆文件是真相源
-    - 索引/缓存可重建
-    - 双向同步: 人和 agent 都写同一文件
-
-    阶段2: 提供 write/read/list/search 基础能力 (图遍历/双向同步后续完善)。
-    """
+    """文件记忆存储 (Markdown 为真相源，索引可重建)。"""
 
     def __init__(self, workspace: str | Path) -> None:
         self.workspace = Path(workspace)
@@ -180,7 +148,7 @@ class FileMemoryStore:
         logger.info("file_store_ready", workspace=str(self.workspace))
 
     def _resolve_path(self, rel_path: str) -> Path:
-        """解析相对工作区路径, 防越界。"""
+        """解析相对工作区路径，防越界。"""
         p = (self.workspace / rel_path).resolve()
         if not str(p).startswith(str(self.workspace.resolve())):
             raise ValueError(f"path escapes workspace: {rel_path}")
@@ -195,7 +163,7 @@ class FileMemoryStore:
         description: str = "",
         extras: dict[str, Any] | None = None,
     ) -> FileNode:
-        """写入 Markdown 文件 (Basic Memory 双向同步模式)。"""
+        """写入 Markdown 文件。"""
         path = self._resolve_path(rel_path)
         path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -231,7 +199,7 @@ class FileMemoryStore:
         )
 
     def list_files(self, pattern: str = "*.md") -> list[FileNode]:
-        """列出工作区文件 (索引可重建模式)。"""
+        """列出工作区文件。"""
         nodes: list[FileNode] = []
         for path in self.workspace.rglob(pattern):
             rel = str(path.relative_to(self.workspace)).replace("\\", "/")
@@ -241,14 +209,14 @@ class FileMemoryStore:
         return nodes
 
     def search_by_predicate(self, predicate: str) -> list[FileLink]:
-        """按 typed-link predicate 搜索关系 (dataview-style)。"""
+        """按 predicate 搜索关系。"""
         results: list[FileLink] = []
         for node in self.list_files():
             results.extend(link for link in node.links if link.predicate == predicate)
         return results
 
     def find_backlinks(self, target_path: str) -> list[FileLink]:
-        """查找指向 target_path 的反向链接 (图遍历基础)。"""
+        """查找反向链接。"""
         results: list[FileLink] = []
         for node in self.list_files():
             for link in node.links:

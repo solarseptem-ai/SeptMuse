@@ -11,13 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""V2 工作记忆子组件 — Block CRUD + compile_to_prompt + 超限驱逐。
-
-继承 ShortTermMemory ABC, 委托 WorkingMemoryStore (独立后端)。
-数据模型共享 models/block.py 的 Block, 不 import models/ 的操作类。
-
-详见 docs/specs/2026-08-04-v2-memory-architecture.md §2.3 + §4。
-"""
+"""V2 工作记忆子组件 — Block CRUD + compile_to_prompt + 超限驱逐。"""
 
 from __future__ import annotations
 
@@ -33,21 +27,17 @@ logger = get_logger(__name__)
 
 
 class WorkingMemory(ShortTermMemory):
-    """V2 工作记忆 — Block CRUD + XML 编译 + 超限驱逐。
+    """V2 工作记忆 — Block CRUD + XML 编译 + 超限驱逐。"""
 
-    构造参数 (store 在前, 对齐 V2 组合模式):
-        wm = WorkingMemory(store=wm_store, agent_id="default")
-
-    与 V1 models/block.py 的 WorkingMemory 区别:
-    - 继承 ShortTermMemory ABC
-    - 委托 WorkingMemoryStore (独立后端, 非 typed_store)
-    - 实现 ABC 方法: compile_to_prompt / get_limit / evict_overflow
-    """
-
-    def __init__(self, *, store: WorkingMemoryStore, agent_id: str) -> None:
+    def __init__(self, *, store: WorkingMemoryStore | None = None, agent_id: str) -> None:
         self.store = store
         self.agent_id = agent_id
-        self.blocks: list[Block] = store.ensure_default_blocks(agent_id)
+        if store is not None:
+            self.blocks: list[Block] = store.ensure_default_blocks(agent_id)
+        else:
+            from septmuse.models.block import default_blocks
+
+            self.blocks = default_blocks(agent_id)
         logger.debug("v2_working_memory_init", agent_id=agent_id, block_count=len(self.blocks))
 
     def list_block_labels(self) -> list[str]:
@@ -67,11 +57,12 @@ class WorkingMemory(ShortTermMemory):
 
     def set_block(self, block: Block) -> None:
         """设置块: 同 label 替换, 否则 append。"""
+        saved = self.store.save_block(block) if self.store is not None else block
         for i, b in enumerate(self.blocks):
             if b.label == block.label:
-                self.blocks[i] = self.store.save_block(block)
+                self.blocks[i] = saved
                 return
-        self.blocks.append(self.store.save_block(block))
+        self.blocks.append(saved)
 
     def update_block_value(self, label: str, value: str) -> None:
         """更新块 value。"""
@@ -81,7 +72,7 @@ class WorkingMemory(ShortTermMemory):
             if block.label == label:
                 block.value = value
                 block.touch()
-                self.blocks[i] = self.store.save_block(block)
+                self.blocks[i] = self.store.save_block(block) if self.store is not None else block
                 return
         raise ValueError(f"Block with label {label} does not exist")
 
@@ -133,10 +124,7 @@ class WorkingMemory(ShortTermMemory):
         return sum(b.limit for b in self.blocks)
 
     def evict_overflow(self) -> list[dict]:
-        """驱逐超限内容到长期记忆, 返回被驱逐的内容列表。
-
-        简化版: 记 warning, 暂不实际驱逐 (后续实现驱逐到 episodic)。
-        """
+        """驱逐超限内容到长期记忆, 返回被驱逐的内容列表。"""
         evicted: list[dict] = []
         for block in self.blocks:
             if len(block.value) > block.limit:

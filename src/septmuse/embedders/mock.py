@@ -11,11 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Mock 嵌入 — 固定向量, 确定性测试用。
-
-区别于 HashEmbedder (哈希向量): MockEmbedder 返回固定向量, 不依赖输入文本,
-适合验证流程正确性而非嵌入质量。
-"""
+"""Mock 嵌入 — 固定向量, 确定性测试用。"""
 
 from __future__ import annotations
 

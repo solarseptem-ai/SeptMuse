@@ -11,17 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Ollama LLM provider。
-
-对齐 septmuse.llms.base.LLM ABC,
-调用 Ollama Chat API。
-
-用法:
-    llm = OllamaLLM(model="qwen2.5:7b")
-    response = llm.complete(system_prompt, user_prompt)
-
-零配置: 默认 localhost:11434, 无需 API key。
-"""
+"""Ollama LLM provider。"""
 
 from __future__ import annotations
 
@@ -35,18 +25,14 @@ logger = get_logger(__name__)
 
 
 class OllamaLLM(LLM):
-    """Ollama Chat provider。
-
-    零配置: 默认 http://localhost:11434, 无需 API key。
-    自定义: OllamaLLM(model="qwen2.5:7b", host="http://gpu-server:11434")。
-    """
+    """Ollama Chat provider。"""
 
     provider_name = "ollama"
 
     def __init__(
         self,
         api_key: str | None = None,
-        model: str = "qwen2.5:7b",
+        model: str = "qwen3.5:latest",
         host: str | None = None,
         **kwargs: Any,
     ) -> None:
@@ -56,12 +42,12 @@ class OllamaLLM(LLM):
             raise ImportError("ollama package required: pip install septmuse[ollama]") from e
 
         self.model = model
-        self._host = host or os.getenv("OLLAMA_HOST", "http://localhost:11434")
+        self._host = host or os.getenv("OLLAMA_HOST", "http://localhost:7521")
         self._client = Client(host=self._host, timeout=30.0)
         logger.info("ollama_llm_ready", model=model, host=self._host)
 
     def _complete(self, system_prompt: str, user_prompt: str) -> str:
-        """调用 Ollama Chat (对齐 LLM ABC)。"""
+        """调用 Ollama Chat。"""
         try:
             response = self._client.chat(
                 model=self.model,

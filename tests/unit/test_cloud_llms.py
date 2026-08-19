@@ -123,22 +123,21 @@ def test_deepseek_complete():
 
 
 def test_groq_config():
-    from septmuse.configs.llms.groq import GroqLLMConfig
+    from septmuse.llms.groq import GroqLLM
 
-    config = GroqLLMConfig(api_key="test")
-    assert config.backend == "groq"
-    assert config.model == "llama-3.1-70b-versatile"
+    llm = GroqLLM(api_key="test")
+    assert llm.model == "llama-3.1-70b-versatile"
 
 
 def test_gemini_config():
-    from septmuse.configs.llms.gemini import GeminiLLMConfig
+    from septmuse.llms.gemini import GeminiLLM
 
-    config = GeminiLLMConfig(api_key="test")
-    assert config.backend == "gemini"
+    llm = GeminiLLM(api_key="test")
+    assert llm.model == "gemini-1.5-flash"
 
 
 def test_deepseek_config():
-    from septmuse.configs.llms.deepseek import DeepSeekLLMConfig
+    from septmuse.llms.deepseek import DeepSeekLLM
 
-    config = DeepSeekLLMConfig(api_key="test")
-    assert config.backend == "deepseek"
+    llm = DeepSeekLLM(api_key="test")
+    assert llm.model == "deepseek-chat"

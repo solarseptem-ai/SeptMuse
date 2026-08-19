@@ -11,13 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""V2 情节记忆子组件 — EpisodicEvent CRUD + 时序查询 + 三子类。
-
-继承 LongTermMemory ABC, 委托 TypedMemoryStore。
-数据模型共享 models/episodic.py 的 EpisodicEvent, 不 import models/ 的操作类。
-
-详见 docs/specs/2026-08-04-v2-memory-architecture.md §2.3 + §4。
-"""
+"""V2 情节记忆子组件 — EpisodicEvent CRUD + 时序查询。"""
 
 from __future__ import annotations
 
@@ -35,13 +29,7 @@ logger = get_logger(__name__)
 
 
 class EpisodicMemory(LongTermMemory):
-    """V2 情节记忆 — 三子类统一接口 (时序事件 + 推理经验 + raw log)。
-
-    构造参数 (与 V1 models/episodic.py 一致):
-        em = EpisodicMemory(store=typed_store)
-
-    与 V1 区别: 继承 LongTermMemory ABC, 实现 invalidate/get_history/get_all。
-    """
+    """V2 情节记忆 — 时序事件 + 推理经验 + raw log 的统一接口。"""
 
     def __init__(self, store: TypedMemoryStore) -> None:
         self.store = store
@@ -54,7 +42,7 @@ class EpisodicMemory(LongTermMemory):
         reference_time: datetime | None = None,
         agent_id: str | None = None,
     ) -> EpisodicEvent:
-        """添加时序事件 (Zep Episode: content + reference_time)。"""
+        """添加时序事件。"""
         return self.store.add_episode(
             content,
             user_id=user_id,
@@ -73,7 +61,7 @@ class EpisodicMemory(LongTermMemory):
         user_id: str,
         agent_id: str | None = None,
     ) -> EpisodicEvent:
-        """添加推理经验 (LangMem Episode: obs/thoughts/action/result)。"""
+        """添加推理经验。"""
         content = f"[EPISODE] observation: {observation}\nthoughts: {thoughts}\naction: {action}\nresult: {result}"
         return self.store.add_episode(
             content,
@@ -94,7 +82,7 @@ class EpisodicMemory(LongTermMemory):
         session_id: str,
         agent_id: str | None = None,
     ) -> EpisodicEvent:
-        """添加原始 session log (Cass Episodic: 高保真)。"""
+        """添加原始 session log。"""
         return self.store.add_episode(
             transcript,
             user_id=user_id,

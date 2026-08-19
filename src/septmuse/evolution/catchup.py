@@ -11,19 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""LLM 降级补跑队列 — LLM 不可用时入队, 恢复后补跑 (架构文档 Phase 4)。
-
-当 remember() 等 LLM 依赖步骤因 LLM 不可用而降级跳过时,
-把任务入队此表。EvolutionScheduler 每次轮询先 LLM ping,
-恢复后消费队列补跑。
-
-task_type:
-- importance_assessment: 价值评估 (规则版可补 LLM 版)
-- fact_extraction: 事实抽取 (完全跳过, 需补跑)
-- conflict_judgment: 冲突 LLM 判定 (规则版可补 LLM 版)
-- summarization: 摘要生成
-- classification: 类型分类 (规则版可补 LLM 版)
-"""
+"""LLM 降级补跑队列。"""
 
 from __future__ import annotations
 
@@ -71,16 +59,7 @@ class CatchUpTask(SQLModel, table=True):
 
 
 class LLMCatchUpQueue:
-    """LLM 降级补跑队列。
-
-    用法:
-        queue = LLMCatchUpQueue(engine)
-        queue.enqueue("fact_extraction", memory_id="abc", user_id="alice", payload={"text": "..."})
-        tasks = queue.dequeue(limit=10)
-        for t in tasks:
-            # ... process with LLM ...
-            queue.mark_completed(t["id"])
-    """
+    """LLM 降级补跑队列。"""
 
     def __init__(self, engine: Any) -> None:
         self._engine = engine
@@ -110,7 +89,7 @@ class LLMCatchUpQueue:
         user_id: str = "default",
         payload: dict[str, Any] | None = None,
     ) -> str:
-        """入队一个补跑任务。Returns task_id."""
+        """入队一个补跑任务。"""
         task = CatchUpTask(
             task_type=task_type,
             memory_id=memory_id,
@@ -126,10 +105,7 @@ class LLMCatchUpQueue:
             return task.id
 
     def dequeue(self, limit: int = 10) -> list[dict[str, Any]]:
-        """取出 pending 任务并标记为 processing (FIFO, 防重复消费)。
-
-        返回的任务已移出 pending 池; mark_completed / mark_failed 后终结。
-        """
+        """取出 pending 任务并标记为 processing。"""
         with Session(self._engine) as session:
             stmt = (
                 select(CatchUpTask)

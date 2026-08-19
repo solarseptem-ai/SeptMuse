@@ -11,15 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""V2 元认知子组件 — 聚合 L0 路由 + L1 覆盖报告 + L2 策略自调。
-
-MetacognitionLayer 聚合 meta/ 下三子模块:
-- L0 MetaRouter: 查询嵌入 vs 命名空间描述嵌入, 路由到匹配命名空间
-- L1 CoverageAnalyzer: 扫描全部命名空间, 生成覆盖报告
-- L2 StrategyAdapter: 基于覆盖报告自调检索策略
-
-详见 docs/specs/2026-08-04-v2-memory-architecture.md §4 + §6。
-"""
+"""V2 元认知子组件 — 聚合 L0 路由 + L1 覆盖报告 + L2 策略自调。"""
 
 from __future__ import annotations
 

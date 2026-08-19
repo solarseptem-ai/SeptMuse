@@ -25,14 +25,14 @@ import pytest
 
 from septmuse import MemoryConfig
 from septmuse.embedders.hash import HashEmbedder
-from septmuse.experimental import ExperimentalMemory
 from septmuse.governance.sharing import MemoryScope, SharedMemoryAccessor
+from septmuse.memory.main import Memory
 from septmuse.meta.router import MetaRouter, RouteResult
 
 
 @pytest.fixture()
-def mem() -> ExperimentalMemory:
-    return ExperimentalMemory(
+def mem() -> Memory:
+    return Memory(
         config=MemoryConfig(db_path=":memory:"),
         embedder=HashEmbedder(),
     )
@@ -69,47 +69,47 @@ class TestMemoryScope:
 
 
 class TestSharedMemoryAccessor:
-    def test_list_agents_empty(self, mem: ExperimentalMemory) -> None:
+    def test_list_agents_empty(self, mem: Memory) -> None:
         accessor = SharedMemoryAccessor(mem.store)
         assert accessor.list_agents("alice") == []
 
-    def test_list_agents_single(self, mem: ExperimentalMemory) -> None:
+    def test_list_agents_single(self, mem: Memory) -> None:
         mem.add("hello", user_id="alice", agent_id="bot1")
         accessor = SharedMemoryAccessor(mem.store)
         assert accessor.list_agents("alice") == ["bot1"]
 
-    def test_list_agents_multiple(self, mem: ExperimentalMemory) -> None:
+    def test_list_agents_multiple(self, mem: Memory) -> None:
         mem.add("msg1", user_id="alice", agent_id="bot1")
         mem.add("msg2", user_id="alice", agent_id="bot2")
         accessor = SharedMemoryAccessor(mem.store)
         agents = accessor.list_agents("alice")
         assert set(agents) == {"bot1", "bot2"}
 
-    def test_list_users(self, mem: ExperimentalMemory) -> None:
+    def test_list_users(self, mem: Memory) -> None:
         mem.add("msg1", user_id="alice", agent_id="bot1")
         mem.add("msg2", user_id="bob", agent_id="bot1")
         accessor = SharedMemoryAccessor(mem.store)
         users = accessor.list_users("bot1")
         assert set(users) == {"alice", "bob"}
 
-    def test_is_cross_agent_true(self, mem: ExperimentalMemory) -> None:
+    def test_is_cross_agent_true(self, mem: Memory) -> None:
         mem.add("msg1", user_id="alice", agent_id="bot1")
         mem.add("msg2", user_id="alice", agent_id="bot2")
         accessor = SharedMemoryAccessor(mem.store)
         assert accessor.is_cross_agent("alice")
 
-    def test_is_cross_agent_false(self, mem: ExperimentalMemory) -> None:
+    def test_is_cross_agent_false(self, mem: Memory) -> None:
         mem.add("msg1", user_id="alice", agent_id="bot1")
         accessor = SharedMemoryAccessor(mem.store)
         assert not accessor.is_cross_agent("alice")
 
-    def test_is_cross_agent_shared_no_agent(self, mem: ExperimentalMemory) -> None:
+    def test_is_cross_agent_shared_no_agent(self, mem: Memory) -> None:
         # No agent_id → shared memory
         mem.add("shared msg", user_id="alice")
         accessor = SharedMemoryAccessor(mem.store)
         assert accessor.is_cross_agent("alice")
 
-    def test_get_shared_memories(self, mem: ExperimentalMemory) -> None:
+    def test_get_shared_memories(self, mem: Memory) -> None:
         mem.add("msg1", user_id="alice", agent_id="bot1")
         mem.add("msg2", user_id="alice", agent_id="bot2")
         accessor = SharedMemoryAccessor(mem.store)
@@ -117,7 +117,7 @@ class TestSharedMemoryAccessor:
         assert len(memories) == 2
         assert all(m["user_id"] == "alice" for m in memories)
 
-    def test_get_shared_memories_limit(self, mem: ExperimentalMemory) -> None:
+    def test_get_shared_memories_limit(self, mem: Memory) -> None:
         for i in range(5):
             mem.add(f"msg{i}", user_id="alice", agent_id=f"bot{i}")
         accessor = SharedMemoryAccessor(mem.store)

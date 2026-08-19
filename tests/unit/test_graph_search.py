@@ -16,7 +16,7 @@ from sqlmodel import create_engine
 
 from septmuse.configs.defaults import MemoryConfig
 from septmuse.embedders.hash import HashEmbedder
-from septmuse.experimental import ExperimentalMemory
+from septmuse.memory.main import Memory
 from septmuse.retrieval.graph_search import GraphSearcher
 from septmuse.storage.graph_stores.sqlite import SQLiteGraphStore
 from septmuse.storage.relational_stores.orm_store import ORMMemoryStore
@@ -37,8 +37,8 @@ def store_and_graph(tmp_db: str):
 
 
 @pytest.fixture()
-def memory(tmp_db: str) -> ExperimentalMemory:
-    return ExperimentalMemory(config=MemoryConfig(db_path=tmp_db), embedder=HashEmbedder(dim=128))
+def memory(tmp_db: str) -> Memory:
+    return Memory(config=MemoryConfig(db_path=tmp_db), embedder=HashEmbedder(dim=128))
 
 
 class TestBFS:
@@ -187,7 +187,7 @@ class TestRRFFusion:
 
 
 class TestFusedSearch:
-    def test_fused_search_via_memory_facade(self, memory: ExperimentalMemory):
+    def test_fused_search_via_memory_facade(self, memory: Memory):
         """验收: Memory.search_graph_fused 返回 RRF 融合结果。"""
         memory.add("Alice likes Python", user_id="u1")
         memory.add("Alice lives in London", user_id="u1")
@@ -206,7 +206,7 @@ class TestFusedSearch:
             assert isinstance(fused, list)
             assert all("fused_score" in r for r in fused)
 
-    def test_search_graph_via_memory_facade(self, memory: ExperimentalMemory):
+    def test_search_graph_via_memory_facade(self, memory: Memory):
         """验收: Memory.search_graph 返回 BFS 邻居。"""
         memory.add("Alice likes Python", user_id="u1")
         memory.add("Alice lives in London", user_id="u1")

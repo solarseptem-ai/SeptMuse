@@ -11,17 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""DashScope (Qwen) LLM provider (SeptMuse 创新, 对齐中国用户)。
-
-对齐 septmuse.llms.base.LLM ABC,
-调用 DashScope Generation API。
-
-用法:
-    llm = DashScopeLLM(api_key="sk-ds-...", model="qwen-plus")
-    response = llm.complete(system_prompt, user_prompt)
-
-零配置: 从 DASHSCOPE_API_KEY 环境变量读取 key。
-"""
+"""DashScope (Qwen) LLM provider。"""
 
 from __future__ import annotations
 
@@ -35,11 +25,7 @@ logger = get_logger(__name__)
 
 
 class DashScopeLLM(LLM):
-    """DashScope (Qwen) provider (SeptMuse 创新, 对齐中国用户)。
-
-    零配置: 从 DASHSCOPE_API_KEY 环境变量读取。
-    自定义: DashScopeLLM(api_key="sk-ds-...", model="qwen-plus")。
-    """
+    """DashScope (Qwen) provider。"""
 
     provider_name = "dashscope"
 
@@ -63,7 +49,7 @@ class DashScopeLLM(LLM):
         logger.info("dashscope_llm_ready", model=model)
 
     def _complete(self, system_prompt: str, user_prompt: str) -> str:
-        """调用 DashScope Generation API (对齐 LLM ABC)。"""
+        """调用 DashScope Generation API。"""
         try:
             response = self._dashscope.Generation.call(
                 model=self.model,

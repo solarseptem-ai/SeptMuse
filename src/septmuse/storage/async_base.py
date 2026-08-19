@@ -1,24 +1,15 @@
-"""异步记忆存储后端抽象基类。
+"""异步记忆存储后端抽象基类 + 能力扩展 Protocol。"""
 
-所有方法为 async def，使用 aiosqlite/asyncpg 等异步驱动。
-sync MemoryStore 的对偶，方法签名保持一致。
-score 语义: 相似度 (越高越相似, 范围 [0, 1])。
-"""
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
+
+from septmuse.core.utils import rrf_fuse
 
 
 class AsyncMemoryStore(ABC):
-    """异步记忆存储后端抽象。
-
-    实现方需保证:
-    - add 返回唯一 memory_id
-    - search 的 score 为相似度 (0-1, 越高越相似)
-    - delete 为软删除 (标记 is_deleted + history 记录)
-    - user_id 隔离 (不同用户互不可见)
-    """
+    """异步记忆存储后端抽象 — 核心 CRUD。"""
 
     @abstractmethod
     async def add(
@@ -46,20 +37,14 @@ class AsyncMemoryStore(ABC):
         threshold: float = 0.1,
         filters: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        """向量检索，返回 [{"id", "memory", "score", ...}]。
-
-        filters: mem0 风格字段过滤字典, None=不过滤 (子类按需实现)。
-        """
+        """向量检索，返回 [{"id", "memory", "score", ...}]。"""
         ...
 
     @abstractmethod
     async def get_all(
         self, *, user_id: str, session_id: str | None = None, filters: dict[str, Any] | None = None
     ) -> list[dict[str, Any]]:
-        """列出该用户全部未删除记忆。
-
-        filters: mem0 风格字段过滤字典, None=不过滤 (子类按需实现)。
-        """
+        """列出该用户全部未删除记忆。"""
         ...
 
     @abstractmethod
@@ -94,14 +79,6 @@ class AsyncMemoryStore(ABC):
         """释放连接资源。"""
         ...
 
-    # ── 默认实现（子类可覆盖）──
-
-    async def keyword_search(
-        self, query: str, *, user_id: str, session_id: str | None = None, top_k: int = 5
-    ) -> list[dict[str, Any]]:
-        """关键词检索。默认返回空。"""
-        return []
-
     async def hybrid_search(
         self,
         query: str,
@@ -114,45 +91,69 @@ class AsyncMemoryStore(ABC):
     ) -> list[dict[str, Any]]:
         """混合检索（向量 + 关键词 RRF 融合）。"""
         vec = await self.search(query_embedding, user_id=user_id, session_id=session_id, top_k=top_k * 2)
-        kw = await self.keyword_search(query, user_id=user_id, session_id=session_id, top_k=top_k * 2)
-        return _rrf_fuse(vec, kw, alpha=alpha)[:top_k]
+        kw: list[dict[str, Any]] = []
+        if isinstance(self, AsyncKeywordIndex):
+            kw = await self.keyword_search(query, user_id=user_id, session_id=session_id, top_k=top_k * 2)
+        return rrf_fuse(vec, kw, alpha=alpha)[:top_k]
+
+    async def keyword_search(
+        self, query: str, *, user_id: str, session_id: str | None = None, top_k: int = 5
+    ) -> list[dict[str, Any]]:
+        """关键词检索 (BM25) — 默认不支持, 返回空列表。"""
+        return []
 
     async def get_access_logs(self, memory_id: str, limit: int = 100) -> list[dict[str, Any]]:
-        """查询访问日志。默认返回空。"""
+        """查询访问日志 — 默认不支持, 返回空列表。"""
         return []
 
     async def get_temporal_valid(
         self, reference_time: str, *, user_id: str, session_id: str | None = None
     ) -> list[dict[str, Any]]:
-        """查询某时刻为真的记忆。默认返回空。"""
+        """查询某时刻为真的记忆 — 默认不支持, 返回空列表。"""
         return []
 
     async def get_temporal_interval(
         self, start: str, end: str, *, user_id: str, session_id: str | None = None
     ) -> list[dict[str, Any]]:
-        """查询时间区间内为真的记忆。默认返回空。"""
+        """查询时间区间内为真的记忆 — 默认不支持, 返回空列表。"""
         return []
 
     async def invalidate(self, memory_id: str, *, invalid_at: str | None = None) -> dict[str, Any]:
-        """标记事实不再为真。默认不支持。"""
-        raise NotImplementedError(f"{type(self).__name__} 不支持 invalidate")
+        """标记事实不再为真 — 默认不支持。"""
+        return {"status": "NOT_SUPPORTED", "memory_id": memory_id}
 
 
-def _rrf_fuse(vec_results: list[dict], kw_results: list[dict], *, alpha: float = 0.5, k: int = 60) -> list[dict]:
-    """RRF 融合排序（纯计算，无 I/O，不需 async）。
+# ------------------------------------------------------------------
+# 能力扩展 Protocol (async 对偶)
+# ------------------------------------------------------------------
 
-    score = alpha * 1/(k+rank_vec) + (1-alpha) * 1/(k+rank_kw)
-    alpha=1.0 时仅保留向量侧; alpha=0.0 时仅保留关键词侧。
-    """
-    scores: dict[str, float] = {}
-    meta: dict[str, dict] = {}
-    if alpha > 0:
-        for rank, r in enumerate(vec_results):
-            scores[r["id"]] = scores.get(r["id"], 0.0) + alpha / (k + rank + 1)
-            meta.setdefault(r["id"], r)
-    if alpha < 1:
-        for rank, r in enumerate(kw_results):
-            scores[r["id"]] = scores.get(r["id"], 0.0) + (1 - alpha) / (k + rank + 1)
-            meta.setdefault(r["id"], r)
-    ordered = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-    return [{**meta[mid], "score": sc} for mid, sc in ordered]
+
+@runtime_checkable
+class AsyncTemporalStore(Protocol):
+    """异步双时态存储扩展接口。"""
+
+    async def invalidate(self, memory_id: str, *, invalid_at: str | None = None) -> dict[str, Any]: ...
+
+    async def get_temporal_valid(
+        self, reference_time: str, *, user_id: str, session_id: str | None = None
+    ) -> list[dict[str, Any]]: ...
+
+    async def get_temporal_interval(
+        self, start: str, end: str, *, user_id: str, session_id: str | None = None
+    ) -> list[dict[str, Any]]: ...
+
+
+@runtime_checkable
+class AsyncKeywordIndex(Protocol):
+    """异步关键词检索扩展接口（BM25）。"""
+
+    async def keyword_search(
+        self, query: str, *, user_id: str, session_id: str | None = None, top_k: int = 5
+    ) -> list[dict[str, Any]]: ...
+
+
+@runtime_checkable
+class AsyncAccessLogStore(Protocol):
+    """异步访问日志扩展接口。"""
+
+    async def get_access_logs(self, memory_id: str, limit: int = 100) -> list[dict[str, Any]]: ...

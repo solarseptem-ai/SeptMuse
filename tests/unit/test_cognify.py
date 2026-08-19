@@ -19,8 +19,8 @@ from sqlmodel import create_engine
 
 from septmuse.configs.defaults import MemoryConfig
 from septmuse.embedders.hash import HashEmbedder
-from septmuse.experimental import ExperimentalMemory
 from septmuse.llms.base import LLM
+from septmuse.memory.main import Memory
 from septmuse.storage.relational_stores.orm_store import ORMMemoryStore
 
 
@@ -45,12 +45,12 @@ def tmp_db(tmp_path: Path) -> str:
 
 
 @pytest.fixture()
-def memory(tmp_db: str) -> ExperimentalMemory:
-    return ExperimentalMemory(config=MemoryConfig(db_path=tmp_db), embedder=HashEmbedder(dim=128))
+def memory(tmp_db: str) -> Memory:
+    return Memory(config=MemoryConfig(db_path=tmp_db), embedder=HashEmbedder(dim=128))
 
 
 @pytest.fixture()
-def memory_with_llm(tmp_db: str) -> ExperimentalMemory:
+def memory_with_llm(tmp_db: str) -> Memory:
     llm = StubLLM(
         _make_triplet_response(
             ["Alice", "Google", "Bob"],
@@ -60,11 +60,11 @@ def memory_with_llm(tmp_db: str) -> ExperimentalMemory:
             ],
         )
     )
-    return ExperimentalMemory(config=MemoryConfig(db_path=tmp_db), embedder=HashEmbedder(dim=128), llm=llm)
+    return Memory(config=MemoryConfig(db_path=tmp_db), embedder=HashEmbedder(dim=128), llm=llm)
 
 
 class TestCognifyBasic:
-    def test_cognify_returns_summary(self, memory_with_llm: ExperimentalMemory):
+    def test_cognify_returns_summary(self, memory_with_llm: Memory):
         """验收: cognify 返回包含 memory_id/triplets/entities/relations/links 的 summary。"""
         result = memory_with_llm.cognify("Alice works at Google. Bob works at Google too.", user_id="u1")
         assert "memory_id" in result
@@ -73,7 +73,7 @@ class TestCognifyBasic:
         assert "relations" in result
         assert "links" in result
 
-    def test_cognify_builds_knowledge_graph(self, memory_with_llm: ExperimentalMemory):
+    def test_cognify_builds_knowledge_graph(self, memory_with_llm: Memory):
         """验收: cognify("Alice works at Google. Bob works at Google too.") 构建知识图谱。"""
         result = memory_with_llm.cognify("Alice works at Google. Bob works at Google too.", user_id="u1")
         assert len(result["triplets"]) == 2
@@ -81,14 +81,14 @@ class TestCognifyBasic:
         assert ("Bob", "works_at", "Google") in result["triplets"]
         assert len(result["relations"]) == 2
 
-    def test_cognify_stores_memory(self, memory_with_llm: ExperimentalMemory):
+    def test_cognify_stores_memory(self, memory_with_llm: Memory):
         """cognify 存 verbatim memory。"""
         result = memory_with_llm.cognify("Alice works at Google", user_id="u1")
         mem = memory_with_llm.get(result["memory_id"])
         assert mem is not None
         assert "Alice works at Google" in mem.get("memory", "")
 
-    def test_cognify_without_llm_uses_fallback(self, memory: ExperimentalMemory):
+    def test_cognify_without_llm_uses_fallback(self, memory: Memory):
         """无 LLM 时 fallback 到 EntityExtractor 规则。"""
         result = memory.cognify("Alice works at Google in London", user_id="u1")
         assert result["memory_id"] is not None
@@ -96,19 +96,19 @@ class TestCognifyBasic:
 
 
 class TestSearchEntities:
-    def test_search_entities_finds_entity(self, memory_with_llm: ExperimentalMemory):
+    def test_search_entities_finds_entity(self, memory_with_llm: Memory):
         """验收: search_entities("Google") 返回 Google 实体。"""
         memory_with_llm.cognify("Alice works at Google. Bob works at Google too.", user_id="u1")
         results = memory_with_llm.search_entities("Google", user_id="u1")
         assert len(results) >= 1
         assert any("Google" in r.get("entity_text", "") for r in results)
 
-    def test_search_entities_empty_without_cognify(self, memory: ExperimentalMemory):
+    def test_search_entities_empty_without_cognify(self, memory: Memory):
         """无 cognify 数据时 search 返回空。"""
         results = memory.search_entities("Google", user_id="u1")
         assert results == []
 
-    def test_search_entities_user_isolation(self, memory_with_llm: ExperimentalMemory):
+    def test_search_entities_user_isolation(self, memory_with_llm: Memory):
         """验收: user_id 隔离 — u1 的实体不对 u2 可见。"""
         memory_with_llm.cognify("Alice works at Google", user_id="u1")
         results = memory_with_llm.search_entities("Google", user_id="u2")
@@ -116,7 +116,7 @@ class TestSearchEntities:
 
 
 class TestGetEntityRelations:
-    def test_get_entity_relations_returns_neighbors(self, memory_with_llm: ExperimentalMemory):
+    def test_get_entity_relations_returns_neighbors(self, memory_with_llm: Memory):
         """验收: get_entity_relations("Google") 返回 Alice + Bob。"""
         memory_with_llm.cognify("Alice works at Google. Bob works at Google too.", user_id="u1")
         neighbors = memory_with_llm.get_entity_relations("Google", user_id="u1")
@@ -125,7 +125,7 @@ class TestGetEntityRelations:
         assert "Alice" in entities
         assert "Bob" in entities
 
-    def test_get_entity_relations_bidirectional(self, memory_with_llm: ExperimentalMemory):
+    def test_get_entity_relations_bidirectional(self, memory_with_llm: Memory):
         """关系是双向的 — 查 Alice 也返回 Google。"""
         memory_with_llm.cognify("Alice works at Google", user_id="u1")
         neighbors = memory_with_llm.get_entity_relations("Alice", user_id="u1")
@@ -133,12 +133,12 @@ class TestGetEntityRelations:
         assert neighbors[0]["entity"] == "Google"
         assert neighbors[0]["direction"] == "outgoing"
 
-    def test_get_entity_relations_empty_without_cognify(self, memory: ExperimentalMemory):
+    def test_get_entity_relations_empty_without_cognify(self, memory: Memory):
         """无 cognify 数据时返回空。"""
         neighbors = memory.get_entity_relations("Google", user_id="u1")
         assert neighbors == []
 
-    def test_get_entity_relations_user_isolation(self, memory_with_llm: ExperimentalMemory):
+    def test_get_entity_relations_user_isolation(self, memory_with_llm: Memory):
         """user_id 隔离。"""
         memory_with_llm.cognify("Alice works at Google", user_id="u1")
         neighbors = memory_with_llm.get_entity_relations("Google", user_id="u2")

@@ -11,11 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Langchain 嵌入 provider — 桥接 LangChain Embeddings。
-
-接收用户传入的 langchain.embeddings.Embeddings 实例,
-调 embed_query() / embed_documents()。一次桥接整个 LangChain embedding 生态。
-"""
+"""Langchain 嵌入 provider。"""
 
 from __future__ import annotations
 

@@ -11,29 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""工作记忆 Block 数据模型 + 操作。
-
-数据模型:
-- value: 块内容 (LLM context 内可见)
-- limit: 字符上限 (治理: 防 context 溢出)
-- label: 段标签 (如 "human" / "persona")
-- read_only: agent 是否只读
-- tags: 关联标签
-- sanitize_value_null_bytes: 移除 null 字节防 PG 错误
-
-操作:
-- get_block(label): 遍历找 label, 找不到 raise KeyError
-- update_block_value(label, value): 遍历找 label 改 value, 找不到 raise ValueError
-- set_block(block): 同 label 替换或 append
-- core_memory_append(label, content): current + "\\n" + content
-- core_memory_replace(label, old, new): old not in current → raise ValueError, replace
-
-XML 编译格式 (架构文档 §3.1.1):
-    <memory>
-      <block label="human">...</block>
-      <block label="persona">...</block>
-    </memory>
-"""
+"""工作记忆 Block 数据模型 + 操作。"""
 
 from __future__ import annotations
 
@@ -64,11 +42,7 @@ def _new_block_id() -> str:
 
 
 class Block(SQLModel, table=True):
-    """工作记忆块 — context window 内的保留区, agent 可自编辑。
-
-    字段: value/limit/label/read_only/tags/description。
-    SeptMuse 增量: agent_id (跨 agent 共享键), created_at/updated_at (时序)。
-    """
+    """工作记忆块。"""
 
     __tablename__ = "septmuse_blocks"  # type: ignore[assignment]  # SQLModel mypy stub 已知误报
 
@@ -125,13 +99,7 @@ class WorkingMemory:
         blocks: list[Block] | None = None,
         store: Any | None = None,
     ) -> None:
-        """初始化工作记忆。
-
-        Args:
-            agent_id: 归属 agent ID (跨 agent 共享键)
-            blocks: 初始块列表; None 时用 default_blocks(agent_id)
-            store: TypedMemoryStore | None; 非空时操作后自动持久化
-        """
+        """初始化工作记忆。"""
         self.agent_id = agent_id
         self.store = store
         self.blocks: list[Block] = blocks if blocks is not None else default_blocks(agent_id)
@@ -142,11 +110,7 @@ class WorkingMemory:
         return [b.label for b in self.blocks]
 
     def get_block(self, label: str) -> Block:
-        """按 label 取块。
-
-        Raises:
-            KeyError: label 不存在时
-        """
+        """按 label 取块。"""
         keys: list[str] = []
         for block in self.blocks:
             if block.label == label:
@@ -171,11 +135,7 @@ class WorkingMemory:
             self.store.save_block(block)
 
     def update_block_value(self, label: str, value: str) -> None:
-        """更新块 value。
-
-        Raises:
-            ValueError: value 非 str 或 label 不存在
-        """
+        """更新块 value。"""
         if not isinstance(value, str):
             raise ValueError("Provided value must be a string")
         for block in self.blocks:
@@ -188,11 +148,7 @@ class WorkingMemory:
         raise ValueError(f"Block with label {label} does not exist")
 
     def core_memory_append(self, label: str, content: str) -> None:
-        """追加到块内容。
-
-        new_value = current_value + "\\n" + content
-        超限记日志 (驱逐逻辑见 eviction.py)。
-        """
+        """追加到块内容。"""
         current_value = str(self.get_block(label).value)
         new_value = current_value + "\n" + str(content)
         self._check_limit(label, new_value)
@@ -200,14 +156,7 @@ class WorkingMemory:
         logger.info("core_memory_append", label=label, added_len=len(str(content)))
 
     def core_memory_replace(self, label: str, old_content: str, new_content: str) -> None:
-        """替换块内容。
-
-        old_content 必须在 current_value 中 (精确匹配), 否则 raise ValueError。
-        new_content 为空串时表示删除该片段。
-
-        Raises:
-            ValueError: old_content 未找到
-        """
+        """替换块内容。"""
         current_value = str(self.get_block(label).value)
         if old_content not in current_value:
             raise ValueError(f"Old content '{old_content}' not found in memory block '{label}'")
@@ -222,14 +171,7 @@ class WorkingMemory:
         )
 
     def compile_to_xml(self) -> str:
-        """编译为 XML 注入 system prompt (架构文档 §3.1.1)。
-
-        格式:
-            <memory>
-              <block label="human">值</block>
-              <block label="persona">值</block>
-            </memory>
-        """
+        """编译为 XML 注入 system prompt。"""
         parts: list[str] = ["<memory>"]
         for block in self.blocks:
             escaped_value = escape(block.value)
@@ -238,7 +180,7 @@ class WorkingMemory:
         return "\n".join(parts)
 
     def _check_limit(self, label: str, new_value: str) -> None:
-        """检查块是否超限, 超限记 warning (驱逐逻辑见 eviction.py, 阶段3)。"""
+        """检查块是否超限。"""
         block = self.get_block(label)
         if len(new_value) > block.limit:
             logger.warning(

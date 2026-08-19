@@ -11,11 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""sentence-transformers 嵌入实现 — 可选 embedder (需 torch, 启动慢 ~30s)。
-
-零 API key, 本地模型。首次使用从 HuggingFace 下载模型 (~80MB all-MiniLM-L6-v2)。
-推荐改用 OnnxEmbedder (SEPTMUSE_EMBEDDER=onnx): 无 torch, ModelScope 下载, CPU 更快。
-"""
+"""sentence-transformers 嵌入实现。"""
 
 from __future__ import annotations
 

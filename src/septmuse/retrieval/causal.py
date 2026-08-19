@@ -11,15 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""反事实因果查询 — 图遍历 + LLM 推理 (架构文档 §6.1 自研)。
-
-14 家开源均无因果边 + 反事实查询。SeptMuse 新增:
-- find_causes: 图遍历找因果前因 (直接 + 传递)
-- find_effects: 图遍历找因果后果 (直接 + 传递)
-- counterfactual: "若 X 未发生, Y 是否仍发生" — 图遍历找替代路径 + LLM 推理
-
-检索排序: causal confidence × path strength
-"""
+"""反事实因果查询 — 图遍历 + LLM 推理。"""
 
 from __future__ import annotations
 
@@ -80,25 +72,14 @@ class CounterfactualResult:
 
 
 class CausalRetriever:
-    """反事实因果查询器 (架构文档 §6.1 自研)。
-
-    用法:
-        retriever = CausalRetriever(typed_store)
-        causes = retriever.find_causes("epi-123", user_id="alice")
-        effects = retriever.find_effects("epi-123", user_id="alice")
-        result = retriever.counterfactual("epi-cause", "epi-effect", user_id="alice")
-        # result.would_still_occur = True/False
-    """
+    """反事实因果查询器。"""
 
     def __init__(self, typed_store: TypedMemoryStore, llm: LLM | None = None) -> None:
         self.store = typed_store
         self.llm = llm
 
     def find_causes(self, event_id: str, *, user_id: str, max_depth: int = MAX_TRAVERSAL_DEPTH) -> list[CausalPath]:
-        """找事件的因果前因 (图遍历, 直接 + 传递)。
-
-        从 event_id 逆向遍历因果图, 找所有指向它的因果路径。
-        """
+        """找事件的因果前因 (直接 + 传递)。"""
         paths: list[CausalPath] = []
         self._backward_traverse(event_id, user_id, CausalPath(), paths, set(), max_depth)
         # 按置信度降序
@@ -107,10 +88,7 @@ class CausalRetriever:
         return paths
 
     def find_effects(self, event_id: str, *, user_id: str, max_depth: int = MAX_TRAVERSAL_DEPTH) -> list[CausalPath]:
-        """找事件的因果后果 (图遍历, 直接 + 传递)。
-
-        从 event_id 正向遍历因果图, 找所有从它出发的因果路径。
-        """
+        """找事件的因果后果 (直接 + 传递)。"""
         paths: list[CausalPath] = []
         self._forward_traverse(event_id, user_id, CausalPath(), paths, set(), max_depth)
         paths.sort(key=lambda p: p.confidence, reverse=True)
@@ -124,12 +102,7 @@ class CausalRetriever:
         *,
         user_id: str,
     ) -> CounterfactualResult:
-        """反事实查询: "若 cause 未发生, effect 是否仍发生?" (架构文档 §6.1)。
-
-        1. 查直接因果边
-        2. 查替代路径 (不经过 cause 的其他路径到 effect)
-        3. 有 LLM: LLM 推理; 无 LLM: 启发式判断
-        """
+        """反事实查询: 若 cause 未发生, effect 是否仍发生。"""
         result = CounterfactualResult()
 
         # 1. 查直接因果边

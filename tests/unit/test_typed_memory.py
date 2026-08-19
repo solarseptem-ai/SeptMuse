@@ -25,31 +25,31 @@ import pytest
 
 from septmuse import MemoryConfig
 from septmuse.embedders.hash import HashEmbedder
-from septmuse.experimental import ExperimentalMemory
+from septmuse.memory.main import Memory
 
 
 @pytest.fixture()
-def mem() -> ExperimentalMemory:
-    return ExperimentalMemory(
+def mem() -> Memory:
+    return Memory(
         config=MemoryConfig(db_path=":memory:"),
         embedder=HashEmbedder(),
     )
 
 
 class TestSemanticFact:
-    def test_add_fact_returns_triple(self, mem: ExperimentalMemory) -> None:
+    def test_add_fact_returns_triple(self, mem: Memory) -> None:
         r = mem.add_fact("alice", "likes", "python", user_id="alice")
         assert r["triple"] == {"subject": "alice", "predicate": "likes", "object": "python", "context": None}
         assert r["event"] == "ADD"
 
-    def test_search_facts(self, mem: ExperimentalMemory) -> None:
+    def test_search_facts(self, mem: Memory) -> None:
         mem.add_fact("alice", "likes", "python", user_id="alice")
         mem.add_fact("alice", "uses", "fastapi", user_id="alice")
         hits = mem.search_facts("alice python", user_id="alice", top_k=5)
         assert len(hits) >= 1
         assert hits[0]["subject"] == "alice"
 
-    def test_confidence_weighted(self, mem: ExperimentalMemory) -> None:
+    def test_confidence_weighted(self, mem: Memory) -> None:
         mem.add_fact("a", "is", "high", user_id="u1", confidence=1.0)
         mem.add_fact("a", "is", "low", user_id="u1", confidence=0.1)
         hits = mem.search_facts(
@@ -60,7 +60,7 @@ class TestSemanticFact:
         # high confidence 应排前 (final_score = score * confidence)
         assert hits[0]["object"] == "high"
 
-    def test_user_isolation(self, mem: ExperimentalMemory) -> None:
+    def test_user_isolation(self, mem: Memory) -> None:
         mem.add_fact("alice", "likes", "secret", user_id="alice")
         mem.add_fact("bob", "likes", "secret", user_id="bob")
         hits = mem.search_facts("secret", user_id="alice", top_k=5)
@@ -68,12 +68,12 @@ class TestSemanticFact:
 
 
 class TestEpisodicEvent:
-    def test_add_temporal_event(self, mem: ExperimentalMemory) -> None:
+    def test_add_temporal_event(self, mem: Memory) -> None:
         r = mem.add_episode("event happened", user_id="u1", event_type="fact")
         assert r["event_type"] == "fact"
         assert "reference_time" in r
 
-    def test_add_reasoning_episode(self, mem: ExperimentalMemory) -> None:
+    def test_add_reasoning_episode(self, mem: Memory) -> None:
         r = mem.add_episode(
             "obs",
             user_id="u1",
@@ -85,11 +85,11 @@ class TestEpisodicEvent:
         )
         assert r["event_type"] == "reasoning"
 
-    def test_add_raw_log(self, mem: ExperimentalMemory) -> None:
+    def test_add_raw_log(self, mem: Memory) -> None:
         r = mem.add_episode("raw transcript", user_id="u1", event_type="raw_log", session_id="s1")
         assert r["event_type"] == "raw_log"
 
-    def test_timeline(self, mem: ExperimentalMemory) -> None:
+    def test_timeline(self, mem: Memory) -> None:
         mem.add_episode("e1", user_id="u1", event_type="fact")
         mem.add_episode(
             "e2", user_id="u1", event_type="reasoning", observation="o", thoughts="t", action="a", result="r"
@@ -102,12 +102,12 @@ class TestEpisodicEvent:
 
 
 class TestProceduralRule:
-    def test_add_rule(self, mem: ExperimentalMemory) -> None:
+    def test_add_rule(self, mem: Memory) -> None:
         r = mem.add_rule("用树屋比喻讲递归", user_id="u1")
         assert r["rule"] == "用树屋比喻讲递归"
         assert r["event"] == "ADD"
 
-    def test_record_outcome_helpful(self, mem: ExperimentalMemory) -> None:
+    def test_record_outcome_helpful(self, mem: Memory) -> None:
         r = mem.add_rule("rule1", user_id="u1")
         o = mem.record_rule_outcome(r["id"], helpful=True)
         assert o["helpful_count"] == 1
@@ -115,13 +115,13 @@ class TestProceduralRule:
         assert o["confidence"] == 1.0
         assert o["deprecated"] is False
 
-    def test_record_outcome_harmful(self, mem: ExperimentalMemory) -> None:
+    def test_record_outcome_harmful(self, mem: Memory) -> None:
         r = mem.add_rule("rule1", user_id="u1")
         o = mem.record_rule_outcome(r["id"], helpful=False)
         assert o["harmful_count"] == 1
         assert o["confidence"] == 0.0
 
-    def test_deprecation(self, mem: ExperimentalMemory) -> None:
+    def test_deprecation(self, mem: Memory) -> None:
         """Cass 退化: harmful > helpful 且 >=3 次则 deprecated。"""
         r = mem.add_rule("bad rule", user_id="u1")
         mem.record_rule_outcome(r["id"], helpful=False)
@@ -130,22 +130,22 @@ class TestProceduralRule:
         assert o["harmful_count"] == 3
         assert o["deprecated"] is True
 
-    def test_deprecated_rule_not_in_active(self, mem: ExperimentalMemory) -> None:
+    def test_deprecated_rule_not_in_active(self, mem: Memory) -> None:
         r = mem.add_rule("bad rule", user_id="u1")
         for _ in range(3):
             mem.record_rule_outcome(r["id"], helpful=False)
         active = mem.get_active_rules(user_id="u1")
         assert len(active) == 0
 
-    def test_rules_to_prompt_empty(self, mem: ExperimentalMemory) -> None:
+    def test_rules_to_prompt_empty(self, mem: Memory) -> None:
         assert mem.rules_to_prompt(user_id="u1") == ""
 
-    def test_rules_to_prompt_has_rules(self, mem: ExperimentalMemory) -> None:
+    def test_rules_to_prompt_has_rules(self, mem: Memory) -> None:
         mem.add_rule("rule1", user_id="u1")
         prompt = mem.rules_to_prompt(user_id="u1")
         assert "<procedural_rules>" in prompt
         assert "rule1" in prompt
 
-    def test_record_nonexistent_rule(self, mem: ExperimentalMemory) -> None:
+    def test_record_nonexistent_rule(self, mem: Memory) -> None:
         r = mem.record_rule_outcome("rule-nonexistent", helpful=True)
         assert "error" in r

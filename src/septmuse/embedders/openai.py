@@ -11,14 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""OpenAI 嵌入 provider — 继承 _OpenAICompatibleEmbedder。
-
-用法:
-    embedder = OpenAIEmbedder(api_key="sk-...", model="text-embedding-3-small")
-    vec = embedder.embed("hello")
-
-零配置: 从环境变量 OPENAI_API_KEY 读取 key。
-"""
+"""OpenAI 嵌入 provider。"""
 
 from __future__ import annotations
 
@@ -35,14 +28,7 @@ DEFAULT_DIMS = 1536
 
 
 class OpenAIEmbedder(_OpenAICompatibleEmbedder):
-    """OpenAI Embeddings provider。
-
-    零配置: 从 OPENAI_API_KEY 环境变量读取。
-    自定义: OpenAIEmbedder(api_key="sk-...", model="text-embedding-3-small")。
-
-    matryoshka 支持: 显式传 embedding_dims 时向 API 传 dimensions 参数
-    (兼容非 matryoshka 后端如 vLLM/Voyage, 它们拒绝 dimensions 参数)。
-    """
+    """OpenAI Embeddings provider。"""
 
     def __init__(
         self,

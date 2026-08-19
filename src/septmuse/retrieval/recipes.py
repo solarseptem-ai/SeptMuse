@@ -1,16 +1,4 @@
-"""预置检索 Recipes。
-
-7 种预置配置, m.search(query, recipe="HYBRID_RRF_CROSS_ENCODER") 一键切换。
-
-Recipes:
-- HYBRID_RRF: 向量+BM25 RRF (当前默认)
-- HYBRID_RRF_ENTITY: 三信号融合 + entity boost + explain
-- HYBRID_RRF_CROSS_ENCODER: RRF + cross-encoder 重排
-- HYBRID_RRF_MMR: RRF + MMR 去冗余
-- GRAPH_BFS: 纯图遍历 (需 seed_memory_id)
-- PROGRESSIVE: 渐进三层 (向量 → BM25 → 图遍历 RRF 融合)
-- FORGETTING: 遗忘曲线加权 (需 typed_store, strength 衰减)
-"""
+"""预置检索配置。"""
 
 from __future__ import annotations
 

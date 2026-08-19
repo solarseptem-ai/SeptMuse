@@ -11,18 +11,9 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""MCP 工具集 — @mcp.tool 注册 9 个记忆工具。
+"""MCP 工具集 — @mcp.tool 注册 22 个记忆工具。"""
 
-- 基础 5 工具: add_memories / search_memory / list_memories / delete_memories / delete_all_memories
-- SeptMuse 扩展 4 工具 (架构文档 §13.4, 阶段1 先 stub, 后续阶段实现):
-  remember_episode / causal_query / rehearse / coverage_report
-
-user_id 解析: 优先显式参数, 缺省回退 contextvar (兼容 stdio/http)
-
-注: 不用 `from __future__ import annotations`, 因 FastMCP func_metadata 把返回注解
-传给 pydantic create_model, 字符串化注解会导致 PydanticUserError (non-annotated)。
-"""
-
+import asyncio
 import json
 
 from septmuse.api.mcp.context import user_id_var
@@ -32,9 +23,47 @@ from septmuse.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-def _resolve_user_id(explicit: str):
+def _resolve_user_id(explicit: str) -> str:
     """解析 user_id: 显式参数优先, 回退 contextvar。"""
     return explicit or user_id_var.get()
+
+
+# ---------------------------------------------------------------------------
+# MCP 工具执行模板 — 消除每个工具的重复样板
+# ---------------------------------------------------------------------------
+
+
+async def _mcp_run(func_name: str, user_id: str, func):
+    """通用 MCP 工具执行模板。"""
+    uid = _resolve_user_id(user_id)
+    if not uid:
+        return "Error: user_id not provided"
+    mem = get_memory_safe()
+    if not mem:
+        return "Error: Memory system is currently unavailable. Please try again later."
+    try:
+        result = await asyncio.to_thread(func, mem, uid)
+        if isinstance(result, str):
+            return result
+        return json.dumps(result, ensure_ascii=False, default=str)
+    except Exception as e:
+        logger.exception(f"mcp_{func_name}_error")
+        return f"Error in {func_name}: {e}"
+
+
+async def _mcp_run_simple(func_name: str, func):
+    """简版 MCP 工具执行模板 (无 user_id 解析)。"""
+    mem = get_memory_safe()
+    if not mem:
+        return "Error: Memory system is currently unavailable. Please try again later."
+    try:
+        result = await asyncio.to_thread(func, mem)
+        if isinstance(result, str):
+            return result
+        return json.dumps(result, ensure_ascii=False, default=str)
+    except Exception as e:
+        logger.exception(f"mcp_{func_name}_error")
+        return f"Error in {func_name}: {e}"
 
 
 # ---------------------------------------------------------------------------
@@ -50,26 +79,17 @@ async def add_memories(content: str, user_id: str = "", infer: bool = False, ses
 
     session_id: 会话 ID (空字符串=不限)。
     """
-    uid = _resolve_user_id(user_id)
-    if not uid:
-        return "Error: user_id not provided (传 user_id 参数或设 SEPTMUSE_USER_ID 环境变量)"
-
-    mem = get_memory_safe()
-    if not mem:
-        return "Error: Memory system is currently unavailable. Please try again later."
-
-    try:
-        response = mem.add(
+    return await _mcp_run(
+        "add_memories",
+        user_id,
+        lambda mem, uid: mem.add(
             content,
             user_id=uid,
             session_id=session_id or None,
             metadata={"source": "mcp"},
             infer=infer,
-        )
-        return json.dumps(response, ensure_ascii=False, indent=2)
-    except Exception as e:
-        logger.exception("mcp_add_error")
-        return f"Error adding to memory: {e}"
+        ),
+    )
 
 
 @mcp.tool(
@@ -83,20 +103,11 @@ async def search_memory(
     session_id: 仅搜该会话的记忆 (空字符串=不限)。
     filters: 字段过滤字典 (如 {"session_id":"s1", "agent_id":"a1"}), None=不过滤。
     """
-    uid = _resolve_user_id(user_id)
-    if not uid:
-        return "Error: user_id not provided"
-
-    mem = get_memory_safe()
-    if not mem:
-        return "Error: Memory system is currently unavailable."
-
-    try:
-        results = mem.search(query, user_id=uid, session_id=session_id or None, top_k=top_k, filters=filters)
-        return json.dumps({"results": results}, ensure_ascii=False, indent=2)
-    except Exception as e:
-        logger.exception("mcp_search_error")
-        return f"Error searching memory: {e}"
+    return await _mcp_run(
+        "search_memory",
+        user_id,
+        lambda mem, uid: {"results": mem.search(query, user_id=uid, session_id=session_id or None, top_k=top_k, filters=filters)},
+    )
 
 
 @mcp.tool(
@@ -104,19 +115,7 @@ async def search_memory(
 )
 async def list_memories(user_id: str = ""):
     """列出全部记忆。"""
-    uid = _resolve_user_id(user_id)
-    if not uid:
-        return "Error: user_id not provided"
-
-    mem = get_memory_safe()
-    if not mem:
-        return "Error: Memory system is currently unavailable."
-
-    try:
-        return json.dumps(mem.get_all(user_id=uid), ensure_ascii=False, indent=2)
-    except Exception as e:
-        logger.exception("mcp_list_error")
-        return f"Error getting memories: {e}"
+    return await _mcp_run("list_memories", user_id, lambda mem, uid: mem.get_all(user_id=uid))
 
 
 @mcp.tool(
@@ -124,22 +123,17 @@ async def list_memories(user_id: str = ""):
 )
 async def delete_memories(memory_ids: list[str], user_id: str = ""):
     """按 ID 删除。"""
-    uid = _resolve_user_id(user_id)
-    if not uid:
-        return "Error: user_id not provided"
+    def _do(mem, uid):
+        deleted = 0
+        for mid in memory_ids:
+            try:
+                mem.delete(mid)
+                deleted += 1
+            except Exception as e:
+                logger.warning("mcp_delete_failed", memory_id=mid, error=str(e))
+        return f"Successfully deleted {deleted}/{len(memory_ids)} memories"
 
-    mem = get_memory_safe()
-    if not mem:
-        return "Error: Memory system is currently unavailable."
-
-    deleted = 0
-    for mid in memory_ids:
-        try:
-            mem.delete(mid)
-            deleted += 1
-        except Exception as e:
-            logger.warning("mcp_delete_failed", memory_id=mid, error=str(e))
-    return f"Successfully deleted {deleted}/{len(memory_ids)} memories"
+    return await _mcp_run("delete_memories", user_id, _do)
 
 
 @mcp.tool(
@@ -147,28 +141,19 @@ async def delete_memories(memory_ids: list[str], user_id: str = ""):
 )
 async def delete_all_memories(user_id: str = ""):
     """删除全部。"""
-    uid = _resolve_user_id(user_id)
-    if not uid:
-        return "Error: user_id not provided"
-
-    mem = get_memory_safe()
-    if not mem:
-        return "Error: Memory system is currently unavailable."
-
-    try:
+    def _do(mem, uid):
         allm = mem.get_all(user_id=uid)
         count = 0
         for item in allm.get("results", []):
             mem.delete(item["id"])
             count += 1
         return f"Successfully deleted all {count} memories"
-    except Exception as e:
-        logger.exception("mcp_delete_all_error")
-        return f"Error deleting all memories: {e}"
+
+    return await _mcp_run("delete_all_memories", user_id, _do)
 
 
 # ---------------------------------------------------------------------------
-# SeptMuse 扩展 4 工具 (架构文档 §13.4, 阶段1 stub, 后续阶段实现)
+# SeptMuse 扩展 4 工具
 # ---------------------------------------------------------------------------
 
 
@@ -176,19 +161,11 @@ async def delete_all_memories(user_id: str = ""):
     description="记录成功交互的推理经验。observation=观察, thoughts=思考, action=行动, outcome=结果, user_id=用户ID。任务成功完成时调用以沉淀经验用于后续复用。"
 )
 async def remember_episode(observation: str, thoughts: str, action: str, outcome: str, user_id: str = ""):
-    """记录推理经验 (架构文档 §3.2.1)。
-
-    注: 参数名用 outcome 而非 result, 因 FastMCP 把返回值包装为 pydantic model 的
-    `result` 字段, 参数名 result 会与之冲突 (pydantic PydanticUserError)。
-    """
-    uid = _resolve_user_id(user_id)
-    if not uid:
-        return "Error: user_id not provided"
-    mem = get_memory_safe()
-    if not mem:
-        return "Error: Memory system is currently unavailable."
-    try:
-        result = mem.add_episode(
+    """记录推理经验。"""
+    return await _mcp_run(
+        "remember_episode",
+        user_id,
+        lambda mem, uid: mem.add_episode(
             f"obs: {observation}; act: {action}; result: {outcome}",
             user_id=uid,
             event_type="reasoning",
@@ -196,71 +173,41 @@ async def remember_episode(observation: str, thoughts: str, action: str, outcome
             thoughts=thoughts,
             action=action,
             result=outcome,
-        )
-        return json.dumps(result, ensure_ascii=False, default=str)
-    except Exception as e:
-        return f"Error recording episode: {e}"
+        ),
+    )
 
 
 @mcp.tool(
     description="反事实因果查询:若某事件未发生,结果是否仍成立。cause_event_id=原因事件ID, hypothesized_effect=假设结果, user_id=用户ID。需要分析因果关系或做假设推理时调用。"
 )
 async def causal_query(cause_event_id: str, hypothesized_effect: str, user_id: str = ""):
-    """因果查询 (架构文档 §6.1)。"""
-    uid = _resolve_user_id(user_id)
-    if not uid:
-        return "Error: user_id not provided"
-    mem = get_memory_safe()
-    if not mem:
-        return "Error: Memory system is currently unavailable."
-    try:
-        result = mem.counterfactual(cause_event_id, hypothesized_effect, user_id=uid)
-        return json.dumps(result, ensure_ascii=False, default=str)
-    except Exception as e:
-        return f"Error in causal query: {e}"
+    """因果查询。"""
+    return await _mcp_run(
+        "causal_query",
+        user_id,
+        lambda mem, uid: mem.counterfactual(cause_event_id, hypothesized_effect, user_id=uid),
+    )
 
 
 @mcp.tool(
     description="触发主动复述强化低强度高价值记忆。user_id=用户ID, memory_id=指定记忆(空则批量复述候选)。记忆强度衰减时调用以回升强度防止遗忘。"
 )
 async def rehearse(user_id: str = "", memory_id: str = ""):
-    """主动复述 (架构文档 §6.2)。memory_id 为空时批量复述候选。"""
-    uid = _resolve_user_id(user_id)
-    if not uid:
-        return "Error: user_id not provided"
-    mem = get_memory_safe()
-    if not mem:
-        return "Error: Memory system is currently unavailable."
-    try:
+    """主动复述。"""
+    def _do(mem, uid):
         if memory_id:
-            result = mem.rehearse(memory_id, user_id=uid)
-            return json.dumps(result, ensure_ascii=False, default=str)
-        candidates = mem.find_rehearse_candidates(user_id=uid)
-        count = 0
-        for c in candidates:
-            mem.rehearse(c["memory_id"], user_id=uid)
-            count += 1
-        return json.dumps({"rehearsed": count, "candidates": len(candidates)}, ensure_ascii=False, default=str)
-    except Exception as e:
-        return f"Error in rehearse: {e}"
+            return mem.rehearse(memory_id, user_id=uid)
+        return mem.rehearse_batch(user_id=uid)
+
+    return await _mcp_run("rehearse", user_id, _do)
 
 
 @mcp.tool(
     description="生成元认知覆盖报告:agent记住了什么/记不住什么。user_id=用户ID。需要自省记忆覆盖情况、发现知识盲区时调用,返回强弱领域和覆盖分数。"
 )
 async def coverage_report(user_id: str = ""):
-    """覆盖报告 (架构文档 §6.3)。"""
-    uid = _resolve_user_id(user_id)
-    if not uid:
-        return "Error: user_id not provided"
-    mem = get_memory_safe()
-    if not mem:
-        return "Error: Memory system is currently unavailable."
-    try:
-        result = mem.coverage_report(user_id=uid)
-        return json.dumps(result, ensure_ascii=False, default=str)
-    except Exception as e:
-        return f"Error generating coverage report: {e}"
+    """覆盖报告。"""
+    return await _mcp_run("coverage_report", user_id, lambda mem, uid: mem.coverage_report(user_id=uid))
 
 
 # ---------------------------------------------------------------------------
@@ -273,18 +220,11 @@ async def coverage_report(user_id: str = ""):
 )
 async def update_memory(memory_id: str, content: str = "", user_id: str = "", metadata: str = ""):
     """更新记忆。metadata 传 JSON 字符串或空。"""
-    uid = _resolve_user_id(user_id)
-    if not uid:
-        return "Error: user_id not provided"
-    mem = get_memory_safe()
-    if not mem:
-        return "Error: Memory system is currently unavailable."
-    try:
+    def _do(mem, uid):
         meta = json.loads(metadata) if metadata else None
-        result = mem.update(memory_id, content or None, user_id=uid, metadata=meta)
-        return json.dumps(result, ensure_ascii=False, default=str)
-    except Exception as e:
-        return f"Error updating memory: {e}"
+        return mem.update(memory_id, content or None, user_id=uid, metadata=meta)
+
+    return await _mcp_run("update_memory", user_id, _do)
 
 
 @mcp.tool(
@@ -292,14 +232,7 @@ async def update_memory(memory_id: str, content: str = "", user_id: str = "", me
 )
 async def update_block(agent_id: str, label: str, value: str, user_id: str = ""):
     """更新 block value。"""
-    mem = get_memory_safe()
-    if not mem:
-        return "Error: Memory system is currently unavailable."
-    try:
-        result = mem.update_block(agent_id, label, value)
-        return json.dumps(result, ensure_ascii=False, default=str)
-    except Exception as e:
-        return f"Error updating block: {e}"
+    return await _mcp_run_simple("update_block", lambda mem: mem.update_block(agent_id, label, value))
 
 
 @mcp.tool(
@@ -307,14 +240,7 @@ async def update_block(agent_id: str, label: str, value: str, user_id: str = "")
 )
 async def core_memory_append(agent_id: str, label: str, content: str, user_id: str = ""):
     """追加 block 内容。"""
-    mem = get_memory_safe()
-    if not mem:
-        return "Error: Memory system is currently unavailable."
-    try:
-        result = mem.core_memory_append(agent_id, label, content)
-        return json.dumps(result, ensure_ascii=False, default=str)
-    except Exception as e:
-        return f"Error appending to block: {e}"
+    return await _mcp_run_simple("core_memory_append", lambda mem: mem.core_memory_append(agent_id, label, content))
 
 
 @mcp.tool(
@@ -322,14 +248,10 @@ async def core_memory_append(agent_id: str, label: str, content: str, user_id: s
 )
 async def core_memory_replace(agent_id: str, label: str, old_content: str, new_content: str, user_id: str = ""):
     """替换 block 内容片段。"""
-    mem = get_memory_safe()
-    if not mem:
-        return "Error: Memory system is currently unavailable."
-    try:
-        result = mem.core_memory_replace(agent_id, label, old_content, new_content)
-        return json.dumps(result, ensure_ascii=False, default=str)
-    except Exception as e:
-        return f"Error replacing block content: {e}"
+    return await _mcp_run_simple(
+        "core_memory_replace",
+        lambda mem: mem.core_memory_replace(agent_id, label, old_content, new_content),
+    )
 
 
 @mcp.tool(
@@ -337,14 +259,7 @@ async def core_memory_replace(agent_id: str, label: str, old_content: str, new_c
 )
 async def get_blocks(agent_id: str, user_id: str = ""):
     """列出 block。"""
-    mem = get_memory_safe()
-    if not mem:
-        return "Error: Memory system is currently unavailable."
-    try:
-        blocks = mem.get_blocks(agent_id)
-        return json.dumps(blocks, ensure_ascii=False, default=str)
-    except Exception as e:
-        return f"Error getting blocks: {e}"
+    return await _mcp_run_simple("get_blocks", lambda mem: mem.get_blocks(agent_id))
 
 
 @mcp.tool(
@@ -352,14 +267,7 @@ async def get_blocks(agent_id: str, user_id: str = ""):
 )
 async def get_memory_history(memory_id: str, user_id: str = ""):
     """查看记忆历史。"""
-    mem = get_memory_safe()
-    if not mem:
-        return "Error: Memory system is currently unavailable."
-    try:
-        history = mem.get_history(memory_id)
-        return json.dumps(history, ensure_ascii=False, default=str)
-    except Exception as e:
-        return f"Error getting history: {e}"
+    return await _mcp_run_simple("get_memory_history", lambda mem: mem.get_history(memory_id))
 
 
 @mcp.tool(
@@ -367,14 +275,10 @@ async def get_memory_history(memory_id: str, user_id: str = ""):
 )
 async def invalidate_memory(memory_id: str, user_id: str = "", invalid_at: str = ""):
     """标记事实失效 (双时态建模)。"""
-    mem = get_memory_safe()
-    if not mem:
-        return "Error: Memory system is currently unavailable."
-    try:
-        result = mem.invalidate(memory_id, invalid_at=invalid_at or None)
-        return json.dumps(result, ensure_ascii=False, default=str)
-    except Exception as e:
-        return f"Error invalidating memory: {e}"
+    return await _mcp_run_simple(
+        "invalidate_memory",
+        lambda mem: mem.invalidate(memory_id, invalid_at=invalid_at or None),
+    )
 
 
 @mcp.tool(
@@ -382,16 +286,12 @@ async def invalidate_memory(memory_id: str, user_id: str = "", invalid_at: str =
 )
 async def search_entities(query: str, user_id: str = "", top_k: int = 5):
     """搜索实体。"""
-    mem = get_memory_safe()
-    if not mem:
-        return "Error: Memory system is currently unavailable."
-    try:
-        if not user_id:
+    def _do(mem, uid):
+        if not uid:
             return "Error: user_id not provided."
-        results = mem.search_entities(query, user_id=user_id, top_k=top_k)
-        return json.dumps(results, ensure_ascii=False, default=str)
-    except Exception as e:
-        return f"Error searching entities: {e}"
+        return mem.search_entities(query, user_id=uid, top_k=top_k)
+
+    return await _mcp_run("search_entities", user_id, _do)
 
 
 @mcp.tool(
@@ -399,16 +299,12 @@ async def search_entities(query: str, user_id: str = "", top_k: int = 5):
 )
 async def list_entities(user_id: str = "", entity_type: str = "", limit: int = 100):
     """列出实体。"""
-    mem = get_memory_safe()
-    if not mem:
-        return "Error: Memory system is currently unavailable."
-    try:
-        if not user_id:
+    def _do(mem, uid):
+        if not uid:
             return "Error: user_id not provided."
-        results = mem.list_entities(user_id=user_id, entity_type=entity_type or None, limit=limit)
-        return json.dumps(results, ensure_ascii=False, default=str)
-    except Exception as e:
-        return f"Error listing entities: {e}"
+        return mem.list_entities(user_id=uid, entity_type=entity_type or None, limit=limit)
+
+    return await _mcp_run("list_entities", user_id, _do)
 
 
 # ---------------------------------------------------------------------------
@@ -420,35 +316,17 @@ async def list_entities(user_id: str = "", entity_type: str = "", limit: int = 1
     description="记忆管家：自动捕获文本→抽取事实→分类存储→更新工作记忆。agent只需传入对话文本，SeptMuse自主决定存什么、怎么分类。每次用户透露个人信息、偏好、计划或重要事实时调用。"
 )
 async def remember(text: str, user_id: str = "", agent_id: str = "", session_id: str = "") -> str:
-    """记忆管家写入入口。
-
-    Args:
-        text: 要记忆的文本（对话片段、用户陈述等）
-        user_id: 用户 ID（空则从 contextvar 读取）
-        agent_id: agent ID（可选）
-        session_id: 会话 ID（可选，用于会话隔离）
-
-    Returns:
-        JSON: {captured, raw_id, fact_ids, memory_ids, memory_id}
-    """
-    uid = _resolve_user_id(user_id)
-    if not uid:
-        return "Error: user_id not provided (传 user_id 参数或设 SEPTMUSE_USER_ID 环境变量)"
-
-    mem = get_memory_safe()
-    if not mem:
-        return "Error: Memory system is currently unavailable. Please try again later."
-
-    try:
-        result = mem.remember(
+    """记忆管家写入入口。"""
+    return await _mcp_run(
+        "remember",
+        user_id,
+        lambda mem, uid: mem.remember(
             text,
             user_id=uid,
             session_id=session_id or None,
             agent_id=agent_id or None,
-        )
-        return json.dumps(result, ensure_ascii=False, default=str)
-    except Exception as e:
-        return f"Error in remember: {e}"
+        ),
+    )
 
 
 @mcp.tool(
@@ -462,99 +340,44 @@ async def recall(
     top_k: int = 5,
     token_budget: int = 2000,
 ) -> str:
-    """记忆管家召回入口。
-
-    Args:
-        query: 查询文本
-        user_id: 用户 ID（空则从 contextvar 读取）
-        agent_id: agent ID（可选）
-        session_id: 会话 ID（可选）
-        top_k: 返回记忆数上限（默认 5）
-        token_budget: token 预算上限（默认 2000）
-
-    Returns:
-        JSON: {memories, injected_prompt, route, strategy, summary, conflicts}
-    """
-    uid = _resolve_user_id(user_id)
-    if not uid:
-        return "Error: user_id not provided (传 user_id 参数或设 SEPTMUSE_USER_ID 环境变量)"
-
-    mem = get_memory_safe()
-    if not mem:
-        return "Error: Memory system is currently unavailable. Please try again later."
-
-    try:
-        result = mem.recall(
+    """记忆管家召回入口。"""
+    return await _mcp_run(
+        "recall",
+        user_id,
+        lambda mem, uid: mem.recall(
             query,
             user_id=uid,
             session_id=session_id or None,
             top_k=top_k,
             inject_prompt=True,
             token_budget=token_budget,
-        )
-        return json.dumps(result, ensure_ascii=False, default=str)
-    except Exception as e:
-        return f"Error in recall: {e}"
+        ),
+    )
 
 
 @mcp.tool(
     description="记忆管家：整理记忆→蒸馏教训→解决冲突→图谱生长→覆盖分析。在对话结束或空闲时调用，让SeptMuse整理和强化记忆。tasks可选指定子任务(distill/resolve_conflicts/grow_graph/analyze_coverage)，不传跑全部。"
 )
 async def improve(user_id: str = "", tasks: str = "") -> str:
-    """记忆管家演化入口。
-
-    Args:
-        user_id: 用户 ID（空则从 contextvar 读取）
-        tasks: 指定子任务，逗号分隔（如 "distill,resolve_conflicts"）。空=全部
-
-    Returns:
-        JSON: {dream, rules, coverage, conflicts}
-    """
-    uid = _resolve_user_id(user_id)
-    if not uid:
-        return "Error: user_id not provided (传 user_id 参数或设 SEPTMUSE_USER_ID 环境变量)"
-
-    mem = get_memory_safe()
-    if not mem:
-        return "Error: Memory system is currently unavailable. Please try again later."
-
-    try:
-        result = mem.improve(user_id=uid, limit=20)
-        # Phase 4: 按 tasks 过滤子任务
-        return json.dumps(result, ensure_ascii=False, default=str)
-    except Exception as e:
-        return f"Error in improve: {e}"
+    """记忆管家演化入口。"""
+    return await _mcp_run(
+        "improve",
+        user_id,
+        lambda mem, uid: mem.improve(user_id=uid, limit=20),
+    )
 
 
 @mcp.tool(
     description="记忆管家：遗忘指定记忆（先invalidate标记失效，再软删除）。memory_id=要遗忘的记忆ID。用于清理过时信息或用户要求忘记的内容。"
 )
 async def forget(user_id: str = "", memory_id: str = "") -> str:
-    """记忆管家遗忘入口。
+    """记忆管家遗忘入口。"""
+    def _do(mem, uid):
+        if not memory_id:
+            return "Error: memory_id is required"
+        return mem.forget(memory_id, user_id=uid)
 
-    Args:
-        user_id: 用户 ID（空则从 contextvar 读取）
-        memory_id: 要遗忘的记忆 ID（必填）
-
-    Returns:
-        JSON: {event, invalidated_at, deleted_at}
-    """
-    uid = _resolve_user_id(user_id)
-    if not uid:
-        return "Error: user_id not provided (传 user_id 参数或设 SEPTMUSE_USER_ID 环境变量)"
-
-    if not memory_id:
-        return "Error: memory_id is required"
-
-    mem = get_memory_safe()
-    if not mem:
-        return "Error: Memory system is currently unavailable. Please try again later."
-
-    try:
-        result = mem.forget(memory_id, user_id=uid)
-        return json.dumps(result, ensure_ascii=False, default=str)
-    except Exception as e:
-        return f"Error in forget: {e}"
+    return await _mcp_run("forget", user_id, _do)
 
 
 logger.info("mcp_tools_registered", count=22)

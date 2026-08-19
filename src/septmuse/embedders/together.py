@@ -11,10 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Together AI 嵌入 provider — 继承 _OpenAICompatibleEmbedder。
-
-Together API 与 OpenAI Embeddings 兼容, 仅 base_url 和默认 model/dims 不同。
-"""
+"""Together AI 嵌入 provider。"""
 
 from __future__ import annotations
 

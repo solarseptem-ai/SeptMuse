@@ -11,11 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""PostgresFTSIndex — PostgreSQL 全文检索 (tsvector + ts_rank)。
-
-有 PostgreSQL 方言时: 用 to_tsvector + plainto_tsquery + ts_rank, 性能远超 Python TF。
-无 PostgreSQL 时: 降级为 SQLAlchemyKeywordIndex (Python 侧 TF), 日志警告。
-"""
+"""PostgreSQL 全文检索索引 (tsvector + ts_rank)。"""
 
 from __future__ import annotations
 
@@ -31,15 +27,7 @@ logger = get_logger(__name__)
 
 
 class PostgresFTSIndex(KeywordIndexBase):
-    """PostgreSQL 全文检索索引 (有 PG 方言用 FTS, 无则降级)。
-
-    用法:
-        from sqlalchemy import create_engine
-        engine = create_engine("postgresql://user:pass@host/db")
-        idx = PostgresFTSIndex(engine)
-        idx.add_docs({"m1": "hello world"})
-        results = idx.retrieve("hello", limit=5)
-    """
+    """PostgreSQL 全文检索索引。"""
 
     def __init__(self, engine: Engine) -> None:
         self._engine = engine

@@ -11,15 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""混合检索 — BM25 关键词 + 向量语义 RRF 融合 (架构文档 §5.2)。
-
-BM25 归一化 + RRF (Reciprocal Rank Fusion) 融合向量+关键词:
-fused_score = vector_weight/(k+vector_rank) + keyword_weight/(k+keyword_rank)
-
-BM25 实现: 纯 Python 无外部依赖, k1=1.5, b=0.75 (标准 BM25 参数)。
-
-详见 docs/specs/agent-memory-architecture.md §5.2 检索策略。
-"""
+"""混合检索 — BM25 关键词 + 向量语义 RRF 融合。"""
 
 from __future__ import annotations
 
@@ -168,13 +160,7 @@ class HybridResult:
 
 
 class HybridRetriever:
-    """混合检索器 (BM25 + 向量 RRF 融合)。
-
-    用法:
-        retriever = HybridRetriever(store, embedder)
-        results = retriever.search("alice python", user_id="alice")
-        # results 含 RRF 融合后的排序结果
-    """
+    """混合检索器 (BM25 + 向量 RRF 融合)。"""
 
     def __init__(
         self,
@@ -205,7 +191,7 @@ class HybridRetriever:
         self, query: str, user_id: str, session_id: str | None, top_k: int,
         threshold: float, filters: dict[str, Any] | None, explain: bool,
     ) -> str:
-        """构建缓存 key: query_hash:user_id:session_id:top_k:threshold:filters_hash:explain。"""
+        """构建缓存 key。"""
         qhash = hashlib.md5(query.encode()).hexdigest()
         fhash = hashlib.md5(
             json.dumps(filters or {}, sort_keys=True, default=str).encode()
@@ -214,7 +200,7 @@ class HybridRetriever:
         return f"{qhash}:{user_id}:{sid}:{top_k}:{threshold}:{fhash}:{explain}"
 
     def invalidate_cache(self, user_id: str | None = None) -> None:
-        """清除查询缓存。user_id=None 清所有, 指定 user_id 只清该用户的。"""
+        """清除查询缓存。"""
         with self._cache_lock:
             if user_id is None:
                 self._cache.clear()
@@ -234,17 +220,7 @@ class HybridRetriever:
         explain: bool = False,
         filters: dict[str, Any] | None = None,
     ) -> list[HybridResult]:
-        """BM25 + 向量 RRF 融合检索。
-
-        session_id: 仅搜该会话的记忆 (None=不限)。
-        filters: 字段过滤字典 (如 {"session_id":"s1"}), None=不过滤。
-
-        优化: over-fetch (internal_limit = max(top_k*4, 60)) 替代全量 get_all,
-        BM25 仅在向量召回的候选池上索引, 避免大记忆库全量加载。
-
-        缓存: 相同 query+params 5 分钟内返回缓存结果 (TTL 300s),
-        Memory.add/update/delete 时调 invalidate_cache 清除。
-        """
+        """BM25 + 向量 RRF 融合检索。"""
         # 缓存检查 (命中则直接返回, 跳过三路并发检索)
         cache_key = self._cache_key(query, user_id, session_id, top_k, threshold, filters, explain)
         with self._cache_lock:

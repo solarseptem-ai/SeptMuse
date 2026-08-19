@@ -11,24 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""septmuse 命令行入口。
-
-子命令:
-- ``init``   : 初始化本地记忆库
-- ``add``    : 添加记忆
-- ``search`` : 检索记忆
-- ``dump``   : 导出记忆
-- ``serve``  : 启动 HTTP/SSE MCP server
-- ``mcp``    : 启动 stdio MCP server
-- ``version``: 显示版本号
-
-用法:
-    septmuse init --user alice
-    septmuse add "我喜欢 Python" --user alice
-    septmuse search "喜欢什么" --user alice
-    septmuse dump --user alice
-    septmuse serve --port 8000 --with-rest
-"""
+"""septmuse 命令行入口。"""
 
 from __future__ import annotations
 
@@ -37,6 +20,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 
 def _resolve_db_path(db_path: str | None) -> str:
@@ -49,14 +33,18 @@ def _resolve_db_path(db_path: str | None) -> str:
     return str(Path.home() / ".septmuse" / "septmuse.db")
 
 
-def _make_memory(db_path: str | None):
-    """创建 Memory 实例 (默认 HashEmbedder, 零模型加载)。"""
-    from septmuse.configs.defaults import MemoryConfig
-    from septmuse.embedders.hash import HashEmbedder
-    from septmuse.experimental import ExperimentalMemory
+_ops_cache: dict[str, Any] = {}
 
+
+def _get_ops(db_path: str | None) -> Any:
+    """获取 MemoryOperations 实例 (按 db_path 缓存, 避免重复创建连接)。"""
+    from septmuse.api.operations import MemoryOperations
     path = _resolve_db_path(db_path)
-    return ExperimentalMemory(config=MemoryConfig(db_path=path), embedder=HashEmbedder())
+    if path not in _ops_cache:
+        ops = MemoryOperations()
+        ops._db_path = path
+        _ops_cache[path] = ops
+    return _ops_cache[path]
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -73,7 +61,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_init.add_argument("--db-path", default=None, help="SQLite 路径 (默认 ~/.septmuse/septmuse.db)")
     p_init.set_defaults(func=_cmd_init)
 
-    # add (Task 3 实现)
+    # add
     p_add = sub.add_parser("add", help="添加记忆")
     p_add.add_argument("content", help="记忆内容")
     p_add.add_argument(
@@ -98,7 +86,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_inv.add_argument("--db-path", default=None, help="SQLite 路径")
     p_inv.set_defaults(func=_cmd_invalidate)
 
-    # search (Task 4 实现)
+    # search
     p_search = sub.add_parser("search", help="检索记忆")
     p_search.add_argument("query", help="查询文本")
     p_search.add_argument(
@@ -115,7 +103,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_search.add_argument("--db-path", default=None, help="SQLite 路径")
     p_search.set_defaults(func=_cmd_search)
 
-    # dump (Task 5 实现)
+    # dump
     p_dump = sub.add_parser("dump", help="导出记忆")
     p_dump.add_argument("--user", default=os.getenv("SEPTMUSE_USER_ID", "default"), help="用户 ID")
     p_dump.add_argument("--session-id", default=None, help="会话 ID（仅导出该会话的记忆）")
@@ -132,11 +120,57 @@ def _build_parser() -> argparse.ArgumentParser:
     p_update.add_argument("--db-path", default=None, help="SQLite 路径")
     p_update.set_defaults(func=_cmd_update)
 
+    # get
+    p_get = sub.add_parser("get", help="获取单条记忆")
+    p_get.add_argument("memory_id", help="记忆 ID")
+    p_get.add_argument("--db-path", default=None, help="SQLite 路径")
+    p_get.set_defaults(func=_cmd_get)
+
+    # delete
+    p_del = sub.add_parser("delete", help="删除记忆")
+    p_del.add_argument("memory_id", help="记忆 ID")
+    p_del.add_argument("--db-path", default=None, help="SQLite 路径")
+    p_del.set_defaults(func=_cmd_delete)
+
     # history
     p_history = sub.add_parser("history", help="查看记忆变更历史")
     p_history.add_argument("memory_id", help="记忆 ID")
     p_history.add_argument("--db-path", default=None, help="SQLite 路径")
     p_history.set_defaults(func=_cmd_history)
+
+    # remember — V2 写入编排
+    p_remember = sub.add_parser("remember", help="V2 记忆写入编排")
+    p_remember.add_argument("text", help="待记忆文本")
+    p_remember.add_argument("--user", default=os.getenv("SEPTMUSE_USER_ID", "default"), help="用户 ID")
+    p_remember.add_argument("--agent", default=None, help="agent ID")
+    p_remember.add_argument("--session", default=None, help="会话 ID")
+    p_remember.add_argument("--db-path", default=None, help="SQLite 路径")
+    p_remember.set_defaults(func=_cmd_remember)
+
+    # recall — V2 召回编排
+    p_recall = sub.add_parser("recall", help="V2 记忆召回编排")
+    p_recall.add_argument("query", help="召回查询")
+    p_recall.add_argument("--user", default=os.getenv("SEPTMUSE_USER_ID", "default"), help="用户 ID")
+    p_recall.add_argument("--session", default=None, help="会话 ID")
+    p_recall.add_argument("--top-k", type=int, default=5, help="返回记忆条数")
+    p_recall.add_argument("--auto-compress", action="store_true", help="先压缩上下文")
+    p_recall.add_argument("--recipe", default=None, help="检索配方名称")
+    p_recall.add_argument("--db-path", default=None, help="SQLite 路径")
+    p_recall.set_defaults(func=_cmd_recall)
+
+    # improve — V2 演化编排
+    p_improve = sub.add_parser("improve", help="V2 记忆演化编排")
+    p_improve.add_argument("--user", default=os.getenv("SEPTMUSE_USER_ID", "default"), help="用户 ID")
+    p_improve.add_argument("--limit", type=int, default=20, help="处理记忆数量上限")
+    p_improve.add_argument("--db-path", default=None, help="SQLite 路径")
+    p_improve.set_defaults(func=_cmd_improve)
+
+    # forget — V2 遗忘编排
+    p_forget = sub.add_parser("forget", help="V2 记忆遗忘编排")
+    p_forget.add_argument("memory_id", help="要遗忘的记忆 ID")
+    p_forget.add_argument("--user", default=os.getenv("SEPTMUSE_USER_ID", "default"), help="用户 ID")
+    p_forget.add_argument("--db-path", default=None, help="SQLite 路径")
+    p_forget.set_defaults(func=_cmd_forget)
 
     # block
     p_block = sub.add_parser("block", help="工作记忆 Block 操作")
@@ -152,7 +186,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_block_list.add_argument("--db-path", default=None, help="SQLite 路径")
     p_block_list.set_defaults(func=_cmd_block_list)
 
-    # serve (Task 6 实现)
+    # serve
     p_serve = sub.add_parser("serve", help="启动 HTTP/SSE MCP server")
     p_serve.add_argument("--host", default="127.0.0.1", help="绑定地址")
     p_serve.add_argument("--port", type=int, default=8000, help="端口")
@@ -161,7 +195,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_serve.add_argument("--db-path", default=None, help="SQLite 路径")
     p_serve.set_defaults(func=_cmd_serve)
 
-    # mcp (已有, 保留)
+    # mcp
     p_mcp = sub.add_parser("mcp", help="启动 stdio MCP server")
     p_mcp.set_defaults(func=_cmd_mcp)
 
@@ -253,18 +287,18 @@ def _cmd_init(args: argparse.Namespace) -> int:
     db = Path(db_path)
     db.parent.mkdir(parents=True, exist_ok=True)
 
-    m = _make_memory(args.db_path)
-    m.add(f"septmuse initialized for user {args.user}", user_id=args.user)
+    ops = _get_ops(args.db_path)
+    ops.add(f"septmuse initialized for user {args.user}", user_id=args.user)
     print(f"initialized: {db}")
     return 0
 
 
 def _cmd_add(args: argparse.Namespace) -> int:
     """添加记忆 (verbatim/semantic/episodic/procedural)。"""
-    m = _make_memory(args.db_path)
+    ops = _get_ops(args.db_path)
 
     if args.type == "verbatim":
-        result = m.add(
+        result = ops.add(
             args.content,
             user_id=args.user,
             agent_id=args.agent,
@@ -274,36 +308,29 @@ def _cmd_add(args: argparse.Namespace) -> int:
         )
         mid = result["results"][0]["id"] if result.get("results") else None
         print(json.dumps({"memory_id": mid, "type": "verbatim"}, ensure_ascii=False))
-    elif args.type == "semantic":
-        parts = args.content.split(None, 2)
-        subject = parts[0] if len(parts) > 0 else args.content
-        predicate = parts[1] if len(parts) > 1 else "is"
-        obj = parts[2] if len(parts) > 2 else ""
-        result = m.add_fact(subject, predicate, obj, user_id=args.user)
-        print(json.dumps({"id": result["id"], "type": "semantic"}, ensure_ascii=False))
-    elif args.type == "episodic":
-        result = m.add_episode(args.content, user_id=args.user)
-        print(json.dumps({"id": result["id"], "type": "episodic"}, ensure_ascii=False))
-    elif args.type == "procedural":
-        result = m.add_rule(args.content, user_id=args.user)
-        print(json.dumps({"id": result["id"], "type": "procedural"}, ensure_ascii=False))
+    else:
+        result = ops.add_typed(args.content, args.type, user_id=args.user)
+        if "id" in result:
+            print(json.dumps({"id": result["id"], "type": args.type}, ensure_ascii=False))
+        else:
+            print(json.dumps(result, ensure_ascii=False))
     return 0
 
 
 def _cmd_invalidate(args: argparse.Namespace) -> int:
     """手动标记事实不再为真 (设置 invalid_at + expired_at, 不删除记忆)。"""
-    m = _make_memory(args.db_path)
-    result = m.invalidate(args.memory_id, invalid_at=args.invalid_at)
+    ops = _get_ops(args.db_path)
+    result = ops.invalidate(args.memory_id, invalid_at=args.invalid_at)
     print(json.dumps(result, ensure_ascii=False))
     return 0
 
 
 def _cmd_search(args: argparse.Namespace) -> int:
     """检索记忆, JSON 数组输出。"""
-    m = _make_memory(args.db_path)
+    ops = _get_ops(args.db_path)
     filters = json.loads(args.filters) if args.filters else None
     reranker = args.reranker or None
-    results = m.search(
+    results = ops.search(
         args.query,
         user_id=args.user,
         session_id=args.session_id,
@@ -319,8 +346,8 @@ def _cmd_search(args: argparse.Namespace) -> int:
 
 def _cmd_dump(args: argparse.Namespace) -> int:
     """导出记忆 (json/markdown, stdout 或文件)。"""
-    m = _make_memory(args.db_path)
-    data = m.get_all(user_id=args.user, session_id=args.session_id)
+    ops = _get_ops(args.db_path)
+    data = ops.get_all(user_id=args.user, session_id=args.session_id)
 
     if args.format == "markdown":
         lines: list[str] = []
@@ -341,32 +368,32 @@ def _cmd_dump(args: argparse.Namespace) -> int:
 
 def _cmd_update(args: argparse.Namespace) -> int:
     """更新记忆。"""
-    m = _make_memory(args.db_path)
-    result = m.update(args.memory_id, args.content)
+    ops = _get_ops(args.db_path)
+    result = ops.update(args.memory_id, args.content)
     print(json.dumps(result, ensure_ascii=False))
     return 0
 
 
 def _cmd_history(args: argparse.Namespace) -> int:
     """查看记忆变更历史。"""
-    m = _make_memory(args.db_path)
-    history = m.get_history(args.memory_id)
+    ops = _get_ops(args.db_path)
+    history = ops.get_history(args.memory_id)
     print(json.dumps(history, ensure_ascii=False, default=str, indent=2))
     return 0
 
 
 def _cmd_block_set(args: argparse.Namespace) -> int:
     """设置 block value。"""
-    m = _make_memory(args.db_path)
-    result = m.update_block(args.agent_id, args.label, args.value)
+    ops = _get_ops(args.db_path)
+    result = ops.update_block(args.agent_id, args.label, args.value)
     print(json.dumps(result, ensure_ascii=False))
     return 0
 
 
 def _cmd_block_list(args: argparse.Namespace) -> int:
     """列出 block。"""
-    m = _make_memory(args.db_path)
-    blocks = m.get_blocks(args.agent_id)
+    ops = _get_ops(args.db_path)
+    blocks = ops.get_blocks(args.agent_id)
     print(json.dumps(blocks, ensure_ascii=False, indent=2, default=str))
     return 0
 
@@ -441,8 +468,8 @@ def _cmd_serve(args: argparse.Namespace) -> int:
     if args.with_rest:
         from septmuse.api.rest import register_routes
 
-        m = _make_memory(args.db_path)
-        register_routes(app, m)
+        ops = _get_ops(args.db_path)
+        register_routes(app, ops.memory)
 
     print(f"septmuse serve: http://{args.host}:{args.port}")
     uvicorn.run(app, host=args.host, port=args.port)
@@ -529,61 +556,120 @@ def _cmd_migrate(args: argparse.Namespace) -> int:
 
 def _cmd_cognify(args: argparse.Namespace) -> int:
     """构建知识图谱 (存记忆→抽三元组→存实体/关系→建链接)。"""
-    m = _make_memory(args.db_path)
-    result = m.cognify(args.text, user_id=args.user)
+    ops = _get_ops(args.db_path)
+    result = ops.cognify(args.text, user_id=args.user)
     print(json.dumps(result, ensure_ascii=False, default=str, indent=2))
     return 0
 
 
 def _cmd_search_graph(args: argparse.Namespace) -> int:
     """BFS 图遍历检索。"""
-    m = _make_memory(args.db_path)
-    results = m.search_graph(args.memory_id, max_depth=args.max_depth)
+    ops = _get_ops(args.db_path)
+    results = ops.search_graph(args.memory_id, max_depth=args.max_depth)
     print(json.dumps(results, ensure_ascii=False, default=str, indent=2))
     return 0
 
 
 def _cmd_search_interval(args: argparse.Namespace) -> int:
     """时间区间查询 ([start, end) 内为真的相关记忆)。"""
-    m = _make_memory(args.db_path)
-    results = m.search_interval(args.start, args.end, args.query, user_id=args.user)
+    ops = _get_ops(args.db_path)
+    results = ops.search_interval(args.start, args.end, args.query, user_id=args.user)
     print(json.dumps(results, ensure_ascii=False, default=str, indent=2))
     return 0
 
 
 def _cmd_reflect(args: argparse.Namespace) -> int:
     """会话蒸馏 (提取教训→procedural rules)。"""
-    m = _make_memory(args.db_path)
-    result = m.reflect(user_id=args.user, limit=args.limit)
+    ops = _get_ops(args.db_path)
+    result = ops.reflect(user_id=args.user, limit=args.limit)
     print(json.dumps(result, ensure_ascii=False, default=str, indent=2))
     return 0
 
 
 def _cmd_entities(args: argparse.Namespace) -> int:
     """搜索实体。"""
-    m = _make_memory(args.db_path)
-    results = m.search_entities(args.query, user_id=args.user_id, top_k=args.top_k)
+    ops = _get_ops(args.db_path)
+    results = ops.search_entities(args.query, user_id=args.user_id, top_k=args.top_k)
     print(json.dumps(results, ensure_ascii=False, default=str, indent=2))
     return 0
 
 
 def _cmd_entity_list(args: argparse.Namespace) -> int:
     """列出用户全部实体。"""
-    m = _make_memory(args.db_path)
-    results = m.list_entities(user_id=args.user_id, entity_type=args.entity_type, limit=args.limit)
+    ops = _get_ops(args.db_path)
+    results = ops.list_entities(user_id=args.user_id, entity_type=args.entity_type, limit=args.limit)
     print(json.dumps(results, ensure_ascii=False, default=str, indent=2))
     return 0
 
 
 def _cmd_access_logs(args: argparse.Namespace) -> int:
     """查询记忆访问日志。"""
-    m = _make_memory(args.db_path)
-    store = m.store
-    if not hasattr(store, "get_access_logs"):
-        print("[]")
-        return 0
-    results = store.get_access_logs(args.memory_id, limit=args.limit)
+    ops = _get_ops(args.db_path)
+    results = ops.get_access_logs(args.memory_id, limit=args.limit)
     print(json.dumps(results, ensure_ascii=False, default=str, indent=2))
+    return 0
+
+
+def _cmd_get(args: argparse.Namespace) -> int:
+    """获取单条记忆。"""
+    ops = _get_ops(args.db_path)
+    result = ops.get(args.memory_id)
+    if result is None:
+        print(json.dumps({"error": "not found"}, ensure_ascii=False))
+        return 1
+    print(json.dumps(result, ensure_ascii=False, default=str, indent=2))
+    return 0
+
+
+def _cmd_delete(args: argparse.Namespace) -> int:
+    """删除记忆。"""
+    ops = _get_ops(args.db_path)
+    result = ops.delete(args.memory_id)
+    print(json.dumps(result, ensure_ascii=False))
+    return 0
+
+
+def _cmd_remember(args: argparse.Namespace) -> int:
+    """V2 记忆写入编排。"""
+    ops = _get_ops(args.db_path)
+    result = ops.remember(
+        args.text,
+        user_id=args.user,
+        agent_id=args.agent,
+        session_id=args.session,
+    )
+    print(json.dumps(result, ensure_ascii=False, default=str, indent=2))
+    return 0
+
+
+def _cmd_recall(args: argparse.Namespace) -> int:
+    """V2 记忆召回编排。"""
+    ops = _get_ops(args.db_path)
+    result = ops.recall(
+        args.query,
+        user_id=args.user,
+        session_id=args.session,
+        top_k=args.top_k,
+        auto_compress=args.auto_compress,
+        recipe=args.recipe,
+    )
+    print(json.dumps(result, ensure_ascii=False, default=str, indent=2))
+    return 0
+
+
+def _cmd_improve(args: argparse.Namespace) -> int:
+    """V2 记忆演化编排。"""
+    ops = _get_ops(args.db_path)
+    result = ops.improve(user_id=args.user, limit=args.limit)
+    print(json.dumps(result, ensure_ascii=False, default=str, indent=2))
+    return 0
+
+
+def _cmd_forget(args: argparse.Namespace) -> int:
+    """V2 记忆遗忘编排。"""
+    ops = _get_ops(args.db_path)
+    result = ops.forget(args.memory_id, user_id=args.user)
+    print(json.dumps(result, ensure_ascii=False, default=str, indent=2))
     return 0
 
 

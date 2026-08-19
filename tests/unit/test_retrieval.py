@@ -25,14 +25,14 @@ import pytest
 
 from septmuse import MemoryConfig
 from septmuse.embedders.hash import HashEmbedder
-from septmuse.experimental import ExperimentalMemory
+from septmuse.memory.main import Memory
 from septmuse.retrieval.hybrid import BM25Scorer, HybridRetriever
 from septmuse.retrieval.progressive import ProgressiveRetriever
 
 
 @pytest.fixture()
-def mem() -> ExperimentalMemory:
-    return ExperimentalMemory(
+def mem() -> Memory:
+    return Memory(
         config=MemoryConfig(db_path=":memory:"),
         embedder=HashEmbedder(),
     )
@@ -109,19 +109,19 @@ class TestBM25Scorer:
 
 
 class TestHybridRetriever:
-    def test_empty_store(self, mem: ExperimentalMemory) -> None:
+    def test_empty_store(self, mem: Memory) -> None:
         retriever = HybridRetriever(mem.store, mem.embedder)
         results = retriever.search("hello", user_id="alice")
         assert results == []
 
-    def test_vector_only_hit(self, mem: ExperimentalMemory) -> None:
+    def test_vector_only_hit(self, mem: Memory) -> None:
         mem.add("alice likes python programming", user_id="alice")
         retriever = HybridRetriever(mem.store, mem.embedder)
         results = retriever.search("alice python", user_id="alice")
         assert len(results) >= 1
         assert "alice" in results[0].memory.lower()
 
-    def test_bm25_boosts_keyword_match(self, mem: ExperimentalMemory) -> None:
+    def test_bm25_boosts_keyword_match(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice")
         mem.add("bob likes java", user_id="alice")
         retriever = HybridRetriever(mem.store, mem.embedder)
@@ -130,7 +130,7 @@ class TestHybridRetriever:
         # "python" doc should rank first (both vector + bm25 hit)
         assert "python" in results[0].memory.lower()
 
-    def test_rrf_fusion_scores(self, mem: ExperimentalMemory) -> None:
+    def test_rrf_fusion_scores(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice")
         retriever = HybridRetriever(mem.store, mem.embedder)
         results = retriever.search("alice python", user_id="alice")
@@ -140,21 +140,21 @@ class TestHybridRetriever:
         assert results[0].vector_score >= 0
         assert results[0].bm25_score >= 0
 
-    def test_threshold_filters(self, mem: ExperimentalMemory) -> None:
+    def test_threshold_filters(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice")
         retriever = HybridRetriever(mem.store, mem.embedder)
         # Very high threshold should filter out results
         results = retriever.search("xyzabc", user_id="alice", threshold=0.99)
         assert len(results) == 0
 
-    def test_user_id_isolation(self, mem: ExperimentalMemory) -> None:
+    def test_user_id_isolation(self, mem: Memory) -> None:
         mem.add("alice secret", user_id="alice")
         mem.add("bob secret", user_id="bob")
         retriever = HybridRetriever(mem.store, mem.embedder)
         results = retriever.search("secret", user_id="alice")
         assert all("alice" in r.memory.lower() or "bob" not in r.memory.lower() for r in results)
 
-    def test_filters_session_id(self, mem: ExperimentalMemory) -> None:
+    def test_filters_session_id(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice", session_id="s1")
         mem.add("alice likes java", user_id="alice", session_id="s2")
         retriever = HybridRetriever(mem.store, mem.embedder)
@@ -164,13 +164,13 @@ class TestHybridRetriever:
         assert ids == s1_mems
         assert all("python" in r.memory.lower() for r in results)
 
-    def test_filters_no_match(self, mem: ExperimentalMemory) -> None:
+    def test_filters_no_match(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice", session_id="s1")
         retriever = HybridRetriever(mem.store, mem.embedder)
         results = retriever.search("alice", user_id="alice", filters={"session_id": "nonexistent"})
         assert results == []
 
-    def test_filters_none_returns_all(self, mem: ExperimentalMemory) -> None:
+    def test_filters_none_returns_all(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice", session_id="s1")
         mem.add("alice likes java", user_id="alice", session_id="s2")
         retriever = HybridRetriever(mem.store, mem.embedder)
@@ -184,19 +184,19 @@ class TestHybridRetriever:
 
 
 class TestProgressiveRetriever:
-    def test_empty_store(self, mem: ExperimentalMemory) -> None:
+    def test_empty_store(self, mem: Memory) -> None:
         retriever = ProgressiveRetriever(mem.store, mem.typed_store, mem.embedder)
         results = retriever.retrieve("hello", user_id="alice")
         assert results == []
 
-    def test_recall_verbatim(self, mem: ExperimentalMemory) -> None:
+    def test_recall_verbatim(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice")
         retriever = ProgressiveRetriever(mem.store, mem.typed_store, mem.embedder)
         results = retriever.retrieve("alice python", user_id="alice")
         assert len(results) >= 1
         assert results[0].memory_type == "verbatim"
 
-    def test_recall_semantic(self, mem: ExperimentalMemory) -> None:
+    def test_recall_semantic(self, mem: Memory) -> None:
         mem.add_fact("alice", "likes", "python", user_id="alice")
         retriever = ProgressiveRetriever(mem.store, mem.typed_store, mem.embedder)
         results = retriever.retrieve("alice likes", user_id="alice")
@@ -205,7 +205,7 @@ class TestProgressiveRetriever:
         assert len(semantic_hits) >= 1
         assert "alice" in semantic_hits[0].memory
 
-    def test_expand_by_tags(self, mem: ExperimentalMemory) -> None:
+    def test_expand_by_tags(self, mem: Memory) -> None:
         mem.add("python tutorial", user_id="alice", metadata={"tags": ["coding"]})
         mem.add("java tutorial", user_id="alice", metadata={"tags": ["coding"]})
         mem.add("cooking recipe", user_id="alice", metadata={"tags": ["food"]})
@@ -215,7 +215,7 @@ class TestProgressiveRetriever:
         all_memories = [r.memory for r in results]
         assert "python tutorial" in all_memories
 
-    def test_results_sorted_by_score(self, mem: ExperimentalMemory) -> None:
+    def test_results_sorted_by_score(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice")
         mem.add("bob likes java", user_id="alice")
         retriever = ProgressiveRetriever(mem.store, mem.typed_store, mem.embedder)
@@ -223,7 +223,7 @@ class TestProgressiveRetriever:
         if len(results) >= 2:
             assert results[0].score >= results[1].score
 
-    def test_dedup(self, mem: ExperimentalMemory) -> None:
+    def test_dedup(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice")
         retriever = ProgressiveRetriever(mem.store, mem.typed_store, mem.embedder)
         results = retriever.retrieve("alice python", user_id="alice")
@@ -239,18 +239,18 @@ class TestProgressiveRetriever:
 class TestMemoryReranker:
     def test_search_with_noop_reranker(self, tmp_path):
         from septmuse.configs.defaults import MemoryConfig
-        from septmuse.experimental import ExperimentalMemory
+        from septmuse.memory.main import Memory
 
-        m = ExperimentalMemory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
+        m = Memory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
         m.add("hello world", user_id="u1")
         results = m.search("hello", user_id="u1", reranker="noop")
         assert len(results) >= 1
 
     def test_search_with_mmr_reranker(self, tmp_path):
         from septmuse.configs.defaults import MemoryConfig
-        from septmuse.experimental import ExperimentalMemory
+        from septmuse.memory.main import Memory
 
-        m = ExperimentalMemory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
+        m = Memory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
         m.add("Python programming", user_id="u1")
         m.add("Java programming", user_id="u1")
         results = m.search("programming", user_id="u1", reranker="mmr")
@@ -258,9 +258,9 @@ class TestMemoryReranker:
 
     def test_search_with_explain(self, tmp_path):
         from septmuse.configs.defaults import MemoryConfig
-        from septmuse.experimental import ExperimentalMemory
+        from septmuse.memory.main import Memory
 
-        m = ExperimentalMemory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
+        m = Memory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
         m.add("hello world", user_id="u1")
         results = m.search("hello", user_id="u1", explain=True)
         assert len(results) >= 1
@@ -268,20 +268,20 @@ class TestMemoryReranker:
 
     def test_config_reranker_backend(self, tmp_path):
         from septmuse.configs.defaults import MemoryConfig
-        from septmuse.experimental import ExperimentalMemory
+        from septmuse.memory.main import Memory
 
         config = MemoryConfig(db_path=str(tmp_path / "test.db"), reranker_backend="mmr")
-        m = ExperimentalMemory(config=config)
+        m = Memory(config=config)
         m.add("test", user_id="u1")
         results = m.search("test", user_id="u1")
         assert len(results) >= 1
 
     def test_reranker_param_overrides_config(self, tmp_path):
         from septmuse.configs.defaults import MemoryConfig
-        from septmuse.experimental import ExperimentalMemory
+        from septmuse.memory.main import Memory
 
         config = MemoryConfig(db_path=str(tmp_path / "test.db"), reranker_backend="noop")
-        m = ExperimentalMemory(config=config)
+        m = Memory(config=config)
         m.add("test content", user_id="u1")
         results = m.search("test", user_id="u1", reranker="noop")
         assert len(results) >= 1
@@ -312,9 +312,9 @@ class TestRESTReranker:
         from septmuse.api.rest import create_app
         from septmuse.configs.defaults import MemoryConfig
         from septmuse.embedders.hash import HashEmbedder
-        from septmuse.experimental import ExperimentalMemory
+        from septmuse.memory.main import Memory
 
-        mem = ExperimentalMemory(
+        mem = Memory(
             config=MemoryConfig(db_path=str(tmp_path / "rest.db")),
             embedder=HashEmbedder(),
         )

@@ -11,13 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""V2 程序记忆子组件 — ProceduralRule CRUD + helpful/harmful 退化。
-
-继承 LongTermMemory ABC, 委托 TypedMemoryStore。
-数据模型共享 models/procedural.py 的 ProceduralRule, 不 import models/ 的操作类。
-
-详见 docs/specs/2026-08-04-v2-memory-architecture.md §2.3 + §4。
-"""
+"""V2 程序记忆子组件 — ProceduralRule CRUD + helpful/harmful 退化。"""
 
 from __future__ import annotations
 
@@ -34,13 +28,7 @@ logger = get_logger(__name__)
 
 
 class ProceduralMemory(LongTermMemory):
-    """V2 程序记忆 — 规则 CRUD + helpful/harmful 退化。
-
-    构造参数 (与 V1 models/procedural.py 一致):
-        pm = ProceduralMemory(store=typed_store)
-
-    与 V1 区别: 继承 LongTermMemory ABC, 实现 invalidate/get_history/get_all。
-    """
+    """V2 程序记忆 — 规则 CRUD + helpful/harmful 退化。"""
 
     def __init__(self, store: TypedMemoryStore) -> None:
         self.store = store

@@ -11,16 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""因果链记忆数据模型 — 因果边 + 反事实验证 (架构文档 §6.1 自研)。
-
-14 家开源均未系统覆盖因果记忆。SeptMuse 在图上新增因果边类型,
-支持反事实查询"如果当时没做 X 会怎样"。
-
-对齐架构文档 §6.1:
-- CausalEdge: cause_event_id → effect_event_id, relation, confidence
-- relation: "enables" | "prevents" | "causes" | "inhibits"
-- counterfactual_valid: 是否已验证反事实
-"""
+"""因果链记忆数据模型。"""
 
 from __future__ import annotations
 
@@ -40,7 +31,7 @@ def _new_id() -> str:
 
 
 class CausalRelation(str, Enum):
-    """因果关系类型 (架构文档 §6.1)。"""
+    """因果关系类型。"""
 
     ENABLES = "enables"  # X 使 Y 成为可能
     PREVENTS = "prevents"  # X 阻止 Y 发生
@@ -49,14 +40,7 @@ class CausalRelation(str, Enum):
 
 
 class CausalEdge(SQLModel, table=True):
-    """因果边 — 连接两个 EpisodicEvent, 表达因果关系 (架构文档 §6.1 自研)。
-
-    与事实三元组 (subject-predicate-object) 不同:
-    - 因果边连接的是事件 (event), 不是实体 (entity)
-    - 因果边有方向性 (cause → effect)
-    - 因果边支持反事实验证 (counterfactual_valid)
-    - 因果边有置信度 (confidence)
-    """
+    """因果边。"""
 
     __tablename__ = "septmuse_causal"  # type: ignore[assignment]
 

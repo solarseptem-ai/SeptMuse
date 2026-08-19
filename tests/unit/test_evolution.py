@@ -28,13 +28,13 @@ from septmuse.embedders.hash import HashEmbedder
 from septmuse.evolution.dream import DreamIntegrator
 from septmuse.evolution.reflect import SessionReflector
 from septmuse.evolution.zettel import ZettelLinker
-from septmuse.experimental import ExperimentalMemory
 from septmuse.llms.base import LLM
+from septmuse.memory.main import Memory
 
 
 @pytest.fixture()
-def mem() -> ExperimentalMemory:
-    return ExperimentalMemory(
+def mem() -> Memory:
+    return Memory(
         config=MemoryConfig(db_path=":memory:"),
         embedder=HashEmbedder(),
     )
@@ -53,7 +53,7 @@ class LessonMockLLM(LLM):
 
 
 class TestZettelLinker:
-    def test_link_on_add_creates_links(self, mem: ExperimentalMemory) -> None:
+    def test_link_on_add_creates_links(self, mem: Memory) -> None:
         # 先存一条已有记忆
         mem.add("alice likes python", user_id="alice")
         # 再存新记忆, 应自动建链接
@@ -75,7 +75,7 @@ class TestZettelLinker:
                 reverse = linker.get_links(link.target_id)
                 assert any(r.target_id == all_mem[0]["id"] for r in reverse)
 
-    def test_link_dedup(self, mem: ExperimentalMemory) -> None:
+    def test_link_dedup(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice")
         mem.add("alice likes python programming", user_id="alice")
 
@@ -89,12 +89,12 @@ class TestZettelLinker:
         links2 = linker.link_on_add(all_mem[0]["id"], all_mem[0]["memory"], emb, user_id="alice")
         assert len(links2) == 0  # 已有链接, 不重复
 
-    def test_get_links_empty(self, mem: ExperimentalMemory) -> None:
+    def test_get_links_empty(self, mem: Memory) -> None:
         linker = ZettelLinker(mem.store, mem.graph_store, mem.embedder)
         links = linker.get_links("nonexistent-id")
         assert links == []
 
-    def test_get_related_memories(self, mem: ExperimentalMemory) -> None:
+    def test_get_related_memories(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice")
         mem.add("alice likes python programming", user_id="alice")
 
@@ -108,7 +108,7 @@ class TestZettelLinker:
         # 应该能获取到关联记忆
         assert isinstance(related, list)
 
-    def test_self_not_linked(self, mem: ExperimentalMemory) -> None:
+    def test_self_not_linked(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice")
         linker = ZettelLinker(mem.store, mem.graph_store, mem.embedder, threshold=0.0)
 
@@ -125,13 +125,13 @@ class TestZettelLinker:
 
 
 class TestSessionReflector:
-    def test_no_events(self, mem: ExperimentalMemory) -> None:
+    def test_no_events(self, mem: Memory) -> None:
         reflector = SessionReflector(mem.typed_store)
         result = reflector.reflect(user_id="alice")
         assert result.lessons_proposed == 0
         assert result.lessons_accepted == 0
 
-    def test_heuristic_extract(self, mem: ExperimentalMemory) -> None:
+    def test_heuristic_extract(self, mem: Memory) -> None:
         # 添加 reasoning event
         mem.add_episode(
             "debugging session",
@@ -148,7 +148,7 @@ class TestSessionReflector:
         assert result.lessons_accepted > 0
         assert len(result.rule_ids) > 0
 
-    def test_llm_extract(self, mem: ExperimentalMemory) -> None:
+    def test_llm_extract(self, mem: Memory) -> None:
         mem.add_episode(
             "code review",
             user_id="alice",
@@ -163,7 +163,7 @@ class TestSessionReflector:
         assert result.lessons_proposed >= 2  # MockLLM returns 2 lessons
         assert result.lessons_accepted >= 2
 
-    def test_rules_stored_in_procedural(self, mem: ExperimentalMemory) -> None:
+    def test_rules_stored_in_procedural(self, mem: Memory) -> None:
         mem.add_episode(
             "session",
             user_id="alice",
@@ -179,7 +179,7 @@ class TestSessionReflector:
             rules = mem.typed_store.get_all_rules(user_id="alice")
             assert any(r.id in result.rule_ids for r in rules)
 
-    def test_short_lesson_rejected(self, mem: ExperimentalMemory) -> None:
+    def test_short_lesson_rejected(self, mem: Memory) -> None:
         mem.add_episode(
             "short",
             user_id="alice",
@@ -201,13 +201,13 @@ class TestSessionReflector:
 
 
 class TestDreamIntegrator:
-    def test_empty_store(self, mem: ExperimentalMemory) -> None:
+    def test_empty_store(self, mem: Memory) -> None:
         dreamer = DreamIntegrator(mem.store, mem.graph_store, mem.embedder)
         result = dreamer.dream(user_id="alice")
         assert result.processed == 0
         assert result.links_created == 0
 
-    def test_dream_creates_links(self, mem: ExperimentalMemory) -> None:
+    def test_dream_creates_links(self, mem: Memory) -> None:
         mem.add("alice likes python programming", user_id="alice")
         mem.add("alice enjoys coding in python", user_id="alice")
         mem.add("bob likes java", user_id="alice")  # different content
@@ -217,7 +217,7 @@ class TestDreamIntegrator:
         assert result.processed >= 1
         # Links may or may not be created depending on similarity threshold
 
-    def test_dream_processes_all(self, mem: ExperimentalMemory) -> None:
+    def test_dream_processes_all(self, mem: Memory) -> None:
         for i in range(5):
             mem.add(f"memory item number {i}", user_id="alice")
 
@@ -225,7 +225,7 @@ class TestDreamIntegrator:
         result = dreamer.dream(user_id="alice")
         assert result.processed == 5
 
-    def test_dream_batch_limit(self, mem: ExperimentalMemory) -> None:
+    def test_dream_batch_limit(self, mem: Memory) -> None:
         for i in range(10):
             mem.add(f"memory item number {i}", user_id="alice")
 
@@ -233,12 +233,12 @@ class TestDreamIntegrator:
         result = dreamer.dream(user_id="alice")
         assert result.processed == 3
 
-    def test_get_clusters_empty(self, mem: ExperimentalMemory) -> None:
+    def test_get_clusters_empty(self, mem: Memory) -> None:
         dreamer = DreamIntegrator(mem.store, mem.graph_store, mem.embedder)
         clusters = dreamer.get_clusters(user_id="alice")
         assert clusters == []
 
-    def test_get_clusters_with_links(self, mem: ExperimentalMemory) -> None:
+    def test_get_clusters_with_links(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice")
         mem.add("alice likes python coding", user_id="alice")
         mem.add("cooking recipe pasta", user_id="alice")

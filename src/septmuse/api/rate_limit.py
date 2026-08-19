@@ -1,11 +1,17 @@
-"""Rate limiting middleware — in-memory sliding window, zero dependencies.
-
-Per-worker in-memory rate limiting. Multi-worker deployments get limit × workers
-effective ceiling (acceptable for P0 abuse prevention; Redis-backed limiting is P2).
-
-Env:
-    SEPTMUSE_RATE_LIMIT: requests per minute per client (default: 120, 0=disabled)
-"""
+#  Copyright 2026 The sonhhxg0529 Authors. All Rights Reserved.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+"""速率限制中间件 — 内存滑动窗口。"""
 
 from __future__ import annotations
 
@@ -37,7 +43,7 @@ def _get_rpm() -> int:
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Sliding-window rate limiter — N requests per 60s per client identity."""
+    """滑动窗口速率限制器。"""
 
     def __init__(self, app, requests_per_minute: int = 0) -> None:
         super().__init__(app)
@@ -70,7 +76,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 
 def setup_rate_limit(app) -> None:
-    """Mount rate limiting middleware if SEPTMUSE_RATE_LIMIT != 0."""
+    """挂载速率限制中间件。"""
     rpm = _get_rpm()
     if rpm == 0:
         logger.info("rate_limit_disabled")

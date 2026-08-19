@@ -1,11 +1,4 @@
-"""ConflictAnnotator — 在检索结果中找矛盾并标注。
-
-规则：相同 (subject, predicate) 不同 object → 冲突。
-LLM 可用时：候选冲突对喂给 LLM 判定是否真矛盾。
-LLM 不可用时：只做规则匹配。
-
-只在 recall 返回的 top-K 结果对应的事实里找，不全库扫描。
-"""
+"""在检索结果中找矛盾并标注。"""
 
 from __future__ import annotations
 
@@ -25,11 +18,7 @@ _CONFLICT_USER_TEMPLATE = "事实1: {fact1}\n事实2: {fact2}\n\n这两条事实
 
 
 class ConflictAnnotator:
-    """在检索结果中标注矛盾事实。
-
-    Args:
-        llm: LLM 实例（可选，None 时只做规则匹配）
-    """
+    """在检索结果中标注矛盾事实。"""
 
     def __init__(self, llm: LLM | None = None) -> None:
         self._llm = llm
@@ -39,16 +28,7 @@ class ConflictAnnotator:
         memories: list[dict[str, Any]],
         facts: list[SemanticFact],
     ) -> list[dict[str, Any]]:
-        """在事实列表中找矛盾并返回冲突标注。
-
-        Args:
-            memories: recall 返回的记忆列表（用于确定范围）
-            facts: 对应的 SemanticFact 列表（从 typed_store 获取）
-
-        Returns:
-            [{"topic": str, "current": str, "contradicting": str,
-              "contradicting_memory_id": str, "suggestion": str}]
-        """
+        """在事实列表中找矛盾并返回冲突标注。"""
         if not facts:
             return []
 

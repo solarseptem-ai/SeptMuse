@@ -11,13 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Vertex AI 嵌入 provider — 唯一真正用 memory_action 的 provider。
-
-memory_action 切换 task_type:
-- "add"/"update" → RETRIEVAL_DOCUMENT
-- "search" → RETRIEVAL_QUERY
-- None → SEMANTIC_SIMILARITY
-"""
+"""Vertex AI 嵌入 provider。"""
 
 from __future__ import annotations
 

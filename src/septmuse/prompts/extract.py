@@ -11,17 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""记忆抽取提示模板 (精简版)。
-
-- 角色: Personal Information Organizer
-- 抽取 7 类信息 (偏好/个人细节/计划/活动/健康/职业/杂项)
-- 输出 JSON {"facts": [...]}
-- 检测语言, 同语言记录
-
-SeptMuse 精简: 保留核心指令 + JSON 格式约束, 去 few-shot 示例 (省 token)。
-
-P3-Task 2: 新增 ADDITIVE_EXTRACTION_PROMPT (含 9 个 few-shot)。
-"""
+"""记忆抽取提示模板。"""
 
 from __future__ import annotations
 
@@ -34,18 +24,7 @@ def build_extraction_user_prompt(
     existing_memories: list[dict[str, Any]] | None = None,
     last_k_messages: list[dict[str, Any]] | None = None,
 ) -> str:
-    """构建抽取 user prompt，注入已有记忆避免重复抽取 (对齐 mem0 V3 Phase 1)。
-
-    Args:
-        text: 新消息文本
-        existing_memories: 已有记忆列表 [{"id": "...", "memory": "..."}]
-            None 或空列表时不注入已有记忆段落 (纯抽取模式)。
-        last_k_messages: 近期对话上下文 [{"role": "...", "content": "..."}]
-            注入 Phase 0/1 上下文窗口, 帮助 LLM 理解对话连续性。
-
-    Returns:
-        user prompt 字符串
-    """
+    """构建抽取 user prompt，注入已有记忆避免重复抽取。"""
     sections: list[str] = []
     if last_k_messages:
         k_lines = "\n".join(f"{m.get('role', 'user')}: {m.get('content', '')}" for m in last_k_messages)

@@ -9,14 +9,14 @@ class TestEntityE2E:
         db = str(tmp_path / "e2e.db")
 
         from septmuse.configs.defaults import MemoryConfig
-        from septmuse.experimental import ExperimentalMemory
+        from septmuse.memory.main import Memory
 
         config = MemoryConfig(db_path=db)
-        m = ExperimentalMemory(config=config)
+        m = Memory(config=config)
         m.add("Alice works at Google in London", user_id="u1")
         m.close()
 
-        m2 = ExperimentalMemory(config=MemoryConfig(db_path=db))
+        m2 = Memory(config=MemoryConfig(db_path=db))
         entities = m2.search_entities("Google", user_id="u1")
         assert any(e["entity_text"] == "Google" for e in entities)
 
@@ -29,9 +29,9 @@ class TestEntityE2E:
         db = str(tmp_path / "e2e.db")
 
         from septmuse.configs.defaults import MemoryConfig
-        from septmuse.experimental import ExperimentalMemory
+        from septmuse.memory.main import Memory
 
-        m = ExperimentalMemory(config=MemoryConfig(db_path=db))
+        m = Memory(config=MemoryConfig(db_path=db))
         result = m.add("Alice works at Google", user_id="u1")
         memory_id = result["results"][0]["id"]
 
@@ -41,7 +41,7 @@ class TestEntityE2E:
         m.delete(memory_id)
         m.close()
 
-        m2 = ExperimentalMemory(config=MemoryConfig(db_path=db))
+        m2 = Memory(config=MemoryConfig(db_path=db))
         entities_after = m2.list_entities(user_id="u1")
         google = [e for e in entities_after if e["entity_text"] == "Google"]
         assert len(google) == 0
@@ -52,9 +52,9 @@ class TestEntityE2E:
         db = str(tmp_path / "e2e.db")
 
         from septmuse.configs.defaults import MemoryConfig
-        from septmuse.experimental import ExperimentalMemory
+        from septmuse.memory.main import Memory
 
-        m = ExperimentalMemory(config=MemoryConfig(db_path=db))
+        m = Memory(config=MemoryConfig(db_path=db))
         m.add("张三在北京的百度公司工作", user_id="u1")
 
         entities = m.list_entities(user_id="u1")

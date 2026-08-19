@@ -11,10 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Azure OpenAI 嵌入 provider — 继承 _OpenAICompatibleEmbedder。
-
-支持 API key 或 DefaultAzureCredential AD token provider 认证。
-"""
+"""Azure OpenAI 嵌入 provider。"""
 
 from __future__ import annotations
 

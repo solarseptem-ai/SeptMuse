@@ -11,21 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""元认知路由 — L0 路由决定查哪些命名空间 (架构文档 §5.2 + §6.3)。
-
-设计 (ReMe 中未找到 meta Layer0, 本模块基于架构文档设计):
-- Layer 0: 元认知路由 — 列出所有可用记忆类型/目标, 决定查哪些命名空间
-- 避免: 全量扫描所有记忆类型 (性能浪费)
-- 实现: 用 namespace description 嵌入 + 查询嵌入做余弦相似, 路由到匹配命名空间
-
-默认命名空间:
-- working: 当前上下文/任务状态 (letta Block)
-- semantic: 事实/知识/偏好 (LangMem Triple)
-- episodic: 事件/时序/推理经验 (Zep Episode)
-- procedural: 规则/技能/how-to (Cass Playbook)
-
-详见 docs/specs/agent-memory-architecture.md §5.2 检索策略 + §6.3 元认知。
-"""
+"""元认知路由 — L0 路由决定查哪些命名空间。"""
 
 from __future__ import annotations
 
@@ -58,17 +44,7 @@ class RouteResult:
 
 
 class MetaRouter:
-    """元认知路由器 (架构文档 §5.2 Layer 0 + §6.3)。
-
-    用查询嵌入 vs 命名空间描述嵌入的余弦相似, 路由到匹配命名空间。
-
-    用法:
-        router = MetaRouter(embedder)
-        result = router.route("what does alice like?")
-        # result.namespaces = ["semantic"]  # 只查语义记忆
-        result = router.route("what happened yesterday?")
-        # result.namespaces = ["episodic"]  # 只查情节记忆
-    """
+    """元认知路由器。"""
 
     def __init__(
         self,
@@ -85,13 +61,7 @@ class MetaRouter:
             self._ns_embeddings[name] = self.embedder.embed(desc)
 
     def route(self, query: str) -> RouteResult:
-        """路由查询到匹配命名空间 (架构文档 §5.2 Layer 0)。
-
-        1. 计算查询嵌入
-        2. 对每个命名空间描述做余弦相似
-        3. 返回相似 > threshold 的命名空间 (按分数降序)
-        4. 无匹配 → fallback: 返回全部命名空间
-        """
+        """路由查询到匹配命名空间。"""
         import numpy as np
 
         q_emb = self.embedder.embed(query)

@@ -11,11 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""HuggingFace 嵌入 provider — 双模式。
-
-有 huggingface_base_url 时走 TEI server (OpenAI 兼容 API);
-无 base_url 时走本地 SentenceTransformer。
-"""
+"""HuggingFace 嵌入 provider。"""
 
 from __future__ import annotations
 
@@ -89,7 +85,7 @@ class HuggingFaceEmbedder(Embedder):
 
 
 class _LocalSTAdapter(Embedder):
-    """SentenceTransformer 适配器 — 包装 ST 模型为 Embedder 接口。"""
+    """SentenceTransformer 适配器。"""
 
     def __init__(self, model: Any, dim: int) -> None:
         self.backend_name = "huggingface_local"

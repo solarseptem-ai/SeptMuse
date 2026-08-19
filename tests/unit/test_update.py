@@ -24,10 +24,10 @@ from sqlalchemy import create_engine, text
 from septmuse import MemoryConfig
 from septmuse.api.rest import create_app
 from septmuse.embedders.hash import HashEmbedder
-from septmuse.experimental import ExperimentalMemory
+from septmuse.memory.main import Memory
 from septmuse.models.block import Block, WorkingMemory
 from septmuse.storage.relational_stores.orm_store import ORMMemoryStore
-from septmuse.storage.relational_stores.typed_store import TypedMemoryStore
+from septmuse.storage.working_memory_stores.sqlite_store import SQLiteWorkingMemoryStore
 
 
 class TestStoreUpdate:
@@ -88,7 +88,7 @@ class TestStoreUpdate:
 
 
 def _make_memory(tmp_path):
-    return ExperimentalMemory(
+    return Memory(
         config=MemoryConfig(db_path=str(tmp_path / "test.db")),
         embedder=HashEmbedder(),
     )
@@ -133,8 +133,16 @@ class TestFacadeUpdate:
 
 
 class TestBlockStore:
+    @staticmethod
+    def _make_store(tmp_path):
+        from sqlmodel import SQLModel
+
+        engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+        SQLModel.metadata.create_all(engine)
+        return SQLiteWorkingMemoryStore(engine=engine)
+
     def test_save_and_get_blocks(self, tmp_path):
-        store = TypedMemoryStore(db_path=str(tmp_path / "test.db"))
+        store = self._make_store(tmp_path)
         block = Block(agent_id="agent-1", label="human", value="Name: Alice")
         store.save_block(block)
         loaded = store.get_blocks("agent-1")
@@ -143,7 +151,7 @@ class TestBlockStore:
         assert loaded[0].value == "Name: Alice"
 
     def test_save_block_update_existing(self, tmp_path):
-        store = TypedMemoryStore(db_path=str(tmp_path / "test.db"))
+        store = self._make_store(tmp_path)
         block = Block(agent_id="agent-1", label="human", value="v1")
         store.save_block(block)
         block.value = "v2"
@@ -153,31 +161,31 @@ class TestBlockStore:
         assert loaded[0].value == "v2"
 
     def test_update_block_value(self, tmp_path):
-        store = TypedMemoryStore(db_path=str(tmp_path / "test.db"))
+        store = self._make_store(tmp_path)
         store.save_block(Block(agent_id="agent-1", label="human", value="old"))
         result = store.update_block_value("agent-1", "human", "new")
         assert result is not None
         assert result.value == "new"
 
     def test_update_block_value_not_found(self, tmp_path):
-        store = TypedMemoryStore(db_path=str(tmp_path / "test.db"))
+        store = self._make_store(tmp_path)
         result = store.update_block_value("agent-1", "nonexistent", "x")
         assert result is None
 
     def test_delete_block(self, tmp_path):
-        store = TypedMemoryStore(db_path=str(tmp_path / "test.db"))
+        store = self._make_store(tmp_path)
         store.save_block(Block(agent_id="agent-1", label="human", value="x"))
         ok = store.delete_block("agent-1", "human")
         assert ok is True
         assert store.get_blocks("agent-1") == []
 
     def test_delete_block_not_found(self, tmp_path):
-        store = TypedMemoryStore(db_path=str(tmp_path / "test.db"))
+        store = self._make_store(tmp_path)
         ok = store.delete_block("agent-1", "nonexistent")
         assert ok is False
 
     def test_ensure_default_blocks(self, tmp_path):
-        store = TypedMemoryStore(db_path=str(tmp_path / "test.db"))
+        store = self._make_store(tmp_path)
         blocks = store.ensure_default_blocks("agent-1")
         assert len(blocks) == 2
         labels = [b.label for b in blocks]
@@ -185,13 +193,21 @@ class TestBlockStore:
         assert "persona" in labels
 
     def test_ensure_default_blocks_idempotent(self, tmp_path):
-        store = TypedMemoryStore(db_path=str(tmp_path / "test.db"))
+        store = self._make_store(tmp_path)
         store.ensure_default_blocks("agent-1")
         blocks = store.ensure_default_blocks("agent-1")
         assert len(blocks) == 2
 
 
 class TestWorkingMemoryPersist:
+    @staticmethod
+    def _make_store(tmp_path):
+        from sqlmodel import SQLModel
+
+        engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+        SQLModel.metadata.create_all(engine)
+        return SQLiteWorkingMemoryStore(engine=engine)
+
     def test_store_none_backward_compat(self):
         """store=None 纯内存模式 (向后兼容现有 test_block.py)。"""
         wm = WorkingMemory(agent_id="agent-1")
@@ -199,18 +215,17 @@ class TestWorkingMemoryPersist:
         assert wm.get_block("human").value == "value"
 
     def test_update_block_value_persists(self, tmp_path):
-        store = TypedMemoryStore(db_path=str(tmp_path / "test.db"))
+        store = self._make_store(tmp_path)
         store.ensure_default_blocks("agent-1")
         blocks = store.get_blocks("agent-1")
         wm = WorkingMemory("agent-1", blocks=blocks, store=store)
         wm.update_block_value("human", "persisted value")
-        # 重新 load 验证持久化
         reloaded = store.get_blocks("agent-1")
         human = next(b for b in reloaded if b.label == "human")
         assert human.value == "persisted value"
 
     def test_core_memory_append_persists(self, tmp_path):
-        store = TypedMemoryStore(db_path=str(tmp_path / "test.db"))
+        store = self._make_store(tmp_path)
         store.ensure_default_blocks("agent-1")
         blocks = store.get_blocks("agent-1")
         wm = WorkingMemory("agent-1", blocks=blocks, store=store)
@@ -220,7 +235,7 @@ class TestWorkingMemoryPersist:
         assert "Name: Alice" in human.value
 
     def test_core_memory_replace_persists(self, tmp_path):
-        store = TypedMemoryStore(db_path=str(tmp_path / "test.db"))
+        store = self._make_store(tmp_path)
         store.ensure_default_blocks("agent-1")
         blocks = store.get_blocks("agent-1")
         wm = WorkingMemory("agent-1", blocks=blocks, store=store)
@@ -232,7 +247,7 @@ class TestWorkingMemoryPersist:
         assert "hiking" not in human.value
 
     def test_set_block_persists(self, tmp_path):
-        store = TypedMemoryStore(db_path=str(tmp_path / "test.db"))
+        store = self._make_store(tmp_path)
         wm = WorkingMemory("agent-1", store=store)
         wm.set_block(Block(agent_id="agent-1", label="task", value="do x"))
         reloaded = store.get_blocks("agent-1")

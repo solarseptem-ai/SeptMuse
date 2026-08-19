@@ -25,12 +25,12 @@ import pytest
 
 from septmuse import MemoryConfig
 from septmuse.embedders.hash import HashEmbedder
-from septmuse.experimental import ExperimentalMemory
+from septmuse.memory.main import Memory
 
 
 @pytest.fixture()
-def mem() -> ExperimentalMemory:
-    return ExperimentalMemory(
+def mem() -> Memory:
+    return Memory(
         config=MemoryConfig(db_path=":memory:"),
         embedder=HashEmbedder(),
     )
@@ -39,7 +39,7 @@ def mem() -> ExperimentalMemory:
 class TestSearchCache:
     """查询缓存测试。"""
 
-    def test_cache_hit_same_query(self, mem: ExperimentalMemory) -> None:
+    def test_cache_hit_same_query(self, mem: Memory) -> None:
         """相同 query 二次检索命中缓存 (结果一致)。"""
         mem.add("alice likes python", user_id="alice")
         results1 = mem.search("python", user_id="alice")
@@ -47,7 +47,7 @@ class TestSearchCache:
         assert len(results1) == len(results2)
         assert results1[0]["id"] == results2[0]["id"]
 
-    def test_cache_invalidate_on_add(self, mem: ExperimentalMemory) -> None:
+    def test_cache_invalidate_on_add(self, mem: Memory) -> None:
         """add 后缓存失效, 新记忆可被检索到。"""
         mem.add("alice likes python", user_id="alice")
         results1 = mem.search("python", user_id="alice")
@@ -59,7 +59,7 @@ class TestSearchCache:
         # 缓存应已失效, 能看到新记忆
         assert len(results2) >= len(results1)
 
-    def test_cache_invalidate_on_delete(self, mem: ExperimentalMemory) -> None:
+    def test_cache_invalidate_on_delete(self, mem: Memory) -> None:
         """delete 后缓存失效, 删除的记忆不再出现。"""
         mem.add("alice likes python", user_id="alice")
         results1 = mem.search("python", user_id="alice")
@@ -72,7 +72,7 @@ class TestSearchCache:
         ids = [r["id"] for r in results2]
         assert mid not in ids
 
-    def test_cache_invalidate_on_update(self, mem: ExperimentalMemory) -> None:
+    def test_cache_invalidate_on_update(self, mem: Memory) -> None:
         """update 后缓存失效, 更新后的内容可被检索到。"""
         mem.add("alice likes python", user_id="alice")
         results1 = mem.search("python", user_id="alice")
@@ -85,7 +85,7 @@ class TestSearchCache:
         ids = [r["id"] for r in results2]
         assert mid in ids
 
-    def test_different_users_no_cache_sharing(self, mem: ExperimentalMemory) -> None:
+    def test_different_users_no_cache_sharing(self, mem: Memory) -> None:
         """不同 user_id 不共享缓存。"""
         mem.add("alice likes python", user_id="alice")
         mem.add("bob likes java", user_id="bob")
@@ -97,7 +97,7 @@ class TestSearchCache:
         assert len(results_alice) >= 1
         # 缓存 key 含 user_id, 不会串扰
 
-    def test_cache_invalidate_all(self, mem: ExperimentalMemory) -> None:
+    def test_cache_invalidate_all(self, mem: Memory) -> None:
         """invalidate_cache(user_id=None) 清所有缓存。"""
         mem.add("alice likes python", user_id="alice")
         mem.search("python", user_id="alice")

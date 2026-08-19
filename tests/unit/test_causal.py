@@ -24,21 +24,21 @@ import pytest
 
 from septmuse import MemoryConfig
 from septmuse.embedders.hash import HashEmbedder
-from septmuse.experimental import ExperimentalMemory
+from septmuse.memory.main import Memory
 from septmuse.models.causal import CausalEdge, CausalRelation
 from septmuse.retrieval.causal import CausalPath, CausalRetriever, CounterfactualResult
 
 
 @pytest.fixture()
-def mem() -> ExperimentalMemory:
-    return ExperimentalMemory(
+def mem() -> Memory:
+    return Memory(
         config=MemoryConfig(db_path=":memory:"),
         embedder=HashEmbedder(),
     )
 
 
 @pytest.fixture()
-def causal_setup(mem: ExperimentalMemory) -> dict[str, str]:
+def causal_setup(mem: Memory) -> dict[str, str]:
     """创建因果链: A causes B, B enables C, A prevents D。"""
     # 添加事件
     e_a = mem.add_episode("deployed code", user_id="alice", event_type="fact")
@@ -128,14 +128,14 @@ class TestCausalPath:
 
 
 class TestCausalRetriever:
-    def test_find_causes_direct(self, mem: ExperimentalMemory, causal_setup: dict[str, str]) -> None:
+    def test_find_causes_direct(self, mem: Memory, causal_setup: dict[str, str]) -> None:
         retriever = CausalRetriever(mem.typed_store)
         paths = retriever.find_causes(causal_setup["B"], user_id="alice")
         # A → B (direct cause)
         assert len(paths) >= 1
         assert any(p.edges[-1].cause_event_id == causal_setup["A"] for p in paths)
 
-    def test_find_causes_transitive(self, mem: ExperimentalMemory, causal_setup: dict[str, str]) -> None:
+    def test_find_causes_transitive(self, mem: Memory, causal_setup: dict[str, str]) -> None:
         retriever = CausalRetriever(mem.typed_store)
         # C's causes: B → C (direct), A → B → C (transitive)
         paths = retriever.find_causes(causal_setup["C"], user_id="alice")
@@ -145,7 +145,7 @@ class TestCausalRetriever:
         assert len(direct_paths) >= 1
         assert direct_paths[0].edges[0].cause_event_id == causal_setup["B"]
 
-    def test_find_effects_direct(self, mem: ExperimentalMemory, causal_setup: dict[str, str]) -> None:
+    def test_find_effects_direct(self, mem: Memory, causal_setup: dict[str, str]) -> None:
         retriever = CausalRetriever(mem.typed_store)
         # A's effects: A → B, A → D
         paths = retriever.find_effects(causal_setup["A"], user_id="alice")
@@ -154,7 +154,7 @@ class TestCausalRetriever:
         assert causal_setup["B"] in effect_ids
         assert causal_setup["D"] in effect_ids
 
-    def test_find_effects_transitive(self, mem: ExperimentalMemory, causal_setup: dict[str, str]) -> None:
+    def test_find_effects_transitive(self, mem: Memory, causal_setup: dict[str, str]) -> None:
         retriever = CausalRetriever(mem.typed_store)
         # A's effects: A → B → C (transitive)
         paths = retriever.find_effects(causal_setup["A"], user_id="alice")
@@ -163,13 +163,13 @@ class TestCausalRetriever:
         assert len(transitive) >= 1
         assert transitive[0].event_ids() == [causal_setup["A"], causal_setup["B"], causal_setup["C"]]
 
-    def test_find_causes_empty(self, mem: ExperimentalMemory, causal_setup: dict[str, str]) -> None:
+    def test_find_causes_empty(self, mem: Memory, causal_setup: dict[str, str]) -> None:
         retriever = CausalRetriever(mem.typed_store)
         # A has no causes (root cause)
         paths = retriever.find_causes(causal_setup["A"], user_id="alice")
         assert paths == []
 
-    def test_counterfactual_no_direct_edge(self, mem: ExperimentalMemory, causal_setup: dict[str, str]) -> None:
+    def test_counterfactual_no_direct_edge(self, mem: Memory, causal_setup: dict[str, str]) -> None:
         retriever = CausalRetriever(mem.typed_store)
         # D and B have no direct causal edge
         result = retriever.counterfactual(causal_setup["D"], causal_setup["B"], user_id="alice")
@@ -177,7 +177,7 @@ class TestCausalRetriever:
         assert result.confidence > 0.5
 
     def test_counterfactual_positive_no_alternative(
-        self, mem: ExperimentalMemory, causal_setup: dict[str, str]
+        self, mem: Memory, causal_setup: dict[str, str]
     ) -> None:
         retriever = CausalRetriever(mem.typed_store)
         # A causes B, no alternative path to B
@@ -186,7 +186,7 @@ class TestCausalRetriever:
         assert result.confidence > 0
         assert "Positive relation" in result.reasoning
 
-    def test_counterfactual_negative_relation(self, mem: ExperimentalMemory, causal_setup: dict[str, str]) -> None:
+    def test_counterfactual_negative_relation(self, mem: Memory, causal_setup: dict[str, str]) -> None:
         retriever = CausalRetriever(mem.typed_store)
         # A prevents D → if A didn't happen, D would occur
         result = retriever.counterfactual(causal_setup["A"], causal_setup["D"], user_id="alice")
@@ -201,13 +201,13 @@ class TestCausalRetriever:
         assert result.alternative_paths == []
         assert result.direct_edge is None
 
-    def test_user_isolation(self, mem: ExperimentalMemory, causal_setup: dict[str, str]) -> None:
+    def test_user_isolation(self, mem: Memory, causal_setup: dict[str, str]) -> None:
         retriever = CausalRetriever(mem.typed_store)
         # Bob should not see Alice's causal edges
         paths = retriever.find_causes(causal_setup["B"], user_id="bob")
         assert paths == []
 
-    def test_paths_sorted_by_confidence(self, mem: ExperimentalMemory, causal_setup: dict[str, str]) -> None:
+    def test_paths_sorted_by_confidence(self, mem: Memory, causal_setup: dict[str, str]) -> None:
         retriever = CausalRetriever(mem.typed_store)
         paths = retriever.find_effects(causal_setup["A"], user_id="alice")
         if len(paths) >= 2:

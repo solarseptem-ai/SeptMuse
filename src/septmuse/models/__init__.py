@@ -16,12 +16,14 @@
 from septmuse.models.block import Block, WorkingMemory, default_blocks
 from septmuse.models.causal import CausalEdge, CausalRelation
 from septmuse.models.episodic import EpisodeType, EpisodicEvent, EpisodicMemory
-from septmuse.models.procedural import ProceduralMemory, ProceduralRule
+from septmuse.models.procedural import ProceduralRule
 from septmuse.models.profile import UserProfile, UserProfileValue
+from septmuse.models.self_evolution import AgentSelfModel, RuleSnapshot
 from septmuse.models.semantic import SemanticFact
 from septmuse.models.strength import MemoryStrength
 
 __all__ = [
+    "AgentSelfModel",
     "Block",
     "CausalEdge",
     "CausalRelation",
@@ -29,8 +31,8 @@ __all__ = [
     "EpisodicEvent",
     "EpisodicMemory",
     "MemoryStrength",
-    "ProceduralMemory",
     "ProceduralRule",
+    "RuleSnapshot",
     "SemanticFact",
     "UserProfile",
     "UserProfileValue",

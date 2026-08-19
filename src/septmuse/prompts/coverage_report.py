@@ -11,11 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""覆盖报告提示 — LLM 生成自然语言覆盖自述 (架构文档 §6.3 自研)。
-
-CoverageReport 存为语义记忆, 打 `meta` + `coverage` 标签, 跨会话累积。
-LLM 可用此提示生成自然语言自述, 注入 agent 的 system prompt。
-"""
+"""覆盖报告提示 — LLM 生成自然语言覆盖自述。"""
 
 from __future__ import annotations
 

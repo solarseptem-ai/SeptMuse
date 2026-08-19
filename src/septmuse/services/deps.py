@@ -11,27 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""依赖注入入口 (借鉴 Langflow services/deps.py)。
-
-这是 SeptMuse 服务层的**唯一对外入口**——每个服务一个 get_xxx_service() 函数,
-内部走 ServiceManager.get(ServiceType.XXX, default_factory)。
-
-用法:
-    from septmuse.services.deps import get_memory_service
-
-    memory = get_memory_service()
-    memory.add("hello", user_id="alice")
-
-模式 (对齐 Langflow deps.py):
-    def get_xxx_service() -> XxxService:
-        from septmuse.services.xxx.factory import XxxServiceFactory
-        return get_service(ServiceType.XXX_SERVICE, XxxServiceFactory())
-
-每个 get 函数:
-    1. lazy import 对应 factory (避免循环依赖)
-    2. 传 default factory 给 get_service (未注册时自动创建)
-    3. ServiceManager 首次调用 create() 并缓存, 后续直接返回单例
-"""
+"""依赖注入入口。"""
 
 from __future__ import annotations
 
@@ -52,16 +32,7 @@ def get_service(
     service_type: ServiceType,
     default: type[ServiceFactory] | None = None,
 ) -> Service:
-    """通用服务获取——ServiceManager 单例 + default factory 惰性创建。
-
-    借鉴 Langflow deps.py get_service():
-    - 首次调用: manager 未注册 → 用 default factory 创建并缓存
-    - 后续调用: 直接返回缓存的单例
-
-    Args:
-        service_type: ServiceType 枚举。
-        default: 默认 ServiceFactory 子类 (未注册时自动实例化并创建)。
-    """
+    """通用服务获取 — ServiceManager 单例 + default factory 惰性创建。"""
     from septmuse.services.manager import get_service_manager
 
     manager = get_service_manager()
@@ -76,10 +47,7 @@ def get_service(
 
 
 def is_service_initialized(service_type: ServiceType) -> bool:
-    """检查服务是否已初始化 (不触发创建)。
-
-    借鉴 Langflow is_settings_service_initialized。
-    """
+    """检查服务是否已初始化 (不触发创建)。"""
     from septmuse.services.manager import get_service_manager
 
     return service_type in get_service_manager().services
@@ -89,11 +57,7 @@ def is_service_initialized(service_type: ServiceType) -> bool:
 
 
 def _get_default_factories() -> dict[ServiceType, ServiceFactory]:
-    """返回所有已实现的默认工厂 (惰性 import, 避免循环依赖)。
-
-    每个具体服务实现后, 在此处注册对应 Factory 实例。
-    未实现的跳过 (不报错, deps.py 的 get_xxx_service() 会传 default)。
-    """
+    """返回所有已实现的默认工厂 (惰性 import, 避免循环依赖)。"""
     factories: dict[ServiceType, ServiceFactory] = {}
 
     # ── P0: 配置 / 嵌入 / LLM ──
@@ -131,21 +95,21 @@ def _get_default_factories() -> dict[ServiceType, ServiceFactory]:
 
 
 def get_config_service() -> ConfigService:
-    """获取配置服务 (包装 MemoryConfig / default_config)。"""
+    """获取配置服务。"""
     from septmuse.services.config.factory import ConfigServiceFactory
 
     return typing.cast("ConfigService", get_service(ServiceType.CONFIG_SERVICE, ConfigServiceFactory))
 
 
 def get_embedder_service() -> EmbedderService:
-    """获取嵌入服务 (包装 Embedder)。"""
+    """获取嵌入服务。"""
     from septmuse.services.embedder.factory import EmbedderServiceFactory
 
     return typing.cast("EmbedderService", get_service(ServiceType.EMBEDDER_SERVICE, EmbedderServiceFactory))
 
 
 def get_llm_service() -> LLMService:
-    """获取 LLM 服务 (包装 LLM provider)。"""
+    """获取 LLM 服务。"""
     from septmuse.services.llm.factory import LLMServiceFactory
 
     return typing.cast("LLMService", get_service(ServiceType.LLM_SERVICE, LLMServiceFactory))
@@ -153,22 +117,22 @@ def get_llm_service() -> LLMService:
 
 # ── P1 (待实现) ──
 # def get_memory_service() -> "MemoryService":
-#     """获取记忆服务 (包装 Memory facade)。"""
+#     """获取记忆服务。"""
 #     from septmuse.services.memory.factory import MemoryServiceFactory
 #     return get_service(ServiceType.MEMORY_SERVICE, MemoryServiceFactory)
 #
 # def get_retrieval_service() -> "RetrievalService":
-#     """获取检索服务 (包装 HybridRetriever + Reranker)。"""
+#     """获取检索服务。"""
 #     from septmuse.services.retrieval.factory import RetrievalServiceFactory
 #     return get_service(ServiceType.RETRIEVAL_SERVICE, RetrievalServiceFactory)
 #
 # def get_ingestion_service() -> "IngestionService":
-#     """获取摄入服务 (包装 FactExtractor + CognifyPipeline)。"""
+#     """获取摄入服务。"""
 #     from septmuse.services.ingestion.factory import IngestionServiceFactory
 #     return get_service(ServiceType.INGESTION_SERVICE, IngestionServiceFactory)
 #
 # ── P2 (待实现) ──
 # def get_governance_service() -> "GovernanceService":
-#     """获取治理服务 (权限 + 审计 + 状态机)。"""
+#     """获取治理服务。"""
 #     from septmuse.services.governance.factory import GovernanceServiceFactory
 #     return get_service(ServiceType.GOVERNANCE_SERVICE, GovernanceServiceFactory)

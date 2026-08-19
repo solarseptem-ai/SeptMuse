@@ -11,15 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""漂移检测 — 形态间数据不一致检测 (架构文档 §4.1 自研)。
-
-检测同一记忆在图/文件/向量三种形态间是否漂移:
-- count drift: 各形态记录数不一致
-- content drift: 同一 ID 在不同形态中内容不同
-- missing drift: 某 ID 在某形态中缺失
-
-权威源: 图 > 文件 > 向量 (架构文档 §4.1)。
-"""
+"""漂移检测 — 形态间数据不一致检测。"""
 
 from __future__ import annotations
 
@@ -63,33 +55,14 @@ class ConsistencyReport:
 
 
 class DriftDetector:
-    """漂移检测器 (架构文档 §4.1 自研)。
-
-    用法:
-        detector = DriftDetector()
-        report = detector.check_memory(
-            memory_id="mem-123",
-            form_contents={
-                SyncForm.GRAPH: "alice likes python",
-                SyncForm.FILE: "alice likes python",
-                SyncForm.VECTOR: "alice likes pythn",  # typo!
-            }
-        )
-        if report.has_drift:
-            print(f"Drift detected: {report.drifted_forms}")
-    """
+    """漂移检测器。"""
 
     def check_memory(
         self,
         memory_id: str,
         form_contents: dict[SyncForm, str | None],
     ) -> DriftReport:
-        """检测单条记忆的形态间漂移。
-
-        Args:
-            memory_id: 记忆 ID
-            form_contents: 各形态的内容 (None=该形态缺失)
-        """
+        """检测单条记忆的形态间漂移。"""
         report = DriftReport(memory_id=memory_id)
 
         # 找权威源
@@ -124,11 +97,7 @@ class DriftDetector:
         self,
         all_form_contents: dict[str, dict[SyncForm, str | None]],
     ) -> ConsistencyReport:
-        """全量一致性检测。
-
-        Args:
-            all_form_contents: {memory_id: {SyncForm: content}}
-        """
+        """全量一致性检测。"""
         report = ConsistencyReport()
         report.total_checked = len(all_form_contents)
 

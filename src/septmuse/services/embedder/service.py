@@ -11,14 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""EmbedderService — 嵌入服务实现。
-
-包装 Embedder ABC, 提供:
-- 嵌入模型生命周期管理 (延迟初始化 + 缓存)
-- 从环境变量 / config 解析 embedder 后端
-- 统一 embed / embed_batch 接口
-- 统计信息 (请求次数 / 缓存命中)
-"""
+"""EmbedderService — 嵌入服务实现。"""
 
 from __future__ import annotations
 
@@ -35,19 +28,7 @@ logger = get_logger(__name__)
 
 
 class EmbedderService(Service):
-    """嵌入服务 — 包装 Embedder (借鉴 mem0 EmbedderBase + Langflow 服务模式)。
-
-    职责:
-    - 延迟创建 Embedder 实例 (首次 embed 调用时才加载模型)
-    - 支持 6 种后端: hash / st / onnx / onnx-zh / auto / openai
-    - 支持运行时切换后端 (reconfigure)
-    - 统计嵌入请求数和模型信息
-
-    用法:
-        svc = EmbedderService()
-        vec = svc.embed("hello")
-        vecs = svc.embed_batch(["hello", "world"])
-    """
+    """嵌入服务 — 包装 Embedder。"""
 
     name = "embedder_service"
 

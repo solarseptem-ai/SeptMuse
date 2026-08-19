@@ -25,15 +25,15 @@ import pytest
 
 from septmuse import MemoryConfig
 from septmuse.embedders.hash import HashEmbedder
-from septmuse.experimental import ExperimentalMemory
+from septmuse.memory.main import Memory
 from septmuse.meta.coverage import CoverageAnalyzer, CoverageReport, NamespaceStats
 from septmuse.meta.strategy import StrategyAction, StrategyAdapter, StrategyResult
 from septmuse.prompts.coverage_report import COVERAGE_REPORT_PROMPT, build_coverage_report_message
 
 
 @pytest.fixture()
-def mem() -> ExperimentalMemory:
-    return ExperimentalMemory(
+def mem() -> Memory:
+    return Memory(
         config=MemoryConfig(db_path=":memory:"),
         embedder=HashEmbedder(),
     )
@@ -45,7 +45,7 @@ def mem() -> ExperimentalMemory:
 
 
 class TestCoverageAnalyzer:
-    def test_empty_store(self, mem: ExperimentalMemory) -> None:
+    def test_empty_store(self, mem: Memory) -> None:
         analyzer = CoverageAnalyzer(mem.store, mem.typed_store)
         report = analyzer.analyze(user_id="alice")
         assert len(report.namespaces) == 4
@@ -53,7 +53,7 @@ class TestCoverageAnalyzer:
         assert report.overall_score == 0.0
         assert all(ns.namespace in report.weak_areas for ns in report.namespaces)
 
-    def test_with_verbatim(self, mem: ExperimentalMemory) -> None:
+    def test_with_verbatim(self, mem: Memory) -> None:
         mem.add("alice likes python", user_id="alice")
         mem.add("alice uses fastapi", user_id="alice")
         analyzer = CoverageAnalyzer(mem.store, mem.typed_store)
@@ -63,7 +63,7 @@ class TestCoverageAnalyzer:
         assert verbatim.count == 2
         assert verbatim.coverage_score > 0
 
-    def test_with_semantic(self, mem: ExperimentalMemory) -> None:
+    def test_with_semantic(self, mem: Memory) -> None:
         mem.add_fact("alice", "likes", "python", user_id="alice", confidence=0.9)
         analyzer = CoverageAnalyzer(mem.store, mem.typed_store)
         report = analyzer.analyze(user_id="alice")
@@ -72,7 +72,7 @@ class TestCoverageAnalyzer:
         assert semantic.count == 1
         assert semantic.avg_confidence == pytest.approx(0.9)
 
-    def test_with_episodic(self, mem: ExperimentalMemory) -> None:
+    def test_with_episodic(self, mem: Memory) -> None:
         mem.add_episode("debugging session", user_id="alice", event_type="fact")
         analyzer = CoverageAnalyzer(mem.store, mem.typed_store)
         report = analyzer.analyze(user_id="alice")
@@ -80,7 +80,7 @@ class TestCoverageAnalyzer:
         assert episodic is not None
         assert episodic.count == 1
 
-    def test_with_procedural(self, mem: ExperimentalMemory) -> None:
+    def test_with_procedural(self, mem: Memory) -> None:
         mem.add_rule("always test edge cases", user_id="alice")
         analyzer = CoverageAnalyzer(mem.store, mem.typed_store)
         report = analyzer.analyze(user_id="alice")
@@ -88,7 +88,7 @@ class TestCoverageAnalyzer:
         assert procedural is not None
         assert procedural.count == 1
 
-    def test_strong_areas(self, mem: ExperimentalMemory) -> None:
+    def test_strong_areas(self, mem: Memory) -> None:
         # Add > 5 verbatim memories → strong
         for i in range(6):
             mem.add(f"memory {i}", user_id="alice")
@@ -96,7 +96,7 @@ class TestCoverageAnalyzer:
         report = analyzer.analyze(user_id="alice")
         assert "verbatim" in report.strong_areas
 
-    def test_weak_areas(self, mem: ExperimentalMemory) -> None:
+    def test_weak_areas(self, mem: Memory) -> None:
         mem.add("one memory", user_id="alice")  # only 1 verbatim
         analyzer = CoverageAnalyzer(mem.store, mem.typed_store)
         report = analyzer.analyze(user_id="alice")
@@ -104,7 +104,7 @@ class TestCoverageAnalyzer:
         assert "episodic" in report.weak_areas
         assert "procedural" in report.weak_areas
 
-    def test_summary(self, mem: ExperimentalMemory) -> None:
+    def test_summary(self, mem: Memory) -> None:
         mem.add("hello", user_id="alice")
         analyzer = CoverageAnalyzer(mem.store, mem.typed_store)
         report = analyzer.analyze(user_id="alice")
@@ -112,7 +112,7 @@ class TestCoverageAnalyzer:
         assert "alice" in summary
         assert "verbatim" in summary
 
-    def test_get_namespace_not_found(self, mem: ExperimentalMemory) -> None:
+    def test_get_namespace_not_found(self, mem: Memory) -> None:
         analyzer = CoverageAnalyzer(mem.store, mem.typed_store)
         report = analyzer.analyze(user_id="alice")
         assert report.get_namespace("nonexistent") is None

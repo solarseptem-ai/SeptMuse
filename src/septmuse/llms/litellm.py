@@ -11,15 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""litellm 统一 LLM 代理 — 一个依赖覆盖 100+ provider。
-
-用法:
-    llm = LitellmLLM(model="groq/llama-3.1-70b-versatile", api_key="...")
-    result = llm.complete(system_prompt, user_prompt)
-
-model 格式: "provider/model"，如 "groq/llama-3.1-70b-versatile"。
-零配置: 从环境变量读取 api_key（按 provider 前缀）。
-"""
+"""litellm 统一 LLM 代理。"""
 
 from __future__ import annotations
 
@@ -32,11 +24,7 @@ logger = get_logger(__name__)
 
 
 class LitellmLLM(LLM):
-    """litellm 统一 LLM provider。
-
-    model 格式: "provider/model"，如 "groq/llama-3.1-70b-versatile"。
-    零配置: 从环境变量读取 api_key（按 provider 前缀）。
-    """
+    """litellm 统一 LLM provider。"""
 
     provider_name = "litellm"
 

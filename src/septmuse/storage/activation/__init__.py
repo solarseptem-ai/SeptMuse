@@ -11,27 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""激活记忆 (KV-Cache) — 平面 B 存储形态之一 (架构文档 §3.1.2/§4)。
-
-仅当使用自托管模型 (HuggingFace 后端) 时启用; API/闭源模型跳过此格。
-用途: 固定背景 / FAQ / 会话历史复用, 降低 TTFT (prefill skip)。
-
-接口:
-- extract(text)  -> KVCacheItem      (需注入 cache_builder 回调, 解耦 LLM ABC)
-- add(item)                         (单条, 幂等按 id 去重)
-- get(id) -> KVCacheItem | None
-- get_by_ids(ids) -> list[KVCacheItem | None]
-- get_all() -> list[KVCacheItem]
-- delete(ids)                      (按 id 删除)
-- delete_all()                     (清空)
-- get_cache(ids) -> DynamicCache | None  (合并多个 cache, 注入 attention 跳过 prefill)
-- dump(path) / load(path)          (pickle 序列化, 含 DynamicCache safe_globals)
-
-依赖反转 (SeptMuse 适配):
-- 不耦合 LLM ABC (SeptMuse LLM 仅有 complete 方法, 无 build_kv_cache)
-- 调用方注入 `cache_builder: Callable[[str], Any]`, 自行用 transformers + 自托管模型前向计算
-- _concat_caches / dump / load 延迟 import torch/transformers/pickle, 未装 activation extras 报清晰错误
-"""
+"""激活记忆 (KV-Cache) — 自托管模型场景下的预计算缓存存储。"""
 
 from __future__ import annotations
 
@@ -54,11 +34,7 @@ def _utcnow_iso() -> str:
 
 
 class KVCacheItem(BaseModel):
-    """单个 KV cache 条目。
-
-    `memory` 字段类型标为 `Any` 避免强依赖 transformers.DynamicCache;
-    实际运行时若启用 activation extras, 该字段持有 DynamicCache 实例。
-    """
+    """单个 KV cache 条目。"""
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     memory: Any = Field(default=None, description="DynamicCache 实例 (或调用方自定义 cache 对象)")
@@ -76,44 +52,10 @@ def _missing_activation_deps() -> ImportError:
 
 
 class ActivationMemory:
-    """KV-Cache 激活记忆 (架构文档 §3.1.2)。
-
-    零外部依赖 (无 torch/transformers 也能 import):
-    - 内存 dict 持有 KVCacheItem, CRUD 全在内存
-    - 仅 `_concat_caches` / `dump` / `load` 需要 torch/pickle, 延迟 import + 报清晰错误
-    - `extract` 需调用方注入 `cache_builder: Callable[[str], Any]`
-
-    用法 (自托管模型场景):
-
-        from transformers import AutoModelForCausalLM, AutoTokenizer, DynamicCache
-
-        model = AutoModelForCausalLM.from_pretrained(...)
-        tokenizer = AutoTokenizer.from_pretrained(...)
-
-        def build_cache(text: str) -> DynamicCache:
-            inputs = tokenizer(text, return_tensors="pt")
-            with model.forward(**inputs, use_cache=True) as out:
-                return out.past_key_values
-
-        activation = ActivationMemory(cache_builder=build_cache)
-        item = activation.extract("固定背景文本")
-        activation.add(item)
-        merged = activation.get_cache([item.id])  # 注入 attention 跳过 prefill
-
-    用法 (无 cache_builder, 直接 add 预构造 item):
-
-        activation = ActivationMemory()
-        item = KVCacheItem(memory=some_cache_obj, metadata={"source_text": "..."})
-        activation.add(item)
-    """
+    """KV-Cache 激活记忆管理器。"""
 
     def __init__(self, cache_builder: Callable[[str], Any] | None = None) -> None:
-        """初始化激活记忆。
-
-        Args:
-            cache_builder: 文本 -> DynamicCache 的回调 (调用方负责用 transformers 前向计算)。
-                           None 时 extract() 抛 NotImplementedError。
-        """
+        """初始化激活记忆。"""
         self._cache_builder = cache_builder
         self._items: dict[str, KVCacheItem] = {}
         logger.info("activation_memory_init", has_cache_builder=cache_builder is not None)
@@ -123,16 +65,7 @@ class ActivationMemory:
     # ------------------------------------------------------------------
 
     def extract(self, text: str) -> KVCacheItem:
-        """从文本提取 KV cache。
-
-        需构造时注入 `cache_builder`; 否则抛 NotImplementedError 提示。
-
-        Args:
-            text: 输入文本 (固定背景 / FAQ / 会话历史)
-
-        Returns:
-            KVCacheItem, metadata 含 source_text + extracted_at
-        """
+        """从文本提取 KV cache。"""
         if self._cache_builder is None:
             raise NotImplementedError(
                 "extract() requires a cache_builder; pass it to ActivationMemory(cache_builder=...)"
@@ -179,14 +112,7 @@ class ActivationMemory:
     # ------------------------------------------------------------------
 
     def get_cache(self, item_ids: list[str]) -> Any | None:
-        """合并多个 KV cache 为单个 DynamicCache, 注入 attention 跳过 prefill。
-
-        Args:
-            item_ids: 要合并的 cache item ID 列表
-
-        Returns:
-            合并后的 DynamicCache; 无匹配 item 返回 None; 单 item 直接返回其 cache。
-        """
+        """合并多个 KV cache 为单个 DynamicCache。"""
         caches_to_merge: list[Any] = []
         for item_id in item_ids:
             item = self._items.get(item_id)
@@ -200,14 +126,7 @@ class ActivationMemory:
         return self._concat_caches(caches_to_merge)
 
     def _concat_caches(self, caches: list[Any]) -> Any:
-        """多层 torch.cat 合并 DynamicCache。
-
-        兼容新旧 transformers 版本:
-        - 新版: cache.layers[i].keys / cache.layers[i].values
-        - 旧版: cache.key_cache[i] / cache.value_cache[i]
-
-        依赖 torch + transformers; 未装 activation extras 报清晰错误。
-        """
+        """多层 torch.cat 合并 DynamicCache。"""
         assert caches, "need at least one cache to concat"
         try:
             import torch
@@ -253,14 +172,7 @@ class ActivationMemory:
     # ------------------------------------------------------------------
 
     def dump(self, path: str) -> None:
-        """pickle 序列化全部 items 到文件。
-
-        Args:
-            path: 目标文件路径 (目录不存在则创建)
-
-        Raises:
-            ImportError: torch/transformers 未安装 (DynamicCache 需要安全反序列化注册)
-        """
+        """pickle 序列化全部 items 到文件。"""
         try:
             import torch
             from transformers import DynamicCache
@@ -280,14 +192,7 @@ class ActivationMemory:
         logger.info("activation_dump_done", path=path, count=len(self._items))
 
     def load(self, path: str) -> None:
-        """从文件反序列化 items。
-
-        - 文件不存在: 静默返回 (保持空状态)
-        - 加载失败: 重置为空
-
-        Args:
-            path: 源文件路径
-        """
+        """从文件反序列化 items。"""
         if not os.path.exists(path):
             return
 

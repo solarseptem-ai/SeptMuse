@@ -11,13 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""图存储后端抽象基类 (借鉴 cognee GraphDBInterface 简化为同步 + SeptMuse 所需方法)。
-
-所有图后端 (SQLiteGraphStore / AGEGraphStore / Neo4jGraphStore 等)
-实现此接口, 保证 zettel/dream 等演化模块可插拔。
-
-图语义: 节点 (memory_nodes) + 有向边 (source_id → target_id), 每条边有 relation + score。
-"""
+"""图存储后端抽象基类 — 节点 + 有向边，供演化模块可插拔使用。"""
 
 from __future__ import annotations
 
@@ -40,14 +34,7 @@ class GraphEdge:
 
 
 class GraphStore(ABC):
-    """图存储后端抽象。
-
-    实现方需保证:
-    - add_edge 幂等 (重复 source+target+relation 不报错, 用 UNIQUE 约束或 MERGE)
-    - get_edges 返回出边 (source_id 为给定节点的边)
-    - get_neighbors 可按 relation 过滤
-    - 双向链接由调用方分两次 add_edge (不内置, 保持图的数学语义)
-    """
+    """图存储后端抽象。"""
 
     # ── 边管理 (原有, 抽象) ──
 
@@ -132,11 +119,7 @@ class GraphStore(ABC):
         direction: str = "out",
         relation: str | None = None,
     ) -> list[dict[str, Any]]:
-        """BFS 遍历, 返回 [{"id", "depth"}] (不含种子节点)。
-
-        direction: "out"=出边, "in"=入边, "both"=双向。
-        后端可 override 用递归 CTE / Cypher *1..n 提升性能。
-        """
+        """BFS 遍历，返回 [{"id", "depth"}] (不含种子节点)。"""
         if max_depth < 1:
             return []
 
@@ -170,9 +153,5 @@ class GraphStore(ABC):
     # ── 社区检测 (新增, 非抽象, 默认 NotImplementedError) ──
 
     def detect_communities(self, algorithm: str = "label_propagation") -> dict[str, list[str]]:
-        """社区检测, 返回 {community_id: [node_ids]}。
-
-        默认 raise NotImplementedError, 后端可 override。
-        借鉴 graphiti label_propagation。
-        """
+        """社区检测，返回 {community_id: [node_ids]}。"""
         raise NotImplementedError(f"Community detection '{algorithm}' not implemented for {type(self).__name__}")

@@ -11,13 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""记忆访问权限 — 4 层权限检查 (sync + async)。
-
-层1: memory 存在 + state=active
-层2: 无 app_id → 用户自己访问, 放行
-层3: app_id 非空即 active
-层4: app 白名单 (默认全部可访问, P2.2 未来扩展)
-"""
+"""记忆访问权限 — 4 层权限检查。"""
 
 from __future__ import annotations
 
@@ -47,16 +41,7 @@ def check_memory_access_permissions(
     memory_id: str,
     app_id: str | None = None,
 ) -> tuple[bool, str]:
-    """4 层权限检查 (sync 版)。
-
-    Args:
-        store: 记忆存储后端
-        memory_id: 目标记忆 ID
-        app_id: 访问方应用 ID; None 表示用户自己访问
-
-    Returns:
-        (allowed, reason): True=放行, False=拒绝 + 原因
-    """
+    """4 层权限检查 (sync 版)。"""
     # 层1: memory 存在 + state=active
     mem = store.get(memory_id)
     if not mem:
@@ -85,16 +70,7 @@ async def async_check_memory_access_permissions(
     memory_id: str,
     app_id: str | None = None,
 ) -> tuple[bool, str]:
-    """4 层权限检查 (async 版)。
-
-    Args:
-        store: 异步记忆存储后端
-        memory_id: 目标记忆 ID
-        app_id: 访问方应用 ID; None 表示用户自己访问
-
-    Returns:
-        (allowed, reason): True=放行, False=拒绝 + 原因
-    """
+    """4 层权限检查 (async 版)。"""
     # 层1: memory 存在 + state=active
     mem = await store.get(memory_id)
     if not mem:

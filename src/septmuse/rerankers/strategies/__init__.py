@@ -9,10 +9,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Reranker 策略层 — 解决"文档怎么准备和重建"。
-
-与 reranker 正交组合: reranker 管"用什么打分", strategy 管"打什么内容"。
-"""
+"""Reranker 策略层 — 解决"文档怎么准备和重建"。"""
 from septmuse.rerankers.strategies.factory import RerankerStrategyFactory
 
 __all__ = ["RerankerStrategyFactory"]

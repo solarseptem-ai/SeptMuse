@@ -1,4 +1,4 @@
-"""6 个迁移模块 DDL 正确性测试。"""
+"""7 个迁移模块 DDL 正确性测试。"""
 import sqlite3
 
 import pytest
@@ -13,15 +13,15 @@ def conn():
     c.close()
 
 
-def test_migrations_list_has_6():
-    """注册表有 6 个迁移。"""
-    assert len(MIGRATIONS) == 6
+def test_migrations_list_has_7():
+    """注册表有 7 个迁移。"""
+    assert len(MIGRATIONS) == 7
 
 
 def test_migrations_versions_sequential():
-    """版本号从 001 到 006 有序。"""
+    """版本号从 001 到 007 有序。"""
     versions = [m.version for m in MIGRATIONS]
-    assert versions == ["001", "002", "003", "004", "005", "006"]
+    assert versions == ["001", "002", "003", "004", "005", "006", "007"]
 
 
 def test_m001_creates_memories_and_history(conn):
@@ -101,3 +101,17 @@ def test_m006_adds_archived_at(conn):
     conn.commit()
     cols = [r[1] for r in conn.execute("PRAGMA table_info(memories)").fetchall()]
     assert "archived_at" in cols
+
+
+def test_m007_creates_entity_tables(conn):
+    """m007 创建 septmuse_entities + entity_relations 表。"""
+    m007 = MIGRATIONS[6]
+    assert m007.version == "007"
+    for step in m007.steps("sqlite"):
+        conn.execute(step.sql)
+    conn.commit()
+    tables = [r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'"
+    ).fetchall()]
+    assert "septmuse_entities" in tables
+    assert "entity_relations" in tables

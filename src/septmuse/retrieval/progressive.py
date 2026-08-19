@@ -11,15 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""渐进式三层检索 — recall→locate→expand 模式适配 SeptMuse。
-
-三层检索:
-- Layer 1 recall: chunk 召回 (向量检索 verbatim + typed memories)
-- Layer 2 locate: 定位来源 (标记 memory_type + 溯源 metadata)
-- Layer 3 expand: 链接邻居 (同 user_id + tags 关联 + 时序邻近)
-
-详见 docs/specs/agent-memory-architecture.md §5.2 检索策略。
-"""
+"""渐进式三层检索 — recall→locate→expand。"""
 
 from __future__ import annotations
 
@@ -51,13 +43,7 @@ class ProgressiveResult:
 
 
 class ProgressiveRetriever:
-    """渐进式三层检索 (recall→locate→expand 模式)。
-
-    用法:
-        retriever = ProgressiveRetriever(store, typed_store, embedder)
-        results = retriever.retrieve("alice likes python", user_id="alice")
-        # results 含 Layer1 recall + Layer3 expand 的合并去重结果
-    """
+    """渐进式三层检索 (recall→locate→expand)。"""
 
     def __init__(
         self,
@@ -79,12 +65,7 @@ class ProgressiveRetriever:
         top_k: int = 5,
         threshold: float = 0.1,
     ) -> list[ProgressiveResult]:
-        """三层渐进检索。
-
-        Layer 1: recall — 向量检索 verbatim + typed memories
-        Layer 2: locate — 标记 memory_type, 溯源 metadata
-        Layer 3: expand — 按 tags/user_id 时序邻近扩展邻居
-        """
+        """三层渐进检索。"""
         # Layer 1 + 2: recall + locate
         recalled = self._recall_and_locate(query, user_id=user_id, top_k=top_k, threshold=threshold)
         if not recalled:
@@ -156,11 +137,7 @@ class ProgressiveRetriever:
         return results
 
     def _expand(self, recalled: list[ProgressiveResult], *, user_id: str) -> list[ProgressiveResult]:
-        """Layer 3: 链接邻居 — 按 tags 关联 + 时序邻近扩展。
-
-        简化版 (无图结构): 从 recalled 的 tags metadata 找同标签记忆,
-        或从同 user_id 取时序邻近记忆。
-        """
+        """Layer 3: 按 tags 关联扩展邻居。"""
         if not recalled:
             return []
 

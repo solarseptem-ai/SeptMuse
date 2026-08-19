@@ -20,7 +20,7 @@ from sqlmodel import Field, SQLModel
 
 
 class EntityTable(SQLModel, table=True):
-    """septmuse_entities 表 — 实体存储（借鉴 mem0 V3 去图化）。"""
+    """septmuse_entities 表 — 实体存储。"""
 
     __tablename__ = "septmuse_entities"
 
@@ -37,7 +37,7 @@ class EntityTable(SQLModel, table=True):
 
 
 class EntityRelationTable(SQLModel, table=True):
-    """entity_relations 表 — 实体间关系边（借鉴 graphiti）。"""
+    """entity_relations 表 — 实体间关系边。"""
 
     __tablename__ = "entity_relations"
     __table_args__ = (

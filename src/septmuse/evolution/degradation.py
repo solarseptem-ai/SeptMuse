@@ -11,18 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""规则退化策略 — Cass helpful/harmful 退化独立为横切关注点。
-
-将 schemas/procedural.py 中 ProceduralRule.record_outcome / should_inject 的退化逻辑
-提取为独立可复用的策略类, 可应用于任意带 helpful/harmful 计数的记忆项。
-
-对齐 Cass Playbook (架构文档 §3.2.3):
-- helpful_count / harmful_count: 正/负面结果次数
-- confidence = helpful / (helpful + harmful)
-- deprecated: harmful > helpful 且 harmful >= 阈值 → 废弃, 不再注入
-
-详见 docs/specs/agent-memory-architecture.md §5.3 治理。
-"""
+"""规则退化策略。"""
 
 from __future__ import annotations
 
@@ -57,26 +46,13 @@ class DegradationRecord:
 
 
 class DegradationPolicy:
-    """规则退化策略 (对齐 Cass Playbook helpful/harmful 退化)。
-
-    用法:
-        policy = DegradationPolicy()
-        record = DegradationRecord()
-        policy.record_outcome(record, helpful=True)
-        if policy.should_inject(record):
-            inject(record)
-    """
+    """规则退化策略。"""
 
     def __init__(self, deprecation_threshold: int = DEFAULT_DEPRECATION_THRESHOLD) -> None:
         self.threshold = deprecation_threshold
 
     def record_outcome(self, record: DegradationRecord, helpful: bool) -> None:
-        """记录一次应用结果 (Cass helpful/harmful 追踪 + 自动退化)。
-
-        Args:
-            record: 退化记录 (原地修改)
-            helpful: True=正面(helpful+1), False=负面(harmful+1)
-        """
+        """记录一次应用结果。"""
         if helpful:
             record.helpful_count += 1
         else:

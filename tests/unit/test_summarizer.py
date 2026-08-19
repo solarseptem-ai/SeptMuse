@@ -15,8 +15,8 @@ import pytest
 from septmuse.configs.defaults import MemoryConfig
 from septmuse.embedders.hash import HashEmbedder
 from septmuse.evolution.summarizer import Summarizer
-from septmuse.experimental import ExperimentalMemory
 from septmuse.llms.base import LLM
+from septmuse.memory.main import Memory
 
 
 class StubLLM(LLM):
@@ -35,13 +35,13 @@ def tmp_db(tmp_path: Path) -> str:
 
 
 @pytest.fixture()
-def memory(tmp_db: str) -> ExperimentalMemory:
-    return ExperimentalMemory(config=MemoryConfig(db_path=tmp_db), embedder=HashEmbedder(dim=128))
+def memory(tmp_db: str) -> Memory:
+    return Memory(config=MemoryConfig(db_path=tmp_db), embedder=HashEmbedder(dim=128))
 
 
 @pytest.fixture()
-def memory_with_llm(tmp_db: str) -> ExperimentalMemory:
-    return ExperimentalMemory(
+def memory_with_llm(tmp_db: str) -> Memory:
+    return Memory(
         config=MemoryConfig(db_path=tmp_db),
         embedder=HashEmbedder(dim=128),
         llm=StubLLM("LLM summary of messages"),
@@ -49,7 +49,7 @@ def memory_with_llm(tmp_db: str) -> ExperimentalMemory:
 
 
 @pytest.fixture()
-def memory_with_50_msgs(memory: ExperimentalMemory) -> ExperimentalMemory:
+def memory_with_50_msgs(memory: Memory) -> Memory:
     """预填 50 条消息。"""
     for i in range(50):
         memory.add(f"message number {i}", user_id="u1")
@@ -57,7 +57,7 @@ def memory_with_50_msgs(memory: ExperimentalMemory) -> ExperimentalMemory:
 
 
 class TestStaticBuffer:
-    def test_compress_50_to_20(self, memory_with_50_msgs: ExperimentalMemory):
+    def test_compress_50_to_20(self, memory_with_50_msgs: Memory):
         """验收: 50 条消息压缩到 20 条 + 1 条摘要。"""
         result = memory_with_50_msgs.compress(user_id="u1", mode="static", buffer_size=20)
         assert result["compressed"] is True
@@ -65,7 +65,7 @@ class TestStaticBuffer:
         assert result["kept"] == 20
         assert result["summary_id"] is not None
 
-    def test_compress_creates_summary_episode(self, memory_with_50_msgs: ExperimentalMemory):
+    def test_compress_creates_summary_episode(self, memory_with_50_msgs: Memory):
         """压缩后创建 EpisodicEvent (event_type=summary)。"""
         result = memory_with_50_msgs.compress(user_id="u1", mode="static", buffer_size=20)
         episode = memory_with_50_msgs.typed_store.get_episodes(user_id="u1", limit=100)
@@ -73,7 +73,7 @@ class TestStaticBuffer:
         assert len(summaries) == 1
         assert summaries[0].id == result["summary_id"]
 
-    def test_compress_deletes_evicted(self, memory_with_50_msgs: ExperimentalMemory):
+    def test_compress_deletes_evicted(self, memory_with_50_msgs: Memory):
         """压缩后 evicted 消息被软删除。"""
         before = memory_with_50_msgs.get_all(user_id="u1")
         assert len(before["results"]) == 50
@@ -81,7 +81,7 @@ class TestStaticBuffer:
         after = memory_with_50_msgs.get_all(user_id="u1")
         assert len(after["results"]) == 20
 
-    def test_compress_under_buffer_skipped(self, memory: ExperimentalMemory):
+    def test_compress_under_buffer_skipped(self, memory: Memory):
         """消息数 <= buffer_size 时不压缩。"""
         memory.add("msg 1", user_id="u1")
         memory.add("msg 2", user_id="u1")
@@ -89,21 +89,21 @@ class TestStaticBuffer:
         assert result["compressed"] is False
         assert result["evicted"] == 0
 
-    def test_compress_empty_returns_not_compressed(self, memory: ExperimentalMemory):
+    def test_compress_empty_returns_not_compressed(self, memory: Memory):
         """空记忆库不压缩。"""
         result = memory.compress(user_id="u1", mode="static", buffer_size=20)
         assert result["compressed"] is False
 
 
 class TestPartialEvict:
-    def test_partial_evict_removes_30_percent(self, memory_with_50_msgs: ExperimentalMemory):
+    def test_partial_evict_removes_30_percent(self, memory_with_50_msgs: Memory):
         """partial 模式驱逐 30%。"""
         result = memory_with_50_msgs.compress(user_id="u1", mode="partial", buffer_size=20)
         assert result["compressed"] is True
         assert result["evicted"] == 15
         assert result["kept"] == 35
 
-    def test_partial_evict_minimum_1(self, memory: ExperimentalMemory):
+    def test_partial_evict_minimum_1(self, memory: Memory):
         """partial 模式最少驱逐 1 条。"""
         for i in range(3):
             memory.add(f"msg {i}", user_id="u1")
@@ -112,7 +112,7 @@ class TestPartialEvict:
 
 
 class TestLLMSummary:
-    def test_llm_summary_used(self, memory_with_llm: ExperimentalMemory):
+    def test_llm_summary_used(self, memory_with_llm: Memory):
         """验收: LLM 摘要保留关键信息 (用 mock 验证)。"""
         for i in range(25):
             memory_with_llm.add(f"important fact {i}", user_id="u1")
@@ -124,7 +124,7 @@ class TestLLMSummary:
         assert len(summaries) == 1
         assert summaries[0].content == "LLM summary of messages"
 
-    def test_no_llm_uses_concatenation(self, memory_with_50_msgs: ExperimentalMemory):
+    def test_no_llm_uses_concatenation(self, memory_with_50_msgs: Memory):
         """无 LLM 时用拼接降级。"""
         memory_with_50_msgs.compress(user_id="u1", mode="static", buffer_size=20)
         episodes = memory_with_50_msgs.typed_store.get_episodes(user_id="u1", limit=100)
@@ -132,7 +132,7 @@ class TestLLMSummary:
         assert len(summaries) == 1
         assert "[Summary]" in summaries[0].content
 
-    def test_llm_failure_falls_back(self, memory: ExperimentalMemory):
+    def test_llm_failure_falls_back(self, memory: Memory):
         """LLM 调用失败时回退拼接。"""
 
         class FailLLM(LLM):
@@ -151,7 +151,7 @@ class TestLLMSummary:
 
 
 class TestUserIsolation:
-    def test_compress_only_affects_user(self, memory: ExperimentalMemory):
+    def test_compress_only_affects_user(self, memory: Memory):
         """压缩只影响指定用户。"""
         for i in range(25):
             memory.add(f"u1 msg {i}", user_id="u1")
@@ -167,7 +167,7 @@ class TestUserIsolation:
 
 
 class TestSummarizerDirect:
-    def test_summarizer_directly(self, memory: ExperimentalMemory):
+    def test_summarizer_directly(self, memory: Memory):
         """直接用 Summarizer 测试。"""
         for i in range(25):
             memory.add(f"msg {i}", user_id="u1")

@@ -11,19 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""情节记忆数据模型 + 操作。
-
-数据模型 — 时序事件 + 推理经验 + raw log:
-三子类对齐 (架构文档 §3.2.1):
-- 时序事件: Zep/Graphiti Episode (content, type, reference_time)
-- 推理经验: LangMem Episode (observation, thoughts, action, result)
-- raw log: Cass Episodic (原始 session transcript, 高保真防摘要坍缩)
-
-操作 — 三子类统一接口:
-- add_temporal_event: Zep Episode (事实 + reference_time)
-- add_reasoning_episode: LangMem Episode (observation/thoughts/action/result)
-- add_raw_log: Cass Episodic (原始 session log, 高保真)
-"""
+"""情节记忆数据模型 + 操作。"""
 
 from __future__ import annotations
 
@@ -49,7 +37,7 @@ def _new_id() -> str:
 
 
 class EpisodeType(str, Enum):
-    """情节子类 (架构文档 §3.2.1 三子类)。"""
+    """情节子类。"""
 
     FACT = "fact"  # 时序事件 (Zep Episode: 事实+时间锚)
     REASONING = "reasoning"  # 推理经验 (LangMem Episode: obs/act/result)
@@ -57,12 +45,7 @@ class EpisodeType(str, Enum):
 
 
 class EpisodicEvent(SQLModel, table=True):
-    """情节事件 — 统一表, event_type 区分子类 (架构文档 §3.2.1)。
-
-    对齐 Zep Episode: content + reference_time (时间锚点, 时序检索依据)。
-    对齐 LangMem Episode: observation/thoughts/action/result (推理经验, 阶段2 reasoning 用)。
-    对齐 Cass Episodic: raw transcript (高保真, raw_log 用)。
-    """
+    """情节事件。"""
 
     __tablename__ = "septmuse_episodic"  # type: ignore[assignment]
 
@@ -95,7 +78,7 @@ class EpisodicEvent(SQLModel, table=True):
     is_deleted: bool = Field(default=False, description="软删除")
 
     def as_langmem_episode(self) -> dict[str, str | None]:
-        """返回 LangMem Episode 格式 (obs/thoughts/action/result)。"""
+        """返回 LangMem Episode 格式。"""
         return {
             "observation": self.observation,
             "thoughts": self.thoughts,
@@ -108,7 +91,7 @@ logger = get_logger(__name__)
 
 
 class EpisodicMemory:
-    """情节记忆操作 (架构文档 §3.2.1, 三子类统一接口)。"""
+    """情节记忆操作。"""
 
     def __init__(self, store: TypedMemoryStore) -> None:
         self.store = store
@@ -121,7 +104,7 @@ class EpisodicMemory:
         reference_time: datetime | None = None,
         agent_id: str | None = None,
     ) -> EpisodicEvent:
-        """添加时序事件 (对齐 Zep Episode: content + reference_time)。"""
+        """添加时序事件。"""
         return self.store.add_episode(
             content,
             user_id=user_id,
@@ -140,10 +123,7 @@ class EpisodicMemory:
         user_id: str,
         agent_id: str | None = None,
     ) -> EpisodicEvent:
-        """添加推理经验 (对齐 LangMem Episode: obs/thoughts/action/result)。
-
-        content = 综合叙述; obs/thoughts/action/result 存专用字段。
-        """
+        """添加推理经验。"""
         content = f"[EPISODE] observation: {observation}\nthoughts: {thoughts}\naction: {action}\nresult: {result}"
         return self.store.add_episode(
             content,
@@ -164,7 +144,7 @@ class EpisodicMemory:
         session_id: str,
         agent_id: str | None = None,
     ) -> EpisodicEvent:
-        """添加原始 session log (对齐 Cass Episodic: 高保真防摘要坍缩)。"""
+        """添加原始 session log。"""
         return self.store.add_episode(
             transcript,
             user_id=user_id,
@@ -182,7 +162,7 @@ class EpisodicMemory:
         until: datetime | None = None,
         limit: int = 50,
     ) -> list[EpisodicEvent]:
-        """时序查询 (Zep reference_time 模式)。"""
+        """时序查询。"""
         return self.store.get_episodes(
             user_id=user_id,
             event_type=event_type,
@@ -192,11 +172,11 @@ class EpisodicMemory:
         )
 
     def get_reasoning_episodes(self, *, user_id: str, limit: int = 20) -> list[EpisodicEvent]:
-        """获取推理经验 (LangMem Episode 检索)。"""
+        """获取推理经验。"""
         return self.store.get_episodes(user_id=user_id, event_type=EpisodeType.REASONING, limit=limit)
 
     def episode_to_dict(self, event: EpisodicEvent) -> dict[str, Any]:
-        """序列化 (含推理字段, 对齐 LangMem Episode 格式)。"""
+        """序列化。"""
         return {
             "id": event.id,
             "event_type": event.event_type,

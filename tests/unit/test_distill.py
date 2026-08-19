@@ -19,8 +19,8 @@ from septmuse.evolution.reflect import (
     ReflectionResult,
     SessionReflector,
 )
-from septmuse.experimental import ExperimentalMemory
 from septmuse.llms.base import LLM
+from septmuse.memory.main import Memory
 
 
 class StubLLM(LLM):
@@ -42,17 +42,17 @@ def tmp_db(tmp_path: Path) -> str:
 
 
 @pytest.fixture()
-def memory(tmp_db: str) -> ExperimentalMemory:
-    return ExperimentalMemory(config=MemoryConfig(db_path=tmp_db), embedder=HashEmbedder(dim=128))
+def memory(tmp_db: str) -> Memory:
+    return Memory(config=MemoryConfig(db_path=tmp_db), embedder=HashEmbedder(dim=128))
 
 
 @pytest.fixture()
-def memory_with_llm(tmp_db: str) -> ExperimentalMemory:
+def memory_with_llm(tmp_db: str) -> Memory:
     llm = StubLLM(
         extract_response="Lesson: Always run tests before deploying\nLesson: Never skip code review\nLesson: Must document API changes\nLesson: short\nLesson: Always run tests before deploying",
         accept=True,
     )
-    return ExperimentalMemory(config=MemoryConfig(db_path=tmp_db), embedder=HashEmbedder(dim=128), llm=llm)
+    return Memory(config=MemoryConfig(db_path=tmp_db), embedder=HashEmbedder(dim=128), llm=llm)
 
 
 def _add_reasoning_events(typed_store, user_id: str, count: int = 5):
@@ -70,21 +70,21 @@ def _add_reasoning_events(typed_store, user_id: str, count: int = 5):
 
 
 class TestSessionReflectorBasic:
-    def test_reflect_no_events(self, memory: ExperimentalMemory):
+    def test_reflect_no_events(self, memory: Memory):
         """无 reasoning events 时返回空。"""
         reflector = SessionReflector(memory.typed_store, llm=None)
         result = reflector.reflect(user_id="u1", limit=20)
         assert result.lessons_proposed == 0
         assert result.lessons_accepted == 0
 
-    def test_reflect_with_heuristic(self, memory: ExperimentalMemory):
+    def test_reflect_with_heuristic(self, memory: Memory):
         """无 LLM 时用 heuristic 提取。"""
         _add_reasoning_events(memory.typed_store, "u1", count=5)
         reflector = SessionReflector(memory.typed_store, llm=None)
         result = reflector.reflect(user_id="u1", limit=20)
         assert result.lessons_proposed > 0
 
-    def test_reflect_with_llm(self, memory_with_llm: ExperimentalMemory):
+    def test_reflect_with_llm(self, memory_with_llm: Memory):
         """有 LLM 时用 LLM 提取 lessons。"""
         _add_reasoning_events(memory_with_llm.typed_store, "u1", count=5)
         reflector = SessionReflector(memory_with_llm.typed_store, llm=memory_with_llm.llm)
@@ -93,14 +93,14 @@ class TestSessionReflectorBasic:
 
 
 class TestCuratorStage:
-    def test_llm_extract_returns_lessons(self, memory_with_llm: ExperimentalMemory):
+    def test_llm_extract_returns_lessons(self, memory_with_llm: Memory):
         """验收: curator LLM 批次提取课程。"""
         _add_reasoning_events(memory_with_llm.typed_store, "u1", count=3)
         reflector = SessionReflector(memory_with_llm.typed_store, llm=memory_with_llm.llm)
         result = reflector.reflect(user_id="u1", limit=20)
         assert result.lessons_proposed >= 3
 
-    def test_heuristic_extract_from_thoughts(self, memory: ExperimentalMemory):
+    def test_heuristic_extract_from_thoughts(self, memory: Memory):
         """heuristic 从 thoughts 字段提取。"""
         memory.typed_store.add_episode(
             "test",
@@ -112,7 +112,7 @@ class TestCuratorStage:
         result = reflector.reflect(user_id="u1", limit=20)
         assert result.lessons_proposed >= 2
 
-    def test_empty_thoughts_no_lessons(self, memory: ExperimentalMemory):
+    def test_empty_thoughts_no_lessons(self, memory: Memory):
         """空 thoughts/action 不提取。"""
         memory.typed_store.add_episode("test", user_id="u1", event_type="reasoning")
         reflector = SessionReflector(memory.typed_store, llm=None)
@@ -121,7 +121,7 @@ class TestCuratorStage:
 
 
 class TestWriterRejecterStage:
-    def test_novelty_search_rejects_duplicates(self, memory: ExperimentalMemory):
+    def test_novelty_search_rejects_duplicates(self, memory: Memory):
         """验收: 新颖性搜索拒绝重复规则。"""
         memory.typed_store.add_rule("Always run tests before deploying", user_id="u1", namespace="reflection")
         _add_reasoning_events(memory.typed_store, "u1", count=1)
@@ -135,14 +135,14 @@ class TestWriterRejecterStage:
                 accepted += 1
         assert accepted == 0
 
-    def test_short_statement_rejected(self, memory: ExperimentalMemory):
+    def test_short_statement_rejected(self, memory: Memory):
         """<5 字符的 statement 被拒。"""
         reflector = SessionReflector(memory.typed_store, llm=None)
         proposal = LessonProposal(statement="hi", source_event_id="ep-1")
         accepted = reflector._accept_lesson(proposal, user_id="u1", namespace="reflection", result=ReflectionResult())
         assert accepted is False
 
-    def test_llm_reject_returns_false(self, memory_with_llm: ExperimentalMemory):
+    def test_llm_reject_returns_false(self, memory_with_llm: Memory):
         """LLM reject 时返回 False。"""
         _add_reasoning_events(memory_with_llm.typed_store, "u1", count=1)
         llm = StubLLM(accept=False)
@@ -151,7 +151,7 @@ class TestWriterRejecterStage:
         accepted = reflector._accept_lesson(proposal, user_id="u1", namespace="reflection", result=ReflectionResult())
         assert accepted is False
 
-    def test_rejection_rate(self, memory_with_llm: ExperimentalMemory):
+    def test_rejection_rate(self, memory_with_llm: Memory):
         """验收: 拒绝率合理 (≥20% 的候选被拒)。"""
         _add_reasoning_events(memory_with_llm.typed_store, "u1", count=10)
         reflector = SessionReflector(memory_with_llm.typed_store, llm=memory_with_llm.llm)
@@ -174,14 +174,14 @@ class TestWriterRejecterStage:
 
 
 class TestFullPipeline:
-    def test_50_events_distill_3_rules(self, memory_with_llm: ExperimentalMemory):
+    def test_50_events_distill_3_rules(self, memory_with_llm: Memory):
         """验收: 从 50 条记忆蒸馏出 ≥3 条可执行规则。"""
         _add_reasoning_events(memory_with_llm.typed_store, "u1", count=50)
         reflector = SessionReflector(memory_with_llm.typed_store, llm=memory_with_llm.llm)
         result = reflector.reflect(user_id="u1", limit=50)
         assert result.lessons_accepted >= 1
 
-    def test_rules_stored_as_procedural(self, memory: ExperimentalMemory):
+    def test_rules_stored_as_procedural(self, memory: Memory):
         """验收: 每条课程独立文档存入 TypedMemoryStore (ProceduralRule)。"""
         memory.typed_store.add_episode(
             "test",
@@ -194,10 +194,10 @@ class TestFullPipeline:
         rules = memory.typed_store.get_active_rules(user_id="u1", namespace="reflection")
         assert len(rules) == result.lessons_accepted
 
-    def test_reflect_via_memory_facade(self, memory_with_llm: ExperimentalMemory):
+    def test_reflect_via_memory_facade(self, memory_with_llm: Memory):
         """验收: Memory.reflect 触发蒸馏。"""
         _add_reasoning_events(memory_with_llm.typed_store, "u1", count=5)
         result = memory_with_llm.reflect(user_id="u1", limit=20)
-        assert "proposed" in result
-        assert "accepted" in result
+        assert "lessons_proposed" in result
+        assert "lessons_accepted" in result
         assert "rule_ids" in result

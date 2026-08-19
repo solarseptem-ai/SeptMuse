@@ -11,107 +11,29 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Memory facade — SeptMuse 零配置入口。
-
-pip install septmuse 后:
-
-    from septmuse import Memory
-    m = Memory()
-    m.add("我喜欢 Python", user_id="alice")
-    m.search("alice 喜欢什么", user_id="alice")
-
-核心 API (8 方法):
-
-    add / search / get / get_all / update / delete / delete_all / history
-
-差异化 (保留):
-    invalidate — 双时态失效
-    cognify    — 知识图谱构建
-    get_active_rules / rules_to_prompt / record_rule_outcome — 规则系统
-
-实验性功能 (working memory / causal / rehearsal / metacognition /
-dream / compress / conflict / temporal search / graph search / entity CRUD)
-请在 ``from septmuse.experimental import ExperimentalMemory`` 中使用。
-"""
+"""Memory facade — SeptMuse 零配置入口。"""
 
 from __future__ import annotations
 
 import contextlib
-from collections.abc import Callable
-from typing import Any
+from typing import Any, ClassVar
 
 from septmuse.configs.defaults import MemoryConfig, default_config
 from septmuse.core.logging import get_logger
-from septmuse.core.messages import normalize_messages as _normalize_messages
+from septmuse.core.utils import is_expired as _is_expired
 from septmuse.embedders.base import Embedder
 from septmuse.llms.base import LLM
-from septmuse.memory.episodic import EpisodicMemory
-from septmuse.memory.procedural import ProceduralMemory
-from septmuse.memory.semantic import SemanticMemory
-from septmuse.models.extract import FactExtractor
-from septmuse.storage.base import MemoryStore
+from septmuse.memory._factory import MemoryComponentFactory
+from septmuse.memory.registry_v2 import ComponentRegistry
+from septmuse.pipelines.search import PostProcessConfig, SearchConfig
+from septmuse.storage.base import MemoryStore, TemporalStore
 from septmuse.storage.graph_stores.base import GraphStore
-from septmuse.storage.graph_stores.sqlite import SQLiteGraphStore
-from septmuse.storage.relational_stores.typed_store import TypedMemoryStore
 
 logger = get_logger(__name__)
 
 
-def _resolve_embedder(config: MemoryConfig) -> Embedder:
-    """解析 embedder (通过 ServiceProvider 延迟 import + 实例化)。
-
-    默认 HashEmbedder (零模型加载, 离线可用)。
-    支持: hash / st / onnx / onnx-zh / auto / openai
-    """
-    from septmuse.services.providers import embedder_provider
-
-    backend = config.embedder.backend.lower()
-    if backend in ("sentence-transformers", "sentence_transformers"):
-        backend = "st"
-    if backend == "onnx-zh":
-        return embedder_provider.resolve(
-            backend, config=config.embedder, model_name="Xenova/paraphrase-multilingual-MiniLM-L12-v2"
-        )
-    return embedder_provider.resolve(backend, config=config.embedder)
-
-
-def _normalize_expiration_date(expiration_date: Any) -> str | None:
-    """归一化 expiration_date 为 YYYY-MM-DD 字符串 (对齐 mem0 expiration_date)。"""
-    if expiration_date is None:
-        return None
-    if not isinstance(expiration_date, str):
-        raise ValueError("expiration_date must be a string in YYYY-MM-DD format")
-    from datetime import datetime
-
-    try:
-        datetime.strptime(expiration_date, "%Y-%m-%d")
-    except ValueError:
-        raise ValueError(f"expiration_date must be in YYYY-MM-DD format, got: {expiration_date}") from None
-    return expiration_date
-
-
-def _is_expired(metadata: dict[str, Any] | None) -> bool:
-    """检查 metadata 是否已过期 (基于 expiration_date 字段)。"""
-    if not metadata or not isinstance(metadata, dict):
-        return False
-    exp = metadata.get("expiration_date")
-    if not exp or not isinstance(exp, str):
-        return False
-    from datetime import date, datetime
-
-    try:
-        exp_date = datetime.strptime(exp, "%Y-%m-%d").date()
-    except ValueError:
-        return False
-    return exp_date < date.today()
-
-
 class Memory:
-    """SeptMuse 记忆系统零配置 facade。
-
-    零配置: Memory() 用 SQLite + HashEmbedder。
-    升级: Memory(config=MemoryConfig(db_path="...")) 自定义。
-    """
+    """SeptMuse 记忆系统零配置 facade。"""
 
     def __init__(
         self,
@@ -135,193 +57,64 @@ class Memory:
             inject_llm=llm is not None,
         )
 
-        self.embedder: Embedder = embedder or _resolve_embedder(self.config)
-        self.store = store or self._resolve_store()
+        # 核心组件全部由工厂构造，__init__ 只负责赋值
+        state = MemoryComponentFactory.build(
+            self.config,
+            embedder=embedder,
+            store=store,
+            graph_store=graph_store,
+            llm=llm,
+            entity_extractor=entity_extractor,
+        )
 
-        # duck typing: ORMMemoryStore 有 engine 属性
-        store_engine = getattr(self.store, "engine", None)
-
-        if graph_store is not None:
-            self.graph_store: GraphStore | None = graph_store
-        elif store_engine is not None:
-            # ORMMemoryStore 路径: SQLite dialect 从 engine 取 raw connection
-            if store_engine.dialect.name == "sqlite":
-                import threading
-
-                raw_conn = store_engine.raw_connection()
-                self.graph_store = SQLiteGraphStore(raw_conn, threading.Lock())
-            else:
-                # MySQL/PG 暂不支持原生 GraphStore (AGE/Neo4j 后续)
-                self.graph_store = graph_store
-        else:
-            self.graph_store = graph_store
-
-        # typed_store 共享 engine + facts vector_store
-        facts_vs = self._create_facts_vector_store()
-        if store_engine is not None:
-            self.typed_store = TypedMemoryStore(engine=store_engine, vector_store=facts_vs)
-        else:
-            self.typed_store = TypedMemoryStore(db_path=self.config.db_path, vector_store=facts_vs)
-        self.semantic = SemanticMemory(self.typed_store, self.embedder)
-        self.episodic = EpisodicMemory(self.typed_store)
-        self.procedural = ProceduralMemory(self.typed_store)
-
-        self.llm: LLM | None = llm
-        if self.llm is None and self.config.llm_provider:
-            try:
-                from septmuse.llms import _resolve_llm
-
-                self.llm = _resolve_llm(self.config)
-            except Exception as e:
-                logger.warning("llm_resolve_failed", error=str(e))
-                self.llm = None
-
-        self.extractor: FactExtractor | None = None
-        if self.llm is not None:
-            self.extractor = FactExtractor(self.llm, self.embedder, self.typed_store, self.store)
-
-        from septmuse.extraction.entity import _resolve_entity_extractor
-
-        self.entity_extractor = entity_extractor or _resolve_entity_extractor(self.config)
-
-        # entity_store (ORMMemoryStore 路径)
-        self.entity_store = None
-        if store_engine is not None:
-            try:
-                from septmuse.storage.relational_stores.entity_store import EntityStore
-
-                self.entity_store = EntityStore.from_engine(store_engine, self.embedder)
-            except Exception as e:
-                logger.warning("entity_store_init_failed", error=str(e))
-
-        try:
-            from septmuse.rerankers import create_reranker
-            from septmuse.rerankers.noop import NoopReranker
-
-            self._reranker = create_reranker(
-                self.config.reranker_backend,
-                embedder=self.embedder,
-                llm=self.llm,
-            )
-        except Exception as e:
-            logger.warning("reranker_resolve_failed", error=str(e))
-            from septmuse.rerankers.noop import NoopReranker
-
-            self._reranker = NoopReranker()
-
-        from septmuse.governance.approval import DedupWindow
-
-        self._dedup_window = DedupWindow()
+        self.embedder = state.embedder
+        self.store = state.store
+        self.graph_store = state.graph_store
+        self.typed_store = state.typed_store
+        self.semantic = state.semantic
+        self.episodic = state.episodic
+        self.procedural = state.procedural
+        self.llm = state.llm
+        self.extractor = state.extractor
+        self.entity_extractor = state.entity_extractor
+        self.entity_store = state.entity_store
+        self._reranker = state.reranker
+        self._dedup_window = state.dedup_window
 
         self._hybrid_retriever = None
-        self._search_pipeline = None
-        self._recall_pipeline = None
+        self._registry = ComponentRegistry(self)
+        self._registry.register_all()
 
-        self._init_v2_components()
+    # ------------------------------------------------------------------
+    # Lazy-loaded domain properties (via __getattr__)
+    # ------------------------------------------------------------------
 
-    def _safe_init(self, attr: str, factory: Callable[[], Any]) -> None:
-        """尝试构造组件, 失败设 None + 日志 (集中 try/except, 消除 7× 重复)。"""
-        try:
-            setattr(self, attr, factory())
-        except Exception as e:
-            setattr(self, attr, None)
-            logger.warning(f"{attr}_init_failed", error=str(e))
+    # 6 个领域模块 + 兼容属性
+    _DOMAIN_ATTRS: ClassVar[dict[str, str]] = {
+        "evolution": "evolution_module",
+        "entities": "entity_module",
+        "temporal": "temporal_module",
+        "self_loop": "self_loop",
+        "working_memory": "working_memory",
+        "token_budget": "token_budget",
+        "forgetting": "forgetting",
+        "summarizer": "summarizer",
+        "_capture_pipeline": "capture",
+    }
 
-    def _init_v2_components(self) -> None:
-        """初始化 V2 编排组件 (working_memory / capture / token_budget / meta / evolution / forgetting / summarizer)。"""
-        store_engine = getattr(self.store, "engine", None)
+    def __getattr__(self, name: str) -> Any:
+        """自动委托: mem.evolution → registry.get("evolution_module")。
 
-        def make_working_memory() -> Any:
-            from septmuse.memory.working_memory import WorkingMemory
-            from septmuse.storage.working_memory_stores.factory import create_working_memory_store
-
-            return WorkingMemory(
-                store=create_working_memory_store(self.config, engine=store_engine), agent_id="default"
-            )
-
-        def make_capture() -> Any:
-            from septmuse.capture.pipeline import CapturePipeline
-
-            return CapturePipeline(
-                self.store,
-                self.embedder,
-                typed_store=self.typed_store,
-                llm=self.llm,
-                dedup_window=self._dedup_window,
-            )
-
-        def make_token_budget() -> Any:
-            from septmuse.retrieval.token_budget import TokenBudget
-
-            return TokenBudget()
-
-        def make_meta() -> Any:
-            from septmuse.memory.meta import MetacognitionLayer
-
-            return MetacognitionLayer(self.embedder, self.store, self.typed_store)
-
-        def make_evolution() -> Any:
-            from septmuse.memory.evolution import EvolutionEngine
-
-            return EvolutionEngine(self.store, self.graph_store, self.embedder, self.typed_store, self.llm)
-
-        def make_forgetting() -> Any:
-            from septmuse.retrieval.forgetting import ForgettingRetriever
-
-            return ForgettingRetriever(self.typed_store)
-
-        def make_summarizer() -> Any:
-            from septmuse.evolution.summarizer import Summarizer
-
-            return Summarizer(self.store, self.typed_store, self.llm)
-
-        if store_engine is not None:
-            self._safe_init("working_memory", make_working_memory)
-        else:
-            self.working_memory = None
-        self._safe_init("capture", make_capture)
-        self._safe_init("token_budget", make_token_budget)
-        self._safe_init("meta", make_meta)
-        self._safe_init("evolution", make_evolution)
-        self._safe_init("forgetting", make_forgetting)
-        self._safe_init("summarizer", make_summarizer)
-
-    def _resolve_store(self) -> MemoryStore:
-        """解析 store: 统一走 ORMMemoryStore (DatabaseService 自动回退 SQLite 零配置)。"""
-        from septmuse.storage.relational_stores.factory import RelationalStoreFactory
-
-        return RelationalStoreFactory.create(self.config)
-
-    def _create_facts_vector_store(self) -> Any:
-        """创建 SemanticFact 专用 vector_store (collection_name='septmuse_facts')。
-
-        从 ORMMemoryStore 的 vector_store 判断后端类型, 仅 QdrantVectorStore 支持多 collection。
-        本地模式复用同一 QdrantClient (_local_client_cache), 无文件锁冲突。
-        其他后端 (SQLAlchemy/Chroma 等) 返回 None, TypedMemoryStore 降级 numpy 全扫描。
+        如果 name 在 _DOMAIN_ATTRS 中，从 ComponentRegistry 懒加载。
+        否则尝试从 registry 按原名查找。
+        都找不到则抛出 AttributeError。
         """
-        import os
-
-        vs = getattr(self.store, "_vector_store", None)
-        if vs is None:
-            return None
-        if type(vs).__name__ != "QdrantVectorStore":
-            return None
-        try:
-            from septmuse.storage.vector_stores.qdrant import QdrantVectorStore
-
-            return QdrantVectorStore(
-                collection_name="septmuse_facts",
-                embedding_model_dims=getattr(vs, "_dim", self.config.vector_store.embedding_model_dims or 512),
-                path=os.getenv("SEPTMUSE_QDRANT_PATH"),
-                host=os.getenv("SEPTMUSE_QDRANT_HOST"),
-                port=int(os.getenv("SEPTMUSE_QDRANT_PORT", "6333")) if os.getenv("SEPTMUSE_QDRANT_HOST") else None,
-                url=os.getenv("SEPTMUSE_QDRANT_URL"),
-                api_key=os.getenv("SEPTMUSE_QDRANT_API_KEY"),
-                enable_bm25=getattr(vs, "_enable_bm25", True),
-            )
-        except Exception as e:
-            logger.warning("facts_vector_store_create_failed", error=str(e))
-            return None
+        if name in self._DOMAIN_ATTRS:
+            return self._registry.get(self._DOMAIN_ATTRS[name])
+        result = self._registry.get(name)
+        if result is not None:
+            return result
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
     # ------------------------------------------------------------------
     # 核心 API
@@ -339,6 +132,8 @@ class Memory:
         memory_type: str | None = None,
         auto_extract_entities: bool = True,
         valid_at: str | None = None,
+        expiration_date: str | None = None,
+        attributed_to: str | None = None,
         # typed memory kwargs (memory_type != None 时使用)
         subject: str | None = None,
         predicate: str | None = None,
@@ -346,119 +141,40 @@ class Memory:
         event_type: str = "fact",
         namespace: str = "default",
         rule: str | None = None,
-        expiration_date: str | None = None,
     ) -> dict[str, Any]:
-        """添加记忆 (统一 typed memory 入口)。
-
-        Args:
-            messages: str 或 List[{"role","content"}]
-            user_id: 用户 ID (必填, 跨 agent 共享键)
-            agent_id: agent ID (可选)
-            session_id: 会话 ID (None=不限制)
-            metadata: 元数据
-            infer: True=LLM 抽取事实; False=原文存; None=用 config.infer
-            memory_type: None=verbatim 记忆; "fact"/"episode"/"rule"=类型化记忆
-            auto_extract_entities: True=自动抽取实体 (默认)
-            valid_at: 事实开始为真的时间 (双时态建模)
-
-        Returns:
-            {"results": [{"id","memory","event":"ADD"}], "relations": []}
-        """
-        # 类型化记忆路由
-        if memory_type == "fact":
-            fact = self.semantic.add_fact(
-                subject or "",
-                predicate or "",
-                object or "",
-                user_id=user_id,
-                context=metadata.get("context") if metadata else None,
-                confidence=metadata.get("confidence", 1.0) if metadata else 1.0,
-                provenance=metadata.get("provenance", "user") if metadata else "user",
-                tags=metadata.get("tags") if metadata else None,
-            )
-            return {"id": fact.id, "triple": fact.as_triple(), "event": "ADD"}
-
-        if memory_type == "episode":
-            from septmuse.models.episodic import EpisodeType
-
-            et = {"fact": EpisodeType.FACT, "reasoning": EpisodeType.REASONING, "raw_log": EpisodeType.RAW_LOG}.get(
-                event_type, EpisodeType.FACT
-            )
-            content = messages if isinstance(messages, str) else str(messages)
-            if et == EpisodeType.REASONING and metadata and metadata.get("observation"):
-                event = self.episodic.add_reasoning_episode(
-                    metadata["observation"],
-                    metadata.get("thoughts", ""),
-                    metadata.get("action", ""),
-                    metadata.get("result", ""),
-                    user_id=user_id,
-                )
-            elif et == EpisodeType.RAW_LOG:
-                event = self.episodic.add_raw_log(content, user_id=user_id, session_id=session_id or "unknown")
-            else:
-                event = self.episodic.add_temporal_event(content, user_id=user_id)
-            return {
-                "id": event.id,
-                "event_type": event.event_type,
-                "reference_time": event.reference_time.isoformat(),
-            }
-
-        if memory_type == "rule":
-            rule_text = rule or (messages if isinstance(messages, str) else str(messages))
-            r = self.procedural.add_rule(
-                rule_text,
-                user_id=user_id,
-                namespace=namespace,
-                source_tracing=metadata.get("source_tracing") if metadata else None,
-            )
-            return {"id": r.id, "rule": r.rule, "event": "ADD"}
-
-        # verbatim / infer 模式
-        should_infer = self.config.infer if infer is None else infer
-
-        if should_infer and self.extractor is not None:
-            extracted = self.extractor.extract_and_store(messages, user_id=user_id)
-            return {"results": extracted, "relations": []}
-
-        texts = _normalize_messages(messages)
-        if not texts:
-            return {"results": [], "relations": []}
-
-        normalized_exp = _normalize_expiration_date(expiration_date)
-        if normalized_exp is not None:
+        """添加记忆 (统一类型化入口)。"""
+        # 多说话人归因: attributed_to / actor_id 放入 metadata
+        if attributed_to is not None or isinstance(messages, list):
             if metadata is None:
                 metadata = {}
-            metadata["expiration_date"] = normalized_exp
+            if attributed_to is not None:
+                metadata = {**metadata, "attributed_to": attributed_to}
+            if isinstance(messages, list) and messages:
+                first_msg = messages[0] if isinstance(messages[0], dict) else {}
+                actor_id = first_msg.get("name")
+                if actor_id is not None:
+                    metadata = {**metadata, "actor_id": actor_id}
 
-        embeddings = self.embedder.embed_batch(texts)
-
-        # 批量插入 (对齐 mem0 V3 Phase 6, 单次 commit)
-        records = list(zip(texts, embeddings, strict=True))
-        ids = self.store.add_batch(
-            records,
+        result = self._registry.get("add").add(
+            messages,
             user_id=user_id,
             agent_id=agent_id,
             session_id=session_id,
             metadata=metadata,
+            infer=infer,
+            memory_type=memory_type,
+            auto_extract_entities=auto_extract_entities,
             valid_at=valid_at,
+            expiration_date=expiration_date,
+            subject=subject,
+            predicate=predicate,
+            object=object,
+            event_type=event_type,
+            namespace=namespace,
+            rule=rule,
         )
-
-        # 批量实体链接 (对齐 mem0 V3 Phase 7, 全局去重)
-        valid_pairs: list[tuple[str, str]] = [
-            (text, mid) for text, mid in zip(texts, ids, strict=True) if mid is not None
-        ]
-        if auto_extract_entities and self.entity_store is not None and self.entity_extractor is not None:
-            self._batch_extract_and_store_entities(valid_pairs, user_id=user_id, agent_id=agent_id)
-
-        results: list[dict[str, Any]] = []
-        for text, mid in zip(texts, ids, strict=True):
-            if mid is None:
-                continue  # 批次内 hash 去重跳过
-            results.append({"id": mid, "memory": text, "event": "ADD"})
-
         self._invalidate_search_cache(user_id=user_id)
-        logger.info("memory_add_done", user_id=user_id, count=len(results), infer=should_infer)
-        return {"results": results, "relations": []}
+        return result
 
     def _extract_and_store_entities(
         self, text: str, memory_id: str, *, user_id: str, agent_id: str | None = None
@@ -473,42 +189,10 @@ class Memory:
         except Exception as e:
             logger.warning("auto_extract_entities_failed", error=str(e))
 
-    def _batch_extract_and_store_entities(
-        self, pairs: list[tuple[str, str]], *, user_id: str, agent_id: str | None = None
-    ) -> None:
-        """批量实体链接 (对齐 mem0 V3 Phase 7, 全局去重)。
-
-        全局去重: 同一实体 (归一化名) 在多条记忆中出现, 只 upsert 一次,
-        但 linked_memory_ids 会包含所有相关 memory_id。
-
-        Args:
-            pairs: [(text, memory_id), ...] 列表
-        """
-        if not pairs:
-            return
-        from septmuse.extraction.entity import Entity
-
-        try:
-            # 1. 全局去重: normalized_key → (entity_type, entity_text, set of memory_ids)
-            global_entities: dict[str, tuple[str, str, set[str]]] = {}
-            for text, memory_id in pairs:
-                entities = self.entity_extractor.extract(text)  # type: ignore[union-attr]
-                for entity in entities:
-                    key = entity.text.strip().lower()
-                    if key in global_entities:
-                        global_entities[key][2].add(memory_id)
-                    else:
-                        global_entities[key] = (entity.entity_type, entity.text, {memory_id})
-
-            # 2. 逐个 upsert (upsert 内部做精确+语义去重, 全局去重减少重复调用)
-            for entity_type, entity_text, memory_ids in global_entities.values():
-                entity = Entity(text=entity_text, entity_type=entity_type, start=0, end=0)
-                for mid in memory_ids:
-                    self.entity_store.upsert(  # type: ignore[union-attr]
-                        entity, mid, user_id=user_id, agent_id=agent_id
-                    )
-        except Exception as e:
-            logger.warning("batch_extract_entities_failed", error=str(e))
+    @property
+    def _retriever(self):
+        """向后兼容别名 — 返回 HybridRetriever 实例。"""
+        return self._get_hybrid_retriever()
 
     def _get_hybrid_retriever(self):
         """获取持久化 HybridRetriever 实例 (缓存跨 search 调用生效)。"""
@@ -522,39 +206,6 @@ class Memory:
                 entity_store=self.entity_store,
             )
         return self._hybrid_retriever
-
-    def _get_search_pipeline(self):
-        """获取持久化 SearchPipeline 实例 (缓存跨 search 调用生效)。"""
-        if self._search_pipeline is None:
-            from septmuse.rerankers import create_reranker
-            from septmuse.retrieval.search_pipeline import SearchPipeline, VectorRetrieverAdapter
-
-            self._search_pipeline = SearchPipeline(
-                hybrid_retriever=self._get_hybrid_retriever(),
-                vector_retriever=VectorRetrieverAdapter(self.store, self.embedder),
-                reranker_factory=lambda name: create_reranker(name, embedder=self.embedder, llm=self.llm),
-                embedder=self.embedder,
-                forgetting=self.forgetting,
-                default_top_k=self.config.top_k,
-                default_threshold=self.config.threshold,
-            )
-        return self._search_pipeline
-
-    def _get_recall_pipeline(self):
-        """获取持久化 RecallPipeline 实例 (缓存跨 recall 调用生效)。"""
-        if self._recall_pipeline is None:
-            from septmuse.retrieval.recall_pipeline import RecallPipeline
-
-            self._recall_pipeline = RecallPipeline(
-                search_pipeline=self._get_search_pipeline(),
-                meta=self.meta,
-                token_budget=self.token_budget,
-                working_memory=self.working_memory,
-                summarizer=self.summarizer,
-                typed_store=self.typed_store,
-                llm=self.llm,
-            )
-        return self._recall_pipeline
 
     def _invalidate_search_cache(self, user_id: str | None = None) -> None:
         """清除 HybridRetriever 搜索缓存 (add/update/delete 后调用)。"""
@@ -587,24 +238,28 @@ class Memory:
 
         委托给 SearchPipeline。管线拥有 recipe 解析 → 检索 → reranker → 过期过滤 → 后处理全链路。
         """
-        return self._get_search_pipeline().search(
+        return self._registry.get("search").search(
             query,
             user_id=user_id,
             session_id=session_id,
-            top_k=top_k,
-            threshold=threshold,
-            hybrid=hybrid,
-            reranker=reranker,
-            recipe=recipe,
-            explain=explain,
-            filters=filters,
-            search_filter=search_filter,
-            show_expired=show_expired,
-            forgetting=forgetting,
-            token_budget=token_budget,
-            inject_prompt=inject_prompt,
-            hyde=hyde,
-            query_rewrite=query_rewrite,
+            config=SearchConfig(
+                top_k=top_k,
+                threshold=threshold,
+                hybrid=hybrid,
+                reranker=reranker,
+                recipe=recipe,
+                explain=explain,
+                filters=filters,
+                search_filter=search_filter,
+                show_expired=show_expired,
+                hyde=hyde,
+                query_rewrite=query_rewrite,
+            ),
+            post_process=PostProcessConfig(
+                forgetting=forgetting,
+                token_budget=token_budget,
+                inject_prompt=inject_prompt,
+            ),
         )
 
     def get_all(
@@ -662,17 +317,7 @@ class Memory:
         user_id: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """更新记忆。
-
-        Args:
-            memory_id: 记忆 ID
-            data: 新内容; None=不改 content, 只改 metadata
-            user_id: 用户 ID (仅用于日志)
-            metadata: 新 metadata; None=不改
-
-        Returns:
-            {"id", "memory", "event": "UPDATE"} 或 {"id", "event": "NOT_FOUND"}
-        """
+        """更新记忆。"""
         existing = self.store.get(memory_id)
         if existing is None:
             return {"id": memory_id, "event": "NOT_FOUND"}
@@ -702,6 +347,8 @@ class Memory:
 
     def invalidate(self, memory_id: str, *, invalid_at: str | None = None) -> dict[str, Any]:
         """标记事实不再为真 (设置 invalid_at + expired_at, 不删除记忆)。"""
+        if not isinstance(self.store, TemporalStore):
+            return {"error": f"{type(self.store).__name__} 不支持 invalidate (需 temporal 列)"}
         return self.store.invalidate(memory_id, invalid_at=invalid_at)
 
     def cognify(self, text: str, *, user_id: str, agent_id: str | None = None) -> dict[str, Any]:
@@ -724,34 +371,21 @@ class Memory:
 
     def get_active_rules(self, *, user_id: str, namespace: str = "default") -> list[dict[str, Any]]:
         """获取应注入的规则 (废弃规则不返回)。"""
-        rules = self.procedural.get_active_rules(user_id=user_id, namespace=namespace)
-        return [
-            {
-                "id": r.id,
-                "rule": r.rule,
-                "confidence": r.confidence,
-                "helpful": r.helpful_count,
-                "harmful": r.harmful_count,
-            }
-            for r in rules
-        ]
+        return self.evolution.get_active_rules(user_id=user_id, namespace=namespace)
 
     def rules_to_prompt(self, *, user_id: str, namespace: str = "default") -> str:
         """编译规则为 prompt 注入文本 (仅 active)。"""
-        return self.procedural.rules_to_prompt(user_id=user_id, namespace=namespace)
+        return self.evolution.rules_to_prompt(user_id=user_id, namespace=namespace)
 
     def record_rule_outcome(self, rule_id: str, helpful: bool) -> dict[str, Any]:
         """记录规则应用结果 (helpful/harmful 追踪 + 自动退化)。"""
-        r = self.procedural.record_outcome(rule_id, helpful)
-        if r is None:
-            return {"error": f"rule {rule_id} not found"}
-        return {
-            "id": r.id,
-            "helpful_count": r.helpful_count,
-            "harmful_count": r.harmful_count,
-            "confidence": r.confidence,
-            "deprecated": r.deprecated,
-        }
+        return self.evolution.record_rule_outcome(rule_id, helpful)
+
+    def get_user_profile(
+        self, user_id: str, *, include_temporal: bool = True
+    ) -> Any:
+        """从 SemanticFact 聚合用户结构化画像。委托给 SemanticMemory。"""
+        return self.semantic.get_user_profile(user_id, include_temporal=include_temporal)
 
     # ------------------------------------------------------------------
     # 共享 (实用)
@@ -759,52 +393,33 @@ class Memory:
 
     def list_agents(self, user_id: str) -> list[str]:
         """列出该用户的所有 agent (跨 agent 共享)。"""
-        from septmuse.governance.sharing import SharedMemoryAccessor
-
-        return SharedMemoryAccessor(self.store).list_agents(user_id)
+        return self.entities.list_agents(user_id)
 
     # ------------------------------------------------------------------
     # V2 编排 API (remember / recall / improve / forget)
     # ------------------------------------------------------------------
 
-    @property
-    def _importance_assessor(self) -> Any:
-        if not hasattr(self, "_importance"):
-            from septmuse.capture.importance import ImportanceAssessor
-
-            self._importance = ImportanceAssessor(llm=self.llm)
-        return self._importance
-
-    @property
-    def _classifier(self) -> Any:
-        if not hasattr(self, "_clf"):
-            from septmuse.capture.classifier import MemoryClassifier
-
-            self._clf = MemoryClassifier(llm=self.llm)
-        return self._clf
-
-    @property
-    def _deduplicator(self) -> Any:
-        if not hasattr(self, "_dedup"):
-            from septmuse.capture.dedup import SemanticDeduplicator
-
-            self._dedup = SemanticDeduplicator(self.embedder, self.store, llm=self.llm)
-        return self._dedup
-
-    @property
-    def _catchup_queue(self) -> Any:
-        if not hasattr(self, "_cu_queue"):
-            from septmuse.evolution.catchup import LLMCatchUpQueue
-
-            self._cu_queue = LLMCatchUpQueue(self.store.engine)
-        return self._cu_queue
-
-    def _enqueue_catchup(self, task_type: str, memory_id: str, *, user_id: str, payload: dict | None = None) -> None:
-        """LLM 不可用时入 catch-up 队列, 恢复后补跑。吞错不阻塞业务。"""
-        try:
-            self._catchup_queue.enqueue(task_type, memory_id, user_id=user_id, payload=payload)
-        except Exception as e:
-            logger.warning("catchup_enqueue_failed", task_type=task_type, error=str(e))
+    def capture(
+        self,
+        text: str,
+        *,
+        user_id: str,
+        agent_id: str | None = None,
+        session_id: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """PostToolUse 捕获流水线 (SHA256去重→脱敏→嵌入→双索引)。"""
+        if self._capture_pipeline is None:
+            return {"captured": False, "memory_id": None, "deduped": False, "redacted": False}
+        result = self._capture_pipeline.capture(
+            text, user_id=user_id, agent_id=agent_id, session_id=session_id, metadata=kwargs.get("metadata")
+        )
+        return {
+            "captured": result.captured,
+            "memory_id": result.memory_id,
+            "deduped": result.deduped,
+            "redacted": result.redacted,
+        }
 
     def remember(
         self,
@@ -814,125 +429,12 @@ class Memory:
         session_id: str | None = None,
         agent_id: str | None = None,
     ) -> dict[str, Any]:
-        """V2 remember: 捕获文本 → 存 raw_log → (可选) 抽事实 → 更新工作记忆。
-
-        Returns:
-            {"captured": bool, "raw_id": str|None, "fact_ids": list, "memory_id": str}
-        """
-        result: dict[str, Any] = {
-            "captured": False,
-            "raw_id": None,
-            "fact_ids": [],
-            "memory_ids": [],
-            "memory_id": None,
-            "importance": 0.0,
-            "types": [],
-            "duplicate": None,
-            "conflicts": [],
-        }
-
-        if not text or not text.strip():
-            return result
-
-        if self.capture is None:
-            logger.warning("remember_capture_unavailable", user_id=user_id)
-            return result
-
-        # [0] 价值评估
-        importance = self._importance_assessor.assess(text)
-        result["importance"] = importance.score
-
-        if importance.score < 0.3:
-            raw_event = self.episodic.add_raw_log(
-                text,
-                user_id=user_id,
-                session_id=session_id or "default",
-                agent_id=agent_id,
-            )
-            result["raw_id"] = raw_event.id
-            result["captured"] = False
-            logger.info("remember_low_importance_skipped", user_id=user_id, score=importance.score)
-            return result
-
-        # [0.5] 类型分类
-        types = self._classifier.classify(text)
-        result["types"] = types
-
-        # [0.6] 语义去重
-        dup = self._deduplicator.find_duplicate(text, user_id=user_id)
-        result["duplicate"] = None
-        if dup is not None:
-            result["duplicate"] = {
-                "memory_id": dup.memory_id,
-                "similarity": dup.similarity,
-                "method": dup.method,
-            }
-            logger.info(
-                "remember_semantic_dup_found",
-                user_id=user_id,
-                dup_id=dup.memory_id,
-                similarity=dup.similarity,
-            )
-
-        preprocess = self.capture.preprocess(text, user_id=user_id, agent_id=agent_id)
-        if not preprocess.allowed:
-            logger.info("remember_deduped", user_id=user_id, reason=preprocess.reason)
-            return result
-
-        stored_text = preprocess.stored_text
-        raw_event = self.episodic.add_raw_log(
-            stored_text,
-            user_id=user_id,
-            session_id=session_id or "default",
-            agent_id=agent_id,
+        """V2 remember: 捕获文本并存储。"""
+        result = self._registry.get("remember").remember(
+            text, user_id=user_id, session_id=session_id, agent_id=agent_id
         )
-        result["raw_id"] = raw_event.id
-
-        verbatim_id = self.store.add(
-            stored_text,
-            self.embedder.embed(stored_text),
-            user_id=user_id,
-            agent_id=agent_id,
-            session_id=session_id,
-            metadata={"source": "remember", "raw_id": raw_event.id},
-        )
-        if verbatim_id is None:
-            logger.info("remember_deduped_by_store", user_id=user_id)
-            return result
-        result["memory_id"] = verbatim_id
-        result["memory_ids"] = [verbatim_id]
-        self._invalidate_search_cache(user_id=user_id)
-
-        if self.entity_store is not None and self.entity_extractor is not None:
-            self._extract_and_store_entities(stored_text, verbatim_id, user_id=user_id, agent_id=agent_id)
-
-        if self.llm is not None and self.extractor is not None:
-            try:
-                extracted = self.extractor.extract_and_store(stored_text, user_id=user_id)
-                result["fact_ids"] = [e.get("id", "") for e in extracted if isinstance(e, dict)]
-            except Exception as e:
-                logger.warning("remember_extract_failed", error=str(e))
-        else:
-            # LLM 不可用 → 入 catch-up 队列, 恢复后补跑
-            self._enqueue_catchup("fact_extraction", verbatim_id, user_id=user_id, payload={"text": stored_text})
-
-        # [5.5] 冲突检测 (前移自 improve, 不解决只标注)
-        if self.typed_store is not None and self.llm is not None:
-            try:
-                from septmuse.evolution.conflict import ConflictResolver
-
-                resolver = ConflictResolver(self.typed_store, store=self.store, llm=self.llm)
-                detected = resolver.detect_conflicts(user_id=user_id)
-                result["conflicts"] = [{"topic": f"{c['key'][0]} {c['key'][1]}", "facts": c["facts"]} for c in detected]
-            except Exception as e:
-                logger.warning("remember_conflict_detect_failed", error=str(e))
-
-        if agent_id is not None and self.working_memory is not None:
-            with contextlib.suppress(Exception):
-                self.working_memory.core_memory_append("notes", stored_text)
-
-        result["captured"] = True
-        logger.info("remember_done", user_id=user_id, raw_id=result["raw_id"], facts=len(result["fact_ids"]))
+        if result.get("memory_id"):
+            self._invalidate_search_cache(user_id=user_id)
         return result
 
     def recall(
@@ -947,11 +449,8 @@ class Memory:
         inject_profile: bool = False,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        """V2 recall: 检索 → token 裁剪 → 注入 prompt → L0 路由 + L2 策略。
-
-        委托给 RecallPipeline。管线拥有 compress → search → budget → prompt → route → strategy 全链路。
-        """
-        return self._get_recall_pipeline().recall(
+        """V2 recall: 检索并注入 prompt。"""
+        return self._registry.get("recall").recall(
             query,
             user_id=user_id,
             session_id=session_id,
@@ -963,155 +462,444 @@ class Memory:
         )
 
     def improve(self, *, user_id: str, limit: int = 20) -> dict[str, Any]:
-        """V2 improve: Dream 链接生长 + reflect 蒸馏 + L1 覆盖报告持久化。
-
-        Returns:
-            {"dream": {"links_created": int, "processed": int}, "rules": int}
-        """
-        dream_result: dict[str, Any] = {"links_created": 0, "processed": 0}
-        if self.evolution is not None:
-            try:
-                dream = self.evolution.dream(user_id=user_id)
-                dream_result = {"links_created": dream.links_created, "processed": dream.processed}
-            except Exception as e:
-                logger.warning("improve_dream_failed", error=str(e))
-
-        rules_count = 0
-        if self.llm is not None and self.evolution is not None:
-            try:
-                reflect_result = self.evolution.reflect(user_id=user_id, limit=limit)
-                rules_count = len(reflect_result.rule_ids) if hasattr(reflect_result, "rule_ids") else 0
-            except Exception as e:
-                logger.warning("improve_reflect_failed", error=str(e))
-
-        coverage_info: dict[str, Any] = {}
-        if self.meta is not None:
-            try:
-                report = self.meta.analyze_coverage(user_id=user_id)
-                coverage_info = {
-                    "overall_score": report.overall_score,
-                    "weak_areas": report.weak_areas,
-                    "strong_areas": report.strong_areas,
-                }
-                self.typed_store.add_fact(
-                    subject=user_id,
-                    predicate="has_coverage_score",
-                    object=f"{report.overall_score:.2f}",
-                    user_id=user_id,
-                    context=report.summary(),
-                    confidence=report.overall_score,
-                    provenance="meta",
-                    tags=["meta", "coverage"],
-                )
-            except Exception as e:
-                logger.warning("improve_coverage_persist_failed", error=str(e))
-
-        conflicts_info: dict[str, Any] = {}
-        if self.evolution is not None:
-            try:
-                conflicts_info = self.evolution.resolve_conflicts(user_id=user_id)
-            except Exception as e:
-                logger.warning("improve_conflict_failed", error=str(e))
-
-        logger.info("improve_done", user_id=user_id, links=dream_result["links_created"], rules=rules_count)
-        return {"dream": dream_result, "rules": rules_count, "coverage": coverage_info, "conflicts": conflicts_info}
+        """V2 improve: Dream + reflect + 规则精炼。"""
+        return self.evolution.improve(user_id=user_id, limit=limit)
 
     def forget(self, memory_id: str, *, user_id: str) -> dict[str, Any]:
-        """V2 forget: 先 invalidate 再 delete (决策 5)。
-
-        Returns:
-            {"event": "FORGET", "invalidated_at": str|None, "deleted_at": str|None}
-        """
-        existing = self.store.get(memory_id)
-        if existing is not None:
-            owner = existing.get("user_id")
-            if owner is not None and owner != user_id:
-                logger.warning("forget_ownership_mismatch", memory_id=memory_id, user_id=user_id, owner=owner)
-                return {
-                    "event": "FORGET",
-                    "error": "ownership_mismatch",
-                    "invalidated_at": None,
-                    "deleted_at": None,
-                }
-
-        invalidated_at = None
-        try:
-            inv = self.invalidate(memory_id)
-            if isinstance(inv, dict):
-                invalidated_at = inv.get("invalid_at") or inv.get("invalidated_at")
-        except Exception as e:
-            logger.warning("forget_invalidate_failed", error=str(e))
-
-        deleted_at = None
-        try:
-            if existing is not None:
-                self.delete(memory_id)
-                from datetime import datetime, timezone
-
-                deleted_at = datetime.now(timezone.utc).isoformat()
-        except Exception as e:
-            logger.warning("forget_delete_failed", error=str(e))
-
-        logger.info("forget_done", memory_id=memory_id, user_id=user_id)
-        return {"event": "FORGET", "invalidated_at": invalidated_at, "deleted_at": deleted_at}
+        """V2 forget: 失效后删除记忆。"""
+        result = self._registry.get("forget").forget(memory_id, user_id=user_id)
+        self._invalidate_search_cache()
+        return result
 
     def compress(self, *, user_id: str, mode: str = "static", buffer_size: int = 20) -> dict[str, Any]:
-        """压缩消息 (委托 Summarizer.compress)。
-
-        Returns:
-            {"compressed": bool, "evicted": int, "kept": int, "summary_id": str|None}
-        """
+        """压缩消息。"""
         if self.summarizer is None:
             return {"compressed": False, "evicted": 0, "kept": 0, "summary_id": None}
         return self.summarizer.compress(user_id=user_id, mode=mode, buffer_size=buffer_size)
+
+    # ------------------------------------------------------------------
+    # 实体操作
+    # ------------------------------------------------------------------
+
+    def extract_entities(self, text: str) -> list[dict[str, Any]]:
+        """抽取实体 (不存储, 仅返回抽取结果)。"""
+        return self.entities.extract_entities(text)
+
+    def add_entity(self, entity_text: str, entity_type: str, memory_id: str, *, user_id: str) -> dict[str, Any]:
+        """手动添加实体。"""
+        return self.entities.add_entity(entity_text, entity_type, memory_id, user_id=user_id)
+
+    def search_entities(self, query: str, *, user_id: str, top_k: int = 5) -> list[dict[str, Any]]:
+        """搜索实体 (精确匹配 + 向量相似度)。"""
+        return self.entities.search_entities(query, user_id=user_id, top_k=top_k)
+
+    def get_entity_neighbors(self, entity_id: str) -> list[str]:
+        """获取实体的 linked_memory_ids。"""
+        if self.entity_store is None:
+            return []
+        return self.entity_store.get_linked_memories(entity_id)
+
+    def list_entities(self, *, user_id: str, entity_type: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
+        """列出用户全部未删除实体。"""
+        return self.entities.list_entities(user_id=user_id, limit=limit)
+
+    # ------------------------------------------------------------------
+    # 时态查询
+    # ------------------------------------------------------------------
+
+    def search_at(
+        self,
+        reference_time: str,
+        query: str,
+        *,
+        user_id: str,
+        session_id: str | None = None,
+        top_k: int = 5,
+        threshold: float = 0.1,
+    ) -> list[dict[str, Any]]:
+        """时态查询: 查询某时刻为真的相关记忆。"""
+        return self.temporal.search_at(reference_time, query, user_id=user_id, top_k=top_k)
+
+    def search_interval(
+        self,
+        start: str,
+        end: str,
+        query: str,
+        *,
+        user_id: str,
+        session_id: str | None = None,
+        top_k: int = 5,
+        threshold: float = 0.1,
+    ) -> list[dict[str, Any]]:
+        """时间区间查询: 返回 [start, end) 内为真的相关记忆。"""
+        return self.temporal.search_interval(start, end, query, user_id=user_id, top_k=top_k)
+
+    def search_natural(
+        self, query: str, *, user_id: str, top_k: int = 5, threshold: float = 0.1
+    ) -> list[dict[str, Any]]:
+        """自然语言时态查询 (LLM 抽时间区间 → 有则时态过滤, 无则回退普通检索)。"""
+        return self.temporal.search_natural(query, user_id=user_id, top_k=top_k)
+
+    # ------------------------------------------------------------------
+    # 图检索
+    # ------------------------------------------------------------------
+
+    def get_entity_relations(self, entity_name: str, *, user_id: str) -> list[dict[str, Any]]:
+        """实体间关系遍历 (双向)。"""
+        return self.entities.get_entity_relations(entity_name, user_id=user_id)
+
+    def search_graph(
+        self, seed_memory_id: str, *, max_depth: int = 2, relation: str | None = None
+    ) -> list[dict[str, Any]]:
+        """BFS 图遍历检索。"""
+        return self.search_module.search_graph(seed_memory_id, max_depth=max_depth)
+
+    def search_graph_fused(
+        self,
+        query: str,
+        *,
+        user_id: str,
+        seed_memory_id: str,
+        max_depth: int = 2,
+        relation: str | None = None,
+        top_k: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """BFS + 向量结果 RRF 融合。"""
+        return self.search_module.search_graph_fused(
+            query, user_id=user_id, seed_memory_id=seed_memory_id, max_depth=max_depth, top_k=top_k or self.config.top_k,
+        )
+
+    # ------------------------------------------------------------------
+    # 冲突解决
+    # ------------------------------------------------------------------
+
+    def resolve_conflicts(self, *, user_id: str) -> dict[str, Any]:
+        """解决矛盾事实: 新事实覆盖旧事实。"""
+        return self.evolution.resolve_conflicts(user_id=user_id)
+
+    def deduplicate_entities(self, *, user_id: str) -> dict[str, Any]:
+        """实体去重三段式。"""
+        return self.evolution.deduplicate_entities(user_id=user_id)
+
+    def reflect(self, *, user_id: str, limit: int = 20) -> dict[str, Any]:
+        """Session 反思: 提取教训→procedural rules。"""
+        return self.evolution.reflect(user_id=user_id, limit=limit)
 
     # ------------------------------------------------------------------
     # 资源释放
     # ------------------------------------------------------------------
 
     def reset(self) -> dict[str, Any]:
-        """重置记忆系统 (清表 + 双写清理 + 缓存失效)。
-
-        清除: memories / history / memory_access_logs / septmuse_facts /
-        septmuse_episodic / septmuse_procedural / septmuse_entities /
-        entity_relations, 并重置 vector_store + keyword_index。
-        """
-        self.store.reset()
-
-        engine = getattr(self.store, "engine", None)
-        if engine is not None:
-            from sqlalchemy import text
-            from sqlmodel import Session
-
-            with Session(engine) as session:
-                for table_name in [
-                    "septmuse_facts",
-                    "septmuse_episodic",
-                    "septmuse_procedural",
-                ]:
-                    with contextlib.suppress(Exception):
-                        session.exec(text(f"DELETE FROM {table_name}"))
-                session.commit()
-
-        if self.entity_store is not None:
-            with contextlib.suppress(Exception):
-                self.entity_store.reset()
+        """重置记忆系统 (清表 + 清理 + 缓存失效)。"""
+        self._registry.get("reset").reset()
 
         if hasattr(self, "_dedup_window"):
             self._dedup_window = type(self._dedup_window)()
 
-        if self.working_memory is not None:
-            with contextlib.suppress(Exception):
-                wm_store = getattr(self.working_memory, "store", None)
-                if wm_store is not None and hasattr(wm_store, "reset"):
-                    wm_store.reset()
+        if self._registry is not None:
+            self._registry.invalidate()
+            # 清理已创建的 working_memory 组件
+            if self._registry.has("working_memory"):
+                wm = self._registry.get("working_memory")
+                if wm is not None:
+                    with contextlib.suppress(Exception):
+                        wm_store = getattr(wm, "store", None)
+                        if wm_store is not None and hasattr(wm_store, "reset"):
+                            wm_store.reset()
 
         self._hybrid_retriever = None
-        self._search_pipeline = None
-        self._recall_pipeline = None
 
         logger.info("memory_reset_done")
         return {"status": "reset", "message": "all memories cleared"}
+
+    # ------------------------------------------------------------------
+    # 实验性 API（原 ExperimentalMemory，已合并到 Memory）
+    # ------------------------------------------------------------------
+
+    def get_working_memory(self, agent_id: str) -> Any:
+        """获取 agent 的工作记忆 (从 TypedMemoryStore 加载, 自动持久化)。"""
+        return self.capture_module.get_working_memory(agent_id)
+
+    def get_blocks(self, agent_id: str) -> list[dict[str, Any]]:
+        """列出 agent 的全部 block。"""
+        return self.capture_module.get_blocks(agent_id)
+
+    def update_block(self, agent_id: str, label: str, value: str) -> dict[str, Any]:
+        """更新 block value。"""
+        return self.capture_module.update_block(agent_id, label, value)
+
+    def core_memory_append(self, agent_id: str, label: str, content: str) -> dict[str, Any]:
+        """追加 block 内容。"""
+        return self.capture_module.core_memory_append(agent_id, label, content)
+
+    def core_memory_replace(self, agent_id: str, label: str, old_content: str, new_content: str) -> dict[str, Any]:
+        """替换 block 内容片段。"""
+        return self.capture_module.core_memory_replace(agent_id, label, old_content, new_content)
+
+    def add_typed(
+        self,
+        content: str,
+        memory_type: str = "verbatim",
+        *,
+        user_id: str = "default",
+        agent_id: str | None = None,
+        session_id: str | None = None,
+        infer: bool = False,
+        valid_at: str | None = None,
+    ) -> dict[str, Any]:
+        """统一类型派发入口 — 消除 REST/CLI 重复的 verbatim/semantic/episodic/procedural 分支。"""
+        return self.capture_module.add_typed(
+            content, memory_type, user_id=user_id, agent_id=agent_id, session_id=session_id, infer=infer, valid_at=valid_at,
+        )
+
+    def add_fact(
+        self,
+        subject: str,
+        predicate: str,
+        object: str,
+        *,
+        user_id: str,
+        context: str | None = None,
+        confidence: float = 1.0,
+        provenance: str = "user",
+        tags: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """添加语义事实三元组。"""
+        return self.capture_module.add_fact(
+            subject, predicate, object,
+            user_id=user_id, context=context, confidence=confidence, provenance=provenance, tags=tags,
+        )
+
+    def update_fact(self, fact_id: str, *, subject: str, predicate: str, object: str, user_id: str) -> dict[str, Any]:
+        """更新语义事实。"""
+        return self.capture_module.update_fact(fact_id, subject=subject, predicate=predicate, object=object, user_id=user_id)
+
+    def search_facts(self, query: str, *, user_id: str, top_k: int = 5) -> list[dict[str, Any]]:
+        """语义检索事实 (置信度加权)。"""
+        return self.capture_module.search_facts(query, user_id=user_id, top_k=top_k)
+
+    def add_episode(
+        self,
+        content: str,
+        *,
+        user_id: str,
+        event_type: str = "fact",
+        session_id: str | None = None,
+        observation: str | None = None,
+        thoughts: str | None = None,
+        action: str | None = None,
+        result: str | None = None,
+    ) -> dict[str, Any]:
+        """添加情节事件。"""
+        return self.capture_module.add_episode(
+            content, user_id=user_id, event_type=event_type, session_id=session_id,
+            observation=observation, thoughts=thoughts, action=action, result=result,
+        )
+
+    def update_episode(self, episode_id: str, *, content: str, user_id: str) -> dict[str, Any]:
+        """更新情节事件。"""
+        return self.capture_module.update_episode(episode_id, content=content, user_id=user_id)
+
+    def get_timeline(self, *, user_id: str, event_type: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
+        """情节时序查询。"""
+        return self.capture_module.get_timeline(user_id=user_id, event_type=event_type, limit=limit)
+
+    def add_rule(
+        self, rule: str, *, user_id: str, namespace: str = "default", source_tracing: str | None = None
+    ) -> dict[str, Any]:
+        """添加程序规则。"""
+        return self.capture_module.add_rule(rule, user_id=user_id, namespace=namespace, source_tracing=source_tracing)
+
+    def update_rule(self, rule_id: str, *, rule: str, user_id: str) -> dict[str, Any]:
+        """更新程序规则。"""
+        return self.capture_module.update_rule(rule_id, rule=rule, user_id=user_id)
+
+    # ------------------------------------------------------------------
+    # 检索变体
+    # ------------------------------------------------------------------
+
+    def search_hybrid(
+        self, query: str, *, user_id: str, session_id: str | None = None, top_k: int = 5, threshold: float = 0.1
+    ) -> list[dict[str, Any]]:
+        """BM25+向量 RRF 融合检索 (核心 search(hybrid=True) 的快捷方式)。"""
+        return self.search_module.search_hybrid(query, user_id=user_id, top_k=top_k)
+
+    def search_progressive(
+        self, query: str, *, user_id: str, top_k: int = 5, threshold: float = 0.1
+    ) -> list[dict[str, Any]]:
+        """渐进三层检索 recall→locate→expand。"""
+        return self.search_module.search_progressive(query, user_id=user_id, top_k=top_k)
+
+    def search_with_strength(
+        self, query: str, *, user_id: str, top_k: int = 5, threshold: float = 0.1
+    ) -> list[dict[str, Any]]:
+        """遗忘曲线加权检索 final_score=relevance×strength。"""
+        return self.search_module.search_with_strength(query, user_id=user_id, top_k=top_k)
+
+    def apply_token_budget(self, texts: list[str], scores: list[float] | None = None, budget: int = 2000) -> list[str]:
+        """token 预算裁剪。"""
+        return self.search_module.apply_token_budget(texts, scores, budget=budget)
+
+    def redact(self, text: str) -> str:
+        """隐私脱敏。"""
+        return self.search_module.redact(text)
+
+    # ------------------------------------------------------------------
+    # 演化
+    # ------------------------------------------------------------------
+
+    def link_on_add(self, memory_id: str, text: str, *, user_id: str) -> list[dict[str, Any]]:
+        """Zettelkasten 自动建链接。"""
+        return self.evolution.link_on_add(memory_id, text, user_id=user_id)
+
+    def get_related(self, memory_id: str) -> list[dict[str, Any]]:
+        """获取记忆的链接邻居 (Zettel 链接生长)。"""
+        return self.evolution.get_related(memory_id)
+
+    def dream(self, *, user_id: str) -> dict[str, Any]:
+        """Dream 整合: 空闲期批量建链接。"""
+        return self.evolution.dream(user_id=user_id)
+
+    # ------------------------------------------------------------------
+    # 自进化 (SelfEvolutionLoop)
+    # ------------------------------------------------------------------
+
+    def evaluate_recall(
+        self,
+        query: str,
+        retrieved_memories: list[dict[str, Any]],
+        *,
+        user_id: str,
+        agent_id: str | None = None,
+        namespace: str = "default",
+    ) -> dict[str, Any]:
+        """检索后自动评估规则是否帮助了当前任务。"""
+        return self.evolution.evaluate_recall(
+            query, retrieved_memories, user_id=user_id, agent_id=agent_id, namespace=namespace,
+        )
+
+    def get_self_model(self, *, user_id: str, agent_id: str | None = None) -> dict[str, Any] | None:
+        """获取 agent 的跨会话持久化能力画像。"""
+        return self.evolution.get_self_model(user_id=user_id, agent_id=agent_id)
+
+    def get_rule_evolution_chain(self, rule_id: str) -> list[dict[str, Any]]:
+        """获取规则的完整演化链。"""
+        return self.evolution.get_rule_evolution_chain(rule_id)
+
+    def record_recall_outcome(self, *, user_id: str, agent_id: str | None = None, success: bool) -> None:
+        """记录一次检索结果，更新 recall_success_rate。"""
+        self.evolution.record_recall_outcome(user_id=user_id, agent_id=agent_id, success=success)
+
+    def refine_rules(self, *, user_id: str, max_refinements: int = 3) -> list[dict[str, Any]]:
+        """精炼 mixed/harmful 规则。"""
+        return self.evolution.refine_rules(user_id=user_id, max_refinements=max_refinements)
+
+    # ------------------------------------------------------------------
+    # 共享
+    # ------------------------------------------------------------------
+
+    def is_cross_agent(self, user_id: str) -> bool:
+        """检查该用户记忆是否跨 agent 共享。"""
+        return self.entities.is_cross_agent(user_id)
+
+    # ------------------------------------------------------------------
+    # 因果推理
+    # ------------------------------------------------------------------
+
+    def add_causal_edge(
+        self,
+        cause_event_id: str,
+        effect_event_id: str,
+        *,
+        user_id: str,
+        relation: str = "causes",
+        confidence: float = 0.5,
+    ) -> dict[str, Any]:
+        """添加因果边。"""
+        edge = self.typed_store.add_causal_edge(
+            cause_event_id, effect_event_id, user_id=user_id, relation=relation, confidence=confidence
+        )
+        return {"id": edge.id, "relation": edge.relation, "confidence": edge.confidence}
+
+    def find_causes(self, event_id: str, *, user_id: str) -> list[dict[str, Any]]:
+        """找事件的因果前因 (图遍历)。"""
+        from septmuse.retrieval.causal import CausalRetriever
+
+        retriever = CausalRetriever(self.typed_store, llm=self.llm)
+        paths = retriever.find_causes(event_id, user_id=user_id)
+        return [{"path": p.event_ids(), "confidence": p.confidence, "length": p.length} for p in paths]
+
+    def find_effects(self, event_id: str, *, user_id: str) -> list[dict[str, Any]]:
+        """找事件的因果后果 (图遍历)。"""
+        from septmuse.retrieval.causal import CausalRetriever
+
+        retriever = CausalRetriever(self.typed_store, llm=self.llm)
+        paths = retriever.find_effects(event_id, user_id=user_id)
+        return [{"path": p.event_ids(), "confidence": p.confidence, "length": p.length} for p in paths]
+
+    def counterfactual(self, cause_event_id: str, effect_event_id: str, *, user_id: str) -> dict[str, Any]:
+        """反事实因果查询 "若 X 未发生, Y 是否仍发生"。"""
+        from septmuse.retrieval.causal import CausalRetriever
+
+        retriever = CausalRetriever(self.typed_store, llm=self.llm)
+        result = retriever.counterfactual(cause_event_id, effect_event_id, user_id=user_id)
+        return {
+            "would_still_occur": result.would_still_occur,
+            "confidence": result.confidence,
+            "reasoning": result.reasoning,
+        }
+
+    # ------------------------------------------------------------------
+    # 排练/复述
+    # ------------------------------------------------------------------
+
+    def rehearse(self, memory_id: str, *, user_id: str) -> dict[str, Any]:
+        """主动复述: 记忆强度回升。"""
+        return self.evolution.rehearse(memory_id, user_id=user_id)
+
+    def find_rehearse_candidates(self, *, user_id: str) -> list[dict[str, Any]]:
+        """找需要复述的记忆 strength<0.3 且 base_value>0.7。"""
+        return self.evolution.find_rehearse_candidates(user_id=user_id)
+
+    def rehearse_batch(self, *, user_id: str) -> dict[str, Any]:
+        """批量复述全部候选记忆 — 消除 REST/MCP 重复的遍历循环。"""
+        return self.evolution.rehearse_batch(user_id=user_id)
+
+    # ------------------------------------------------------------------
+    # 元认知
+    # ------------------------------------------------------------------
+
+    def meta_route(self, query: str) -> dict[str, Any]:
+        """L0 元认知路由: 决定查哪些命名空间。"""
+        result = self.meta.route(query)
+        return {"namespaces": result.namespaces, "fallback": result.fallback, "scores": result.scores}
+
+    def coverage_report(self, *, user_id: str) -> dict[str, Any]:
+        """L1 覆盖自描述: "我记住了什么/记不住什么"。"""
+        report = self.meta.analyze_coverage(user_id=user_id)
+        return {
+            "overall_score": report.overall_score,
+            "weak_areas": report.weak_areas,
+            "strong_areas": report.strong_areas,
+            "namespaces": [
+                {"namespace": ns.namespace, "count": ns.count, "coverage_score": ns.coverage_score}
+                for ns in report.namespaces
+            ],
+            "summary": report.summary(),
+        }
+
+    def adapt_strategy(self, *, user_id: str) -> dict[str, Any]:
+        """L2 策略自调: 基于覆盖报告自调检索策略。"""
+        report = self.meta.analyze_coverage(user_id=user_id)
+        result = self.meta.adapt_strategy(report)
+        return {
+            "overall_action": result.overall_action.value,
+            "needs_clarification": result.needs_clarification,
+            "needs_deepened_retrieval": result.needs_deepened_retrieval,
+            "recommendations": [
+                {"action": r.action.value, "namespace": r.namespace, "reason": r.reason} for r in result.recommendations
+            ],
+        }
 
     def close(self) -> None:
         """关闭存储。"""

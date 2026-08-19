@@ -15,16 +15,16 @@
 
 from __future__ import annotations
 
-from septmuse.storage.base import _rrf_fuse
+from septmuse.core.utils import rrf_fuse
 
 
 def test_rrf_empty_inputs():
-    assert _rrf_fuse([], []) == []
+    assert rrf_fuse([], []) == []
 
 
 def test_rrf_vec_only():
     vec = [{"id": "m1", "memory": "a", "score": 0.9}]
-    result = _rrf_fuse(vec, [], alpha=1.0)
+    result = rrf_fuse(vec, [], alpha=1.0)
     assert len(result) == 1
     assert result[0]["id"] == "m1"
     assert result[0]["score"] > 0
@@ -32,7 +32,7 @@ def test_rrf_vec_only():
 
 def test_rrf_kw_only():
     kw = [{"id": "m2", "memory": "b", "score": 0.8}]
-    result = _rrf_fuse([], kw, alpha=0.0)
+    result = rrf_fuse([], kw, alpha=0.0)
     assert len(result) == 1
     assert result[0]["id"] == "m2"
 
@@ -46,7 +46,7 @@ def test_rrf_fuses_and_reranks():
         {"id": "m2", "memory": "b", "score": 0.8},
         {"id": "m3", "memory": "c", "score": 0.6},
     ]
-    result = _rrf_fuse(vec, kw, alpha=0.5)
+    result = rrf_fuse(vec, kw, alpha=0.5)
     ids = [r["id"] for r in result]
     assert set(ids) == {"m1", "m2", "m3"}
     # m2 出现在两边, RRF 应该排第一
@@ -56,7 +56,7 @@ def test_rrf_fuses_and_reranks():
 def test_rrf_alpha_pure_vec():
     vec = [{"id": "m1", "memory": "a", "score": 0.9}]
     kw = [{"id": "m2", "memory": "b", "score": 0.8}]
-    result = _rrf_fuse(vec, kw, alpha=1.0)
+    result = rrf_fuse(vec, kw, alpha=1.0)
     assert len(result) == 1
     assert result[0]["id"] == "m1"
 
@@ -64,14 +64,14 @@ def test_rrf_alpha_pure_vec():
 def test_rrf_alpha_pure_kw():
     vec = [{"id": "m1", "memory": "a", "score": 0.9}]
     kw = [{"id": "m2", "memory": "b", "score": 0.8}]
-    result = _rrf_fuse(vec, kw, alpha=0.0)
+    result = rrf_fuse(vec, kw, alpha=0.0)
     assert len(result) == 1
     assert result[0]["id"] == "m2"
 
 
 def test_rrf_preserves_metadata():
     vec = [{"id": "m1", "memory": "alpha", "score": 0.9, "metadata": {"k": "v"}}]
-    result = _rrf_fuse(vec, [], alpha=1.0)
+    result = rrf_fuse(vec, [], alpha=1.0)
     assert result[0]["metadata"] == {"k": "v"}
     assert result[0]["memory"] == "alpha"
 

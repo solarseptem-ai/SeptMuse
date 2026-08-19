@@ -1,8 +1,4 @@
-"""MetricsCollector 单例 — 封装所有 Prometheus 指标。
-
-未启用时 (SEPTMUSE_METRICS 未设) 所有方法 no-op，零开销。
-启用时在 configure() 中创建所有 Counter/Histogram/Gauge，存入 _metrics dict。
-"""
+"""MetricsCollector 单例 — 封装所有 Prometheus 指标。"""
 
 from __future__ import annotations
 
@@ -151,8 +147,7 @@ class MetricsCollector:
             try:
                 from prometheus_client import REGISTRY
 
-                # 收集唯一 collector 对象（一个 Counter 在 _names_to_collectors 下注册多个名字），
-                # 交给 unregister 内部统一清理 _names_to_collectors + _collector_to_names。
+                # 收集 collector 对象统一注销
                 collectors = {
                     c for name, c in REGISTRY._names_to_collectors.items()
                     if name.startswith("septmuse_")

@@ -23,9 +23,8 @@ def test_litellm_complete_delegates():
 
 
 def test_litellm_config():
-    """LitellmLLMConfig 基本字段。"""
-    from septmuse.configs.llms.litellm import LitellmLLMConfig
+    """LitellmLLM 默认 model 字段。"""
+    from septmuse.llms.litellm import LitellmLLM
 
-    config = LitellmLLMConfig(model="groq/llama-3.1-70b-versatile", api_key="test")
-    assert config.backend == "litellm"
-    assert config.model == "groq/llama-3.1-70b-versatile"
+    llm = LitellmLLM(model="groq/llama-3.1-70b-versatile", api_key="test")
+    assert llm.model == "groq/llama-3.1-70b-versatile"

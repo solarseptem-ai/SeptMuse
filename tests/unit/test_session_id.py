@@ -12,7 +12,6 @@
 from __future__ import annotations
 
 from septmuse import Memory, MemoryConfig
-from septmuse.experimental import ExperimentalMemory
 
 
 class TestSessionIdIsolation:
@@ -82,7 +81,7 @@ class TestSessionIdIsolation:
         m.close()
 
     def test_search_at_with_session_id(self, tmp_path):
-        m = ExperimentalMemory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
+        m = Memory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
         m.add("Alice at Google", user_id="alice", session_id="sess-A", valid_at="2024-01-01")
         m.add("Alice at Apple", user_id="alice", session_id="sess-B", valid_at="2025-01-01")
 
@@ -93,7 +92,7 @@ class TestSessionIdIsolation:
         m.close()
 
     def test_capture_with_session_id(self, tmp_path):
-        m = ExperimentalMemory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
+        m = Memory(config=MemoryConfig(db_path=str(tmp_path / "test.db")))
         result = m.capture("captured text", user_id="alice", session_id="sess-X")
         assert result["captured"]
 

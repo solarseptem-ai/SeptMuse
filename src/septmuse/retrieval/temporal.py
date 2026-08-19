@@ -1,10 +1,4 @@
-"""时态区间查询 + LLM 自然语言时间抽取。
-
-功能:
-- search_interval(start, end, query, user_id): 查询时间区间内为真的事实
-- extract_time_range(query): LLM 从自然语言抽取时间区间 ("上周" → {"start", "end"})
-- search_natural(query, user_id): 自然语言时态查询 (先抽时间, 有则时态过滤, 无则回退普通检索)
-"""
+"""时态区间查询 + LLM 自然语言时间抽取。"""
 
 from __future__ import annotations
 
@@ -15,7 +9,7 @@ from typing import Any
 from septmuse.core.logging import get_logger
 from septmuse.embedders.base import Embedder
 from septmuse.llms.base import LLM
-from septmuse.storage.base import MemoryStore
+from septmuse.storage.base import MemoryStore, TemporalStore
 
 logger = get_logger(__name__)
 
@@ -36,13 +30,7 @@ Input: "Alice的工作经历" → {{"start": null, "end": null}}
 
 
 class TemporalRetriever:
-    """时态区间查询 + LLM 自然语言时间抽取。
-
-    用法:
-        retriever = TemporalRetriever(store, embedder, llm)
-        results = retriever.search_interval("2024-06-01", "2024-07-01", "Alice", user_id="u1")
-        results = retriever.search_natural("Alice上周在做什么", user_id="u1")
-    """
+    """时态区间查询 + LLM 自然语言时间抽取。"""
 
     def __init__(
         self,
@@ -64,11 +52,9 @@ class TemporalRetriever:
         top_k: int = 5,
         threshold: float = 0.1,
     ) -> list[dict[str, Any]]:
-        """时间区间查询: 返回 [start, end) 内为真的相关记忆。
-
-        条件: valid_at <= end AND (invalid_at IS NULL OR invalid_at > start)
-        valid_at IS NULL 的记忆视为"无时间约束", 始终返回 (向后兼容)。
-        """
+        """时间区间查询。"""
+        if not isinstance(self.store, TemporalStore):
+            return []
         valid_memories = self.store.get_temporal_interval(start, end, user_id=user_id)
         if not valid_memories:
             return []
@@ -97,11 +83,7 @@ class TemporalRetriever:
         return filtered[:top_k]
 
     def extract_time_range(self, query: str) -> dict[str, str | None] | None:
-        """LLM 从自然语言抽取时间区间。
-
-        Returns: {"start": "2024-07-01", "end": "2024-07-08"} 或 None (无时间信息)。
-        无 LLM 时返回 None (回退普通检索)。
-        """
+        """从自然语言抽取时间区间。"""
         if self.llm is None:
             return None
 
@@ -148,12 +130,7 @@ class TemporalRetriever:
         top_k: int = 5,
         threshold: float = 0.1,
     ) -> list[dict[str, Any]]:
-        """自然语言时态查询 (验收: LLM 从"上周Alice在做什么"抽取时间区间)。
-
-        1. LLM 抽取时间区间
-        2. 有时间区间 → search_interval (时态过滤)
-        3. 无时间信息 → 回退普通 search (验收: 无时间信息时回退普通检索)
-        """
+        """自然语言时态查询。"""
         time_range = self.extract_time_range(query)
 
         if time_range:

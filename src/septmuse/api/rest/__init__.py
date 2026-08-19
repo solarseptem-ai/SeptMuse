@@ -11,30 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""FastAPI REST 端点 (架构文档 §11.2 草案)。
-
-对齐架构文档 §11.2 API 草案:
-- POST   /memories              # 添加记忆
-- GET    /memories              # 列出记忆
-- GET    /memories/{memory_id}  # 取单条记忆
-- PUT    /memories/{memory_id}  # 更新记忆
-- DELETE /memories/{memory_id}  # 删除记忆
-- GET    /memories/working/blocks/{agent_id}              # 列出 block
-- PUT    /memories/working/blocks/{agent_id}/{label}      # 更新 block
-- POST   /memories/working/blocks/{agent_id}/{label}/append  # 追加 block
-- POST   /memories/working/blocks/{agent_id}/{label}/replace  # 替换 block 片段
-- POST   /memories/search       # 统一检索 (元认知路由)
-- POST   /memories/search/causal # 反事实因果查询
-- GET    /memories/meta/coverage # 元认知覆盖报告
-- POST   /memories/rehearse     # 主动复述
-- GET    /agents/{user_id}/memories # 跨 agent 共享读
-
-用法:
-    app = create_app()
-    # uvicorn septmuse.api.rest:app --reload
-    # 或
-    # from septmuse.api.rest import create_app; app = create_app()
-"""
+"""FastAPI REST 端点。"""
 
 from __future__ import annotations
 
@@ -48,10 +25,11 @@ from pydantic import BaseModel, Field, model_validator
 
 from septmuse import MemoryConfig
 from septmuse.embedders.hash import HashEmbedder
-from septmuse.experimental import ExperimentalMemory
 from septmuse.governance.access import async_check_memory_access_permissions
 from septmuse.governance.audit import async_record_access
 from septmuse.memory.async_main import AsyncMemory
+from septmuse.memory.main import Memory
+from septmuse.storage.async_base import AsyncAccessLogStore
 
 # ======================================================================
 # Pydantic 请求模型
@@ -118,6 +96,32 @@ class CaptureRequest(BaseModel):
     user_id: str = Field(description="用户 ID", examples=["user-001"])
     agent_id: str | None = Field(default=None, description="agent ID", examples=["agent-1"])
     session_id: str | None = Field(default=None, description="会话 ID", examples=["session-1"])
+
+
+class RememberRequest(BaseModel):
+    text: str = Field(description="待记忆文本", examples=["用户说喜欢用 Python 写后端"])
+    user_id: str = Field(description="用户 ID", examples=["user-001"])
+    agent_id: str | None = Field(default=None, description="agent ID", examples=["agent-1"])
+    session_id: str | None = Field(default=None, description="会话 ID", examples=["session-1"])
+
+
+class RecallRequest(BaseModel):
+    query: str = Field(description="召回查询", examples=["用户偏好什么编程语言"])
+    user_id: str = Field(description="用户 ID", examples=["user-001"])
+    session_id: str | None = Field(default=None, description="会话 ID", examples=["session-1"])
+    top_k: int = Field(default=5, ge=1, description="返回记忆条数")
+    auto_compress: bool = Field(default=False, description="是否先压缩上下文")
+    recipe: str | None = Field(default=None, description="检索配方名称")
+
+
+class ImproveRequest(BaseModel):
+    user_id: str = Field(description="用户 ID", examples=["user-001"])
+    limit: int = Field(default=20, ge=1, description="处理记忆数量上限")
+
+
+class ForgetRequest(BaseModel):
+    memory_id: str = Field(description="要遗忘的记忆 ID", examples=["mem-001"])
+    user_id: str = Field(description="用户 ID", examples=["user-001"])
 
 
 class UpdateMemoryRequest(BaseModel):
@@ -195,7 +199,7 @@ ERROR_RESPONSES = {
 # ======================================================================
 
 
-def register_routes(app: FastAPI, memory: ExperimentalMemory, async_memory: AsyncMemory | None = None) -> None:
+def register_routes(app: FastAPI, memory: Memory, async_memory: AsyncMemory | None = None) -> None:
     """注册 REST 路由到已有 FastAPI app。
 
     供 CLI serve --with-rest 使用 (同一 app 同时挂 MCP + REST)。
@@ -205,36 +209,19 @@ def register_routes(app: FastAPI, memory: ExperimentalMemory, async_memory: Asyn
 
     @app.post("/memories", status_code=201, tags=["memories"])
     async def add_memory(req: AddMemoryRequest) -> dict[str, Any]:
-        """添加记忆 (架构文档 §11.2)。
-
-        支持 verbatim（原文）/ semantic（事实三元组）/ episodic（情节）/ procedural（规则）四类。
-        verbatim 模式可配合 `infer=true` 走 LLM 抽取事实。
-        """
-        if req.memory_type == "semantic":
-            parts = req.content.split(None, 2)
-            subject = parts[0] if len(parts) > 0 else req.content
-            predicate = parts[1] if len(parts) > 1 else "is"
-            obj = parts[2] if len(parts) > 2 else ""
-            return app.state.memory.add_fact(subject, predicate, obj, user_id=req.user_id)
-        elif req.memory_type == "episodic":
-            return app.state.memory.add_episode(req.content, user_id=req.user_id)
-        elif req.memory_type == "procedural":
-            return app.state.memory.add_rule(req.content, user_id=req.user_id)
-        else:
-            result = await app.state.async_memory.add(
-                req.content,
-                user_id=req.user_id,
-                agent_id=req.agent_id,
-                session_id=req.session_id,
-                infer=req.infer,
-                valid_at=req.valid_at,
+        """添加记忆。"""
+        if req.memory_type in ("semantic", "episodic", "procedural"):
+            return await app.state.async_memory.add_typed(
+                req.content, req.memory_type, user_id=req.user_id
             )
-            # 实体抽取走 sync 路径（async add 不做实体抽取，sync/async 共享 DB 文件）
-            for r in result.get("results", []):
-                app.state.memory._extract_and_store_entities(
-                    r["memory"], r["id"], user_id=req.user_id, agent_id=req.agent_id
-                )
-            return result
+        return await app.state.async_memory.add(
+            req.content,
+            user_id=req.user_id,
+            agent_id=req.agent_id,
+            session_id=req.session_id,
+            infer=req.infer,
+            valid_at=req.valid_at,
+        )
 
     @app.get("/memories", tags=["memories"], response_model=PaginatedResponse)
     async def list_memories(
@@ -244,11 +231,7 @@ def register_routes(app: FastAPI, memory: ExperimentalMemory, async_memory: Asyn
         offset: int = Query(default=0, ge=0, description="偏移量"),
         app_id: str | None = None,
     ) -> dict[str, Any]:
-        """列出记忆 (分页)。
-
-        按 `user_id` 过滤，可选 `session_id` 二次过滤。
-        `limit`/`offset` 分页，返回 `total` 为过滤后总数。
-        """
+        """列出记忆 (分页)。"""
         results = await app.state.async_memory.get_all(user_id=user_id, session_id=session_id)
         total = len(results)
         paged = results[offset : offset + limit]
@@ -260,30 +243,26 @@ def register_routes(app: FastAPI, memory: ExperimentalMemory, async_memory: Asyn
     @app.get("/memories/working/blocks/{agent_id}", tags=["working-memory"])
     async def list_blocks(agent_id: str) -> list[dict[str, Any]]:
         """列出 agent 的全部 block。"""
-        return app.state.memory.get_blocks(agent_id)
+        return await app.state.async_memory.get_blocks(agent_id)
 
     @app.put("/memories/working/blocks/{agent_id}/{label}", tags=["working-memory"])
     async def update_block(agent_id: str, label: str, req: BlockUpdateRequest) -> dict[str, Any]:
         """更新 block value (架构 §11.2)。"""
-        return app.state.memory.update_block(agent_id, label, req.value)
+        return await app.state.async_memory.update_block(agent_id, label, req.value)
 
     @app.post("/memories/working/blocks/{agent_id}/{label}/append", tags=["working-memory"])
     async def append_block(agent_id: str, label: str, req: BlockAppendRequest) -> dict[str, Any]:
         """追加 block 内容。"""
-        return app.state.memory.core_memory_append(agent_id, label, req.content)
+        return await app.state.async_memory.core_memory_append(agent_id, label, req.content)
 
     @app.post("/memories/working/blocks/{agent_id}/{label}/replace", tags=["working-memory"])
     async def replace_block(agent_id: str, label: str, req: BlockReplaceRequest) -> dict[str, Any]:
         """替换 block 内容片段。"""
-        return app.state.memory.core_memory_replace(agent_id, label, req.old_content, req.new_content)
+        return await app.state.async_memory.core_memory_replace(agent_id, label, req.old_content, req.new_content)
 
     @app.get("/memories/{memory_id}", tags=["memories"], responses={**ERROR_RESPONSES})
     async def get_memory(memory_id: str, app_id: str | None = None) -> dict[str, Any]:
-        """取单条记忆。
-
-        权限层: async_check_memory_access_permissions 校验存在性 + state=active。
-        403=存在但非 active (deleted/archived/paused); 404=从未存在。
-        """
+        """取单条记忆。"""
         store = app.state.async_memory.store
         allowed, reason = await async_check_memory_access_permissions(store, memory_id, app_id)
         if not allowed:
@@ -316,18 +295,16 @@ def register_routes(app: FastAPI, memory: ExperimentalMemory, async_memory: Asyn
         memory_id: str,
         limit: int = Query(default=100, ge=1, description="返回日志数上限"),
     ) -> dict[str, Any]:
-        """获取记忆访问日志 (审计用, 架构 §11.3)。"""
+        """获取记忆访问日志。"""
         store = app.state.async_memory.store
+        if not isinstance(store, AsyncAccessLogStore):
+            return {"logs": []}
         logs = await store.get_access_logs(memory_id, limit)
         return {"logs": logs}
 
     @app.delete("/memories/{memory_id}", tags=["memories"], response_model=DeleteResponse, responses={**ERROR_RESPONSES})
     async def delete_memory(memory_id: str, app_id: str | None = None) -> dict[str, str]:
-        """删除记忆 (软删除)。
-
-        权限层: 校验存在性 + state=active 后才允许删除。
-        403=存在但非 active; 404=从未存在。
-        """
+        """删除记忆 (软删除)。"""
         store = app.state.async_memory.store
         allowed, reason = await async_check_memory_access_permissions(store, memory_id, app_id)
         if not allowed:
@@ -341,87 +318,92 @@ def register_routes(app: FastAPI, memory: ExperimentalMemory, async_memory: Asyn
 
     @app.post("/memories/{memory_id}/invalidate", tags=["memories"])
     async def invalidate_memory(memory_id: str, req: InvalidateRequest) -> dict[str, Any]:
-        """手动标记事实不再为真 (设置 invalid_at + expired_at, 不删除记忆)。
-
-        用于双时态场景：事实曾经为真，但现已失效。
-        """
+        """标记事实失效 (双时态建模)。"""
         return await app.state.async_memory.invalidate(memory_id, invalid_at=req.invalid_at)
 
     @app.post("/memories/search", tags=["search"])
     async def search_memories(req: SearchRequest) -> dict[str, Any]:
-        """统一检索 (元认知路由)。
-
-        向量 + 关键词 + 实体图三路融合，支持:
-        - `filters`: 字段过滤字典
-        - `reranker`: noop / mmr / cross_encoder / llm
-        - `explain`: 返回 score_details 评分详情
-        """
-        if req.reranker or req.explain:
-            # 高级检索（reranker/explain），回退到 sync ExperimentalMemory
-            results = app.state.memory.search(
-                req.query,
-                user_id=req.user_id,
-                session_id=req.session_id,
-                top_k=req.top_k,
-                threshold=req.threshold,
-                reranker=req.reranker,
-                explain=req.explain,
-            )
-        else:
-            # 基础检索，用 async
-            results = await app.state.async_memory.search(
-                req.query,
-                user_id=req.user_id,
-                session_id=req.session_id,
-                top_k=req.top_k,
-                threshold=req.threshold,
-                filters=req.filters,
-            )
+        """统一检索 (元认知路由)。"""
+        results = await app.state.async_memory.search(
+            req.query,
+            user_id=req.user_id,
+            session_id=req.session_id,
+            top_k=req.top_k,
+            threshold=req.threshold,
+            filters=req.filters,
+        )
         return {"results": results}
 
     @app.post("/memories/search/causal", tags=["search"])
     async def causal_search(req: CausalRequest) -> dict[str, Any]:
-        """反事实因果查询 (架构文档 §6.1)。"""
-        return app.state.memory.counterfactual(req.cause_event_id, req.effect_event_id, user_id=req.user_id)
+        """反事实因果查询。"""
+        return await app.state.async_memory.counterfactual(req.cause_event_id, req.effect_event_id, user_id=req.user_id)
 
     @app.get("/memories/meta/coverage", tags=["metacognition"])
     async def coverage_report(
         user_id: str = Query(..., description="用户 ID"),
     ) -> dict[str, Any]:
-        """元认知覆盖报告 (架构文档 §6.3 L1)。"""
-        return app.state.memory.coverage_report(user_id=user_id)
+        """元认知覆盖报告。"""
+        return await app.state.async_memory.coverage_report(user_id=user_id)
 
     @app.post("/memories/rehearse", tags=["metacognition"])
     async def rehearse(req: RehearseRequest) -> dict[str, Any]:
-        """主动复述 (架构文档 §6.2)。"""
+        """主动复述。"""
         if req.memory_id:
-            return app.state.memory.rehearse(req.memory_id, user_id=req.user_id)
-        candidates = app.state.memory.find_rehearse_candidates(user_id=req.user_id)
-        for c in candidates:
-            app.state.memory.rehearse(c["memory_id"], user_id=req.user_id)
-        return {"rehearsed": len(candidates)}
+            return await app.state.async_memory.rehearse(req.memory_id, user_id=req.user_id)
+        return await app.state.async_memory.rehearse_batch(user_id=req.user_id)
 
     @app.post("/memories/capture", tags=["capture"])
     async def capture(req: CaptureRequest) -> dict[str, Any]:
-        """PostToolUse 捕获 (架构文档 §5.1)。"""
-        return app.state.memory.capture(req.text, user_id=req.user_id, agent_id=req.agent_id)
+        """PostToolUse 捕获。"""
+        return await app.state.async_memory.capture(req.text, user_id=req.user_id, agent_id=req.agent_id)
+
+    @app.post("/memories/remember", tags=["orchestration"])
+    async def remember(req: RememberRequest) -> dict[str, Any]:
+        """V2 记忆写入编排。"""
+        return await app.state.async_memory.remember(
+            req.text,
+            user_id=req.user_id,
+            agent_id=req.agent_id,
+            session_id=req.session_id,
+        )
+
+    @app.post("/memories/recall", tags=["orchestration"])
+    async def recall(req: RecallRequest) -> dict[str, Any]:
+        """V2 记忆召回编排。"""
+        return await app.state.async_memory.recall(
+            req.query,
+            user_id=req.user_id,
+            session_id=req.session_id,
+            top_k=req.top_k,
+            auto_compress=req.auto_compress,
+            recipe=req.recipe,
+        )
+
+    @app.post("/memories/improve", tags=["orchestration"])
+    async def improve(req: ImproveRequest) -> dict[str, Any]:
+        """V2 记忆演化编排。"""
+        return await app.state.async_memory.improve(user_id=req.user_id, limit=req.limit)
+
+    @app.post("/memories/forget", tags=["orchestration"])
+    async def forget(req: ForgetRequest) -> dict[str, Any]:
+        """V2 记忆遗忘编排。"""
+        return await app.state.async_memory.forget(req.memory_id, user_id=req.user_id)
 
     @app.get("/agents/{user_id}/memories", tags=["sharing"])
     async def get_shared_memories(user_id: str) -> dict[str, Any]:
-        """跨 agent 共享读 (架构文档 §5.5)。"""
-        agents = app.state.memory.list_agents(user_id)
-        return {"user_id": user_id, "agents": agents, "is_cross_agent": app.state.memory.is_cross_agent(user_id)}
+        """跨 agent 共享读。"""
+        agents = await app.state.async_memory.list_agents(user_id)
+        is_cross = await app.state.async_memory.is_cross_agent(user_id)
+        return {"user_id": user_id, "agents": agents, "is_cross_agent": is_cross}
 
     @app.get("/agents/{user_id}/profile", tags=["sharing"])
     async def get_agent_profile(
         user_id: str,
         include_temporal: bool = Query(default=False, description="含历史/已删除事实"),
     ) -> dict[str, Any]:
-        """获取用户画像 (从 SemanticFact 聚合的结构化画像).
-
-        include_temporal=true 返回历史/已删除事实; false 只返回当前有效.
-        """
-        profile = app.state.memory.get_user_profile(user_id, include_temporal=include_temporal)
+        """获取用户画像。"""
+        profile = await app.state.async_memory.get_user_profile(user_id, include_temporal=include_temporal)
         return {
             "user_id": profile.user_id,
             "attributes": {
@@ -455,8 +437,8 @@ def register_routes(app: FastAPI, memory: ExperimentalMemory, async_memory: Asyn
         user_id: str = Query(default="default", description="用户 ID"),
         top_k: int = Query(default=5, ge=1, description="返回数"),
     ) -> dict[str, Any]:
-        """搜索实体 (Task 8)。"""
-        results = app.state.memory.search_entities(query, user_id=user_id, top_k=top_k)
+        """搜索实体。"""
+        results = await app.state.async_memory.search_entities(query, user_id=user_id, top_k=top_k)
         return {"results": results}
 
     @app.get("/entities/list", tags=["entities"])
@@ -465,8 +447,8 @@ def register_routes(app: FastAPI, memory: ExperimentalMemory, async_memory: Asyn
         entity_type: str | None = Query(default=None, description="实体类型过滤"),
         limit: int = Query(default=100, ge=1, description="返回数"),
     ) -> dict[str, Any]:
-        """列出实体 (Task 8)。"""
-        results = app.state.memory.list_entities(user_id=user_id, entity_type=entity_type, limit=limit)
+        """列出实体。"""
+        results = await app.state.async_memory.list_entities(user_id=user_id, entity_type=entity_type, limit=limit)
         return {"results": results}
 
     @app.get("/health", tags=["health"], response_model=None)
@@ -496,22 +478,19 @@ def register_routes(app: FastAPI, memory: ExperimentalMemory, async_memory: Asyn
 
 
 def create_app(memory=None) -> FastAPI:
-    """创建 FastAPI app (可注入 Memory 实例或 MemoryConfig 便于测试)。
+    """创建 FastAPI app。"""
+    from septmuse.api.operations import MemoryOperations
 
-    用法:
-        app = create_app()
-        # uvicorn septmuse.api.rest:app
-
-    测试:
-        app = create_app(MemoryConfig(db_path=str(tmp_path / "rest.db")))
-        # TestClient(app).post("/memories", json={...})
-    """
     if memory is None:
         config = MemoryConfig()
-        sync_memory = ExperimentalMemory(config=config, embedder=HashEmbedder())
+        ops = MemoryOperations()
+        ops._db_path = str(config.db_path)
+        sync_memory = ops.memory
         async_memory = AsyncMemory(config=config, embedder=HashEmbedder())
     elif isinstance(memory, MemoryConfig):
-        sync_memory = ExperimentalMemory(config=memory, embedder=HashEmbedder())
+        ops = MemoryOperations()
+        ops._db_path = str(memory.db_path)
+        sync_memory = ops.memory
         async_memory = AsyncMemory(config=memory, embedder=HashEmbedder())
     else:
         # 已有 Memory 实例注入（向后兼容）

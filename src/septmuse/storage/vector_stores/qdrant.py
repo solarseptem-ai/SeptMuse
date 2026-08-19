@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import contextlib
 import uuid
+from pathlib import Path
 from typing import Any, ClassVar
 
 from septmuse.core.logging import get_logger
@@ -32,6 +33,22 @@ logger = get_logger(__name__)
 
 # payload 内部字段: 存储原始字符串 ID (Qdrant 仅接受 uint/UUID, 非UUID字符串需转换)
 _ORIG_ID_KEY = "_septmuse_id"
+
+
+def _cleanup_stale_qdrant_lock(path: str) -> None:
+    """清理 Qdrant 本地模式的残留文件锁 (Windows 进程强制终止后锁不释放)。
+
+    SeptMuse 通常为单进程使用, 删除残留 .lock 文件是安全的。
+    多进程并发场景下由 QdrantClient 内部文件锁保护。
+    """
+    lock_file = Path(path) / ".lock"
+    if not lock_file.exists():
+        return
+    try:
+        lock_file.unlink()
+        logger.info("qdrant_stale_lock_removed", path=path)
+    except Exception:
+        pass  # 锁被其他活跃进程持有, 让 QdrantClient 自行报错
 
 
 class QdrantVectorStore(VectorStoreBase):
@@ -98,12 +115,20 @@ class QdrantVectorStore(VectorStoreBase):
         else:
             # 本地嵌入模式: 同 path 复用客户端 (Qdrant 本地文件锁限制单进程单客户端)
             self.is_local = True
-            local_path = path or "~/.septmuse/qdrant"
+            raw_path = path or "~/.septmuse/qdrant"
+            local_path = str(Path(raw_path).expanduser())
             cached = QdrantVectorStore._local_client_cache.get(local_path)
             if cached is not None:
                 self.client = cached
             else:
-                self.client = QdrantClient(path=local_path)
+                try:
+                    self.client = QdrantClient(path=local_path)
+                except RuntimeError as e:
+                    if "already accessed by another instance" in str(e).lower():
+                        _cleanup_stale_qdrant_lock(local_path)
+                        self.client = QdrantClient(path=local_path)
+                    else:
+                        raise
                 QdrantVectorStore._local_client_cache[local_path] = self.client
 
         logger.info(

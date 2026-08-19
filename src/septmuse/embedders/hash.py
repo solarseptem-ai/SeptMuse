@@ -11,16 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""确定性哈希嵌入 — 仅测试/离线回退用, 非语义嵌入。
-
-用途:
-- 无网络/sentence-transformers 模型缺失时验证 facade 闭环逻辑
-- 单元测试注入 (通过 Memory(embedder=HashEmbedder()))
-
-非生产嵌入: 英文按词、中文按字 hash 到固定维度, 共享字符的文本有部分向量重叠,
-能验证检索流程正确性, 但不能代表真实语义相似度。
-生产请用 OnnxEmbedder (SEPTMUSE_EMBEDDER=onnx, ModelScope 下载, 无 torch)。
-"""
+"""确定性哈希嵌入 — 仅测试/离线回退用。"""
 
 from __future__ import annotations
 
@@ -33,12 +24,7 @@ from septmuse.embedders.base import Embedder
 
 
 def _tokenize(text: str) -> list[str]:
-    """简单分词: 中英文混合, 英文按词、中文按字。
-
-    英文/数字连续段作为一个 token (``python``/``123``);
-    其他 Unicode 字符 (含中文) 按单字切, 使共享字符的文本有向量重叠
-    (对齐模块 docstring "共享字符的文本有部分向量重叠" 承诺)。
-    """
+    """简单分词: 英文按词、中文按字。"""
     return re.findall(r"[a-z0-9]+|[^\s\W]", text.lower())
 
 

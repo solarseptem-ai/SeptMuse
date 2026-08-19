@@ -1,8 +1,4 @@
-"""ImportanceAssessor — 写入时给记忆打价值分 (0-1)。
-
-LLM 可用：prompt 打分。
-LLM 不可用：规则——含实体/数字/时间 → 0.7+；含偏好关键词 → 0.6+；其余 → 0.3。
-"""
+"""写入时给记忆打价值分 (0-1)。"""
 
 from __future__ import annotations
 
@@ -40,11 +36,7 @@ class ImportanceResult:
 
 
 class ImportanceAssessor:
-    """给文本打价值分。
-
-    Args:
-        llm: LLM 实例（可选，None 时用规则）
-    """
+    """给文本打价值分。"""
 
     def __init__(self, llm: LLM | None = None) -> None:
         self._llm = llm

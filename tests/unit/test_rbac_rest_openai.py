@@ -19,13 +19,13 @@ import pytest
 
 from septmuse import MemoryConfig
 from septmuse.embedders.hash import HashEmbedder
-from septmuse.experimental import ExperimentalMemory
 from septmuse.governance.rbac import Permission, RBACManager, Role
+from septmuse.memory.main import Memory
 
 
 @pytest.fixture()
-def mem() -> ExperimentalMemory:
-    return ExperimentalMemory(
+def mem() -> Memory:
+    return Memory(
         config=MemoryConfig(db_path=":memory:"),
         embedder=HashEmbedder(),
     )
@@ -121,7 +121,7 @@ class TestRestAPI:
 
         from septmuse.api.rest import create_app
 
-        mem = ExperimentalMemory(
+        mem = Memory(
             config=MemoryConfig(db_path=str(tmp_path / "test.db")),
             embedder=HashEmbedder(),
         )

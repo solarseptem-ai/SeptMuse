@@ -9,11 +9,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Cohere 云 reranker — 通过 Cohere API 对文档重排。
-
-延迟 import cohere, 不可用时降级为透传 + warning。
-需要 COHERE_API_KEY 环境变量或构造参数传入。
-"""
+"""Cohere 云 reranker — 通过 Cohere API 对文档重排。"""
 
 from __future__ import annotations
 

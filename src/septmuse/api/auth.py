@@ -11,18 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""API key 认证中间件 (架构文档 §11.3 安全)。
-
-模式:
-- 开发模式 (默认): SEPTMUSE_API_KEY 环境变量未设 → 不拦截, 日志警告一次
-- 生产模式: SEPTMUSE_API_KEY 设了 → 所有 API 请求需 Authorization: Bearer <key> 或 X-API-Key: <key>
-
-豁免路径: /docs /redoc /openapi.json /health /favicon.ico (Swagger UI 可访问)
-
-用法:
-    export SEPTMUSE_API_KEY=sk-septmuse-xxx
-    septmuse serve --with-rest    # 自动启用认证
-"""
+"""API key 认证中间件。"""
 
 from __future__ import annotations
 
@@ -49,7 +38,7 @@ EXEMPT_PATHS = set(
 
 
 def get_configured_api_key() -> str | None:
-    """获取已配置的 API key (环境变量 SEPTMUSE_API_KEY)。未设返回 None (开发模式)。"""
+    """获取已配置的 API key。"""
     return os.getenv("SEPTMUSE_API_KEY") or None
 
 
@@ -101,10 +90,5 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
 
 
 def setup_auth(app, api_key: str | None = None) -> None:
-    """挂载 API key 认证中间件到 FastAPI app。
-
-    Args:
-        app: FastAPI 实例
-        api_key: 显式指定 API key; None 时从 SEPTMUSE_API_KEY 环境变量读
-    """
+    """挂载 API key 认证中间件到 FastAPI app。"""
     app.add_middleware(ApiKeyMiddleware, api_key=api_key)

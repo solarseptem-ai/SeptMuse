@@ -11,16 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""多形态共存一致性同步器 (架构文档 §4.1 自研)。
-
-14 家开源均无统一方案。当一份记忆需多形态共存时（如语义事实同时写图三元组
-+ Markdown 文件 + 向量），由源同步器保证最终一致。
-
-设计 (架构文档 §4.1):
-- write: 并行写图/文件/向量, 任一失败则记录补偿任务
-- reconcile: 检测形态间漂移, 以 graph 为权威源重同步文件/向量
-- 权威源优先级: 图 > 文件 > 向量 (图最结构化, 文件人可纠错, 向量易漂移)
-"""
+"""多形态共存一致性同步器。"""
 
 from __future__ import annotations
 
@@ -37,14 +28,14 @@ logger = get_logger(__name__)
 
 
 class SyncForm(str, Enum):
-    """存储形态 (架构文档 §4.1 平面B)。"""
+    """存储形态。"""
 
     GRAPH = "graph"  # 图三元组 (最权威)
     FILE = "file"  # Markdown 文件
     VECTOR = "vector"  # 向量嵌入
 
 
-# 权威源优先级 (架构文档 §4.1: 图 > 文件 > 向量)
+# 权威源优先级: 图 > 文件 > 向量
 AUTHORITY_PRIORITY: list[SyncForm] = [SyncForm.GRAPH, SyncForm.FILE, SyncForm.VECTOR]
 
 
@@ -87,18 +78,7 @@ WriteFunc = Callable[[str, dict[str, Any]], str]
 
 
 class SourceSynchronizer:
-    """多形态记忆的最终一致同步器 (架构文档 §4.1 自研)。
-
-    用法:
-        sync = SourceSynchronizer()
-        sync.register(SyncForm.VECTOR, vector_store.add)
-        sync.register(SyncForm.FILE, file_store.write)
-        result = sync.write("alice likes python", {"user_id": "alice"},
-                            targets=[SyncForm.VECTOR, SyncForm.FILE])
-        if not result.all_succeeded:
-            # 有补偿任务, 后续重试
-            sync.retry_compensations()
-    """
+    """多形态记忆的最终一致同步器。"""
 
     def __init__(self, max_workers: int = 3) -> None:
         self._writers: dict[SyncForm, WriteFunc] = {}
@@ -117,12 +97,7 @@ class SourceSynchronizer:
         metadata: dict[str, Any],
         targets: list[SyncForm] | None = None,
     ) -> SyncResult:
-        """并行写多形态 (架构文档 §4.1: 并行写+补偿)。
-
-        1. 并行调用各形态 writer
-        2. 成功: 记录 memory_id
-        3. 失败: 记录 CompensationTask
-        """
+        """并行写多形态。"""
         targets = targets or list(self._writers.keys())
         result = SyncResult()
 
@@ -161,11 +136,7 @@ class SourceSynchronizer:
         return result
 
     def reconcile(self, memory_id: str) -> bool:
-        """检测形态间漂移, 以权威源重同步 (架构文档 §4.1)。
-
-        权威源优先级: 图 > 文件 > 向量。
-        从最高权威形态读取, 重新写入较低权威形态。
-        """
+        """检测形态间漂移，以权威源重同步。"""
         for authority in AUTHORITY_PRIORITY:
             reader = self._writers.get(authority)
             if reader is None:

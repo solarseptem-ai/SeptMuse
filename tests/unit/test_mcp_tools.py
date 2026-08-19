@@ -31,13 +31,13 @@ from septmuse import MemoryConfig
 from septmuse.api.mcp import tools
 from septmuse.api.mcp.server import mcp
 from septmuse.embedders.hash import HashEmbedder
-from septmuse.experimental import ExperimentalMemory
+from septmuse.memory.main import Memory
 
 
 @pytest.fixture(autouse=True)
 def _inject_memory(monkeypatch):
     """每个测试注入内存库 Memory (HashEmbedder, 避免 sentence-transformers 加载)。"""
-    mem = ExperimentalMemory(config=MemoryConfig(db_path=":memory:"), embedder=HashEmbedder())
+    mem = Memory(config=MemoryConfig(db_path=":memory:"), embedder=HashEmbedder())
     monkeypatch.setattr(tools, "get_memory_safe", lambda: mem)
     # 同时让 server 模块的 get_memory_safe 返回同一实例
     import septmuse.api.mcp.server as srv

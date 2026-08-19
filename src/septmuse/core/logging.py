@@ -11,29 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""SeptMuse 结构化日志模块
-
-提供结构化日志功能（基于平台 solarseptem_core 同款实现，暂内建待迁移）：
-- 带 ANSI 颜色的终端输出
-- 滚动文件输出 — 普通日志 (app.log) 和错误日志 (error.log) 分离
-- 基于文件大小的滚动，可配置最大文件大小
-- 基于时间的旧日志文件清理
-- 格式：[2026-05-29 16:50:11] [INFO] [timer.py:293] | Importing graph profiling
-
-环境变量（平台统一前缀，迁移到 solarseptem_core 无成本）：
-- ``SOLARSEPTEM_LOG_LEVEL``: 覆盖日志级别
-- ``SOLARSEPTEM_LOG_DIR``: 覆盖日志目录
-
-用法：
-    from septmuse.core.logging import configure, get_logger
-
-    configure(log_level="INFO", log_dir=Path("./logs"))
-    logger = get_logger(__name__)
-    logger.info("hello world")
-
-注：本模块由平台 solarseptem_core.logging 迁移而来，故保留 SOLARSEPTEM_ 前缀；
-待平台核心库建立后上移为 ``solarseptem_core.logging_utils``。
-"""
+"""SeptMuse 结构化日志模块。"""
 
 from __future__ import annotations
 
@@ -150,12 +128,7 @@ _ALL_FILE_SINKS: list[_FileLogSink] = []
 
 
 class _FileLogSink:
-    """持有两个 ``RotatingFileHandler`` 实例 —— 一个用于普通级别日志
-    （DEBUG / INFO / WARNING，写入 ``app.log``），另一个用于错误级别日志
-    （ERROR / CRITICAL，写入 ``error.log``）。
-
-    构造时还会执行一次基于 *keep_days* 的清理。
-    """
+    """文件日志桥接 —— 分离普通日志与错误日志输出。"""
 
     def __init__(
         self,
@@ -265,20 +238,13 @@ atexit.register(_shutdown_sinks)
 
 
 # ---------------------------------------------------------------------------
-# 自定义 PrintLogger: 日志走 stderr (Unix 惯例 + 兼容 pytest capsys)
+# 自定义 PrintLogger: 日志走 stderr
 # ---------------------------------------------------------------------------
-# structlog.PrintLogger 在 file != stdout 时直接持有 file 对象引用,
-# 在 pytest capsys 下会拿到被关闭的原始 stderr 而报 "I/O operation on closed file";
-# 这里改为每次 msg 调用时 print(file=sys.stderr) 解析当前 sys.stderr,
-# 既符合日志走 stderr 的 Unix 惯例, 又支持 capsys 捕获分离 stdout/stderr,
-# 同时保证 CLI 的 stdout (JSON/print) 不被日志污染, mcp stdio 协议通道也安全。
+# 每次调用时解析当前 sys.stderr，避免 pytest capsys 关闭文件问题。
 
 
 class _StderrPrintLogger:
-    """structlog PrintLogger 兼容替代: 日志走当前 sys.stderr。
-
-    每次调用解析 ``sys.stderr`` (而非持有固定引用), 支持 pytest capsys 替换。
-    """
+    """structlog PrintLogger 兼容替代: 日志走当前 sys.stderr。"""
 
     def __init__(self) -> None:
         self._lock = Lock()
@@ -304,10 +270,7 @@ class _StderrPrintLoggerFactory:
 
 
 def _format_record(_logger: Any, _method: str, event_dict: dict[str, Any]) -> dict[str, Any]:
-    """构建规范的日志行。
-
-    结果存储在 ``_formatted`` 中，下游处理器（文件 sink、终端渲染器）可以直接使用，无需重新格式化。
-    """
+    """构建规范的日志行。"""
     ts = event_dict.get("timestamp", "")
     level = event_dict.get("level", "info").upper()
     filename = event_dict.get("filename", "???")
@@ -318,10 +281,7 @@ def _format_record(_logger: Any, _method: str, event_dict: dict[str, Any]) -> di
 
 
 def _render_console(_logger: Any, _method: str, event_dict: dict[str, Any]) -> str:
-    """格式化终端输出，带 ANSI 彩色。
-
-    直接返回字符串（当处理器链以字符串返回值结束时，structlog 的 PrintLogger 会按此处理）。
-    """
+    """格式化终端输出，带 ANSI 彩色。"""
     line = event_dict.get("_formatted", event_dict.get("event", ""))
     level = event_dict.get("level", "info").upper()
     color = _ANSI_COLORS.get(level, "")
@@ -334,7 +294,7 @@ def _render_console(_logger: Any, _method: str, event_dict: dict[str, Any]) -> s
 # 公开 API
 # ---------------------------------------------------------------------------
 
-# 单一配置标志 (合并原 _log_configured / _configured_once, 幂等守卫)
+# 幂等配置标志
 _configured = False
 
 
@@ -349,31 +309,7 @@ def configure(
     console_output: bool = True,
     force: bool = False,
 ) -> None:
-    """配置 SeptMuse 的结构化日志。
-
-    参数
-    ----------
-    log_level:
-        最低日志级别。可选值：``DEBUG``、``INFO``、``WARNING``、``ERROR``、
-        ``CRITICAL``。可以被环境变量 ``SOLARSEPTEM_LOG_LEVEL`` 覆盖。
-    log_dir:
-        日志文件目录。为 ``None`` 时，依次回退到
-        ``SOLARSEPTEM_LOG_DIR`` 环境变量，然后是平台默认日志目录。
-        设置 ``file_output=False`` 可完全禁用文件日志。
-    max_bytes:
-        单个日志文件滚动前的最大大小（字节）。
-    backup_count:
-        保留的滚动文件数量（``app.log.1`` … ``app.log.N``）。
-    keep_days:
-        超过此天数的滚动日志文件在启动时被删除。
-    file_output:
-        设为 ``False`` 则不输出文件日志（仅终端输出）。
-    console_output:
-        设为 ``False`` 则不向 stdout / stderr 写入（仅文件输出）。
-    force:
-        设为 ``True`` 强制重新配置（即使已配置过）。默认 ``False`` 时，
-        首次调用生效，后续调用幂等跳过——避免重复注册 sink 导致文件句柄泄漏。
-    """
+    """配置 SeptMuse 的结构化日志。"""
 
     global _configured
     if _configured and not force:
@@ -445,11 +381,7 @@ def get_logger(name: str | None = None) -> structlog.BoundLogger:
 
 
 def shutdown() -> None:
-    """关闭所有文件日志处理器。
-
-    可用于测试和优雅关闭钩子。已通过 ``atexit`` 自动注册，
-    因此在生产环境中手动调用是可选的。
-    """
+    """关闭所有文件日志处理器。"""
     _shutdown_sinks()
 
 

@@ -11,11 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""SeptMuse 零配置默认 — BaseSettings 自动从 env + yaml + default 合并。
-
-优先级: init kwargs > YAML > 代码默认; 旧版扁平 env (SEPTMUSE_*) 由
-MemoryConfig._flat_env_aliases 兼容。零配置: SQLite + HashEmbedder (离线)。
-"""
+"""SeptMuse 零配置默认。"""
 
 from __future__ import annotations
 

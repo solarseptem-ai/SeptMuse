@@ -11,18 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""ONNX 嵌入实现 — onnxruntime + tokenizers, 无 torch 依赖。
-
-模型: ModelScope Xenova/all-MiniLM-L6-v2 (量化 ONNX, ~23MB, 384 dim)。
-首次使用自动从 ModelScope 下载到 ~/.septmuse/models/, 后续直接从缓存加载。
-
-优势 (vs sentence-transformers):
-- 无 torch 依赖 (~2GB -> 0)
-- 启动快 (<2s vs ~30s)
-- CPU 推理快 (<50ms/query)
-- Windows 稳定 (无模型缓存不完整问题)
-- ModelScope 国内下载快 (vs HuggingFace)
-"""
+"""ONNX 嵌入实现 — onnxruntime + tokenizers。"""
 
 from __future__ import annotations
 
@@ -96,12 +85,7 @@ def _ensure_model_files(model_name: str) -> tuple[Path, Path]:
 
 
 class OnnxEmbedder(Embedder):
-    """基于 ONNX Runtime 的嵌入模型 (无 torch 依赖)。
-
-    默认英文模型: Xenova/all-MiniLM-L6-v2 (384 dim, ~23MB 量化)。
-    多语言模型: Xenova/paraphrase-multilingual-MiniLM-L12-v2 (384 dim, ~50MB 量化)。
-    模型从 ModelScope 下载 (国内 CDN, 无需 HuggingFace)。
-    """
+    """基于 ONNX Runtime 的嵌入模型。"""
 
     def __init__(self, model_name: str = DEFAULT_EN_MODEL, max_length: int = 256) -> None:
         try:
@@ -156,11 +140,7 @@ class OnnxEmbedder(Embedder):
         return pooled.tolist()
 
     def _embed_batch(self, texts: list[str], memory_action: str | None = None) -> list[list[float]]:
-        """批量嵌入 — 真批量推理 (单次 session.run 处理整批)。
-
-        按 _BATCH_SIZE 分块, 每块: encode_batch → 单次 ONNX forward → 向量化 mean pool + L2 归一化。
-        比逐条 embed 快 10-50x (尤其批量索引/初始化场景)。
-        """
+        """批量嵌入。"""
         if not texts:
             return []
         _BATCH_SIZE = 32

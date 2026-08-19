@@ -1,12 +1,4 @@
-"""BFS 图遍历检索。
-
-从种子节点出发 BFS 遍历 GraphStore (memory_links 表),
-按 max_depth 限制深度, 结果与向量/BM25 检索 RRF 融合。
-
-SeptMuse 流程:
-1. search_graph(seed_memory_id, max_depth) → BFS 遍历 → list[{"id","memory","depth","score"}]
-2. fused_search(query, user_id, vector_results) → BFS + RRF 融合
-"""
+"""BFS 图遍历检索。"""
 
 from __future__ import annotations
 
@@ -23,12 +15,7 @@ RRF_K = 60
 
 
 class GraphSearcher:
-    """BFS 图遍历检索器。
-
-    用法:
-        searcher = GraphSearcher(graph_store, store)
-        results = searcher.search_graph("mem-123", max_depth=2)
-    """
+    """BFS 图遍历检索器。"""
 
     def __init__(
         self,
@@ -45,11 +32,7 @@ class GraphSearcher:
         max_depth: int = DEFAULT_MAX_DEPTH,
         relation: str | None = None,
     ) -> list[dict[str, Any]]:
-        """BFS 遍历, 返回 [{"id", "depth"}] (不含种子节点)。
-
-        委托给 GraphStore.traverse() — 后端可用递归 CTE / Cypher *1..n 提升性能,
-        不支持时基类默认 Python BFS fallback。
-        """
+        """BFS 遍历, 返回节点 ID 与深度。"""
         return self.graph_store.traverse(seed_memory_id, max_depth, direction="out", relation=relation)
 
     def search_graph(
@@ -59,10 +42,7 @@ class GraphSearcher:
         max_depth: int = DEFAULT_MAX_DEPTH,
         relation: str | None = None,
     ) -> list[dict[str, Any]]:
-        """BFS 检索, 返回记忆内容 + depth + score (按 depth 衰减)。
-
-        score = 1 / (2^depth), depth=1 → 0.5, depth=2 → 0.25。
-        """
+        """BFS 检索, 返回记忆内容、深度与分数。"""
         bfs_results = self.bfs(seed_memory_id, max_depth=max_depth, relation=relation)
         if not bfs_results:
             return []
@@ -98,20 +78,16 @@ class GraphSearcher:
         *,
         k: int = RRF_K,
     ) -> list[dict[str, Any]]:
-        """RRF 融合向量结果 + BFS 结果 (score 统一为相似度 [0,1])。
-
-        RRF: fused_score = 1/(k+rank_v) + 1/(k+rank_g)
-        rank 从 0 开始 (第一个结果 rank=0)。
-        """
+        """RRF 融合向量结果与 BFS 结果。"""
         v_scores: dict[str, float] = {}
         for i, r in enumerate(vector_results):
             mid = r.get("id", "")
-            v_scores[mid] = 1.0 / (k + i)
+            v_scores[mid] = 1.0 / (k + i + 1)
 
         g_scores: dict[str, float] = {}
         for i, r in enumerate(graph_results):
             mid = r.get("id", "")
-            g_scores[mid] = 1.0 / (k + i)
+            g_scores[mid] = 1.0 / (k + i + 1)
 
         all_ids = set(v_scores) | set(g_scores)
         fused: list[dict[str, Any]] = []
@@ -155,7 +131,7 @@ class GraphSearcher:
         max_depth: int = DEFAULT_MAX_DEPTH,
         relation: str | None = None,
     ) -> list[dict[str, Any]]:
-        """BFS + 向量结果 RRF 融合 (验收: BFS 结果与向量结果 RRF 融合)。"""
+        """BFS + 向量结果 RRF 融合。"""
         graph_results = self.search_graph(
             seed_memory_id,
             max_depth=max_depth,

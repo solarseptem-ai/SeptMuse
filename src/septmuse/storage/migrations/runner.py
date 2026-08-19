@@ -1,8 +1,4 @@
-"""迁移执行器 — 检查 schema_version 表，执行未应用的迁移。
-
-sync 版，支持 SQLite + PG + MySQL via SQLAlchemy inspect。
-通过 __init__(engine) 构造，用 engine.begin() 执行 DDL。
-"""
+"""迁移执行器 — 检查 schema_version 表，执行未应用的迁移。"""
 from __future__ import annotations
 
 from datetime import datetime, timezone

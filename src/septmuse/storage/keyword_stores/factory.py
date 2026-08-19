@@ -11,12 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""create_keyword_index — 方言工厂, 根据 dialect 创建 KeywordIndexBase。
-
-SQLite → SQLAlchemyKeywordIndex (通用, 共享 engine, 与 memories 表同库)
-PostgreSQL → PostgresFTSIndex (tsvector + ts_rank, 降级回退)
-MySQL → MySQLFulltextIndex (FULLTEXT + MATCH AGAINST, 降级回退)
-"""
+"""create_keyword_index — 方言工厂，根据 dialect 创建 KeywordIndexBase。"""
 
 from __future__ import annotations
 
@@ -26,18 +21,7 @@ from septmuse.storage.keyword_stores.base import KeywordIndexBase
 
 
 def create_keyword_index(engine: Engine, dialect: str) -> KeywordIndexBase:
-    """根据 dialect 创建对应的 KeywordIndexBase 实现。
-
-    Args:
-        engine: SQLAlchemy Engine
-        dialect: 数据库方言名 (sqlite/postgresql/mysql)
-
-    Returns:
-        KeywordIndexBase 实现
-
-    Raises:
-        ValueError: 不支持的方言
-    """
+    """根据 dialect 创建对应的 KeywordIndexBase 实现。"""
     if dialect == "sqlite":
         from septmuse.storage.keyword_stores.sqlalchemy_keyword import SQLAlchemyKeywordIndex
 

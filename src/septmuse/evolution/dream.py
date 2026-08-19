@@ -11,23 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Dream 整合 — 空闲期批量建立记忆间链接。
-
-四阶段设计:
-  1. Extract: 扫描 daily notes, 提取 units/topics
-  2. Integrate: 对每个 unit, node_search 找关联, write/edit 织入 wikilink
-     (IntegrateOutcome: CREATE/CORROBORATE/REFINE/CORRECT)
-  3. Topics: 写 interests.yaml
-  4. Finish: 持久化 catalog
-Bucket 类型: procedure/personal/wiki
-
-SeptMuse 简化:
-- 不用 LLM agent + 工具调用, 用 embedding 相似度批量建链接
-- 2-phase: extract (聚类) → integrate (建链接)
-- 复用 ZettelLinker 的 link 机制
-
-详见 docs/specs/agent-memory-architecture.md §5.4 演化。
-"""
+"""Dream 整合 — 空闲期批量建立记忆间链接。"""
 
 from __future__ import annotations
 
@@ -57,15 +41,7 @@ class DreamResult:
 
 
 class DreamIntegrator:
-    """Dream 整合器 (extract → integrate 2-phase 简化版)。
-
-    空闲期批量处理所有记忆, 为每条记忆找语义关联并建立链接。
-
-    用法:
-        dreamer = DreamIntegrator(store, embedder)
-        result = dreamer.dream(user_id="alice")
-        # result.links_created = N
-    """
+    """Dream 整合器。"""
 
     def __init__(
         self,
@@ -81,11 +57,7 @@ class DreamIntegrator:
         self.linker = ZettelLinker(store, graph_store, embedder, threshold=threshold)
 
     def dream(self, *, user_id: str) -> DreamResult:
-        """执行 Dream 整合 (extract → integrate 2-phase)。
-
-        Phase 1 extract: 取全部记忆, 重新嵌入
-        Phase 2 integrate: 对每条记忆, 找语义关联, 建链接 (复用 ZettelLinker)
-        """
+        """执行 Dream 整合。"""
         result = DreamResult()
 
         # Phase 1: extract — 取全部记忆
@@ -117,10 +89,7 @@ class DreamIntegrator:
         return result
 
     def get_clusters(self, *, user_id: str, threshold: float = 0.5) -> list[list[dict[str, Any]]]:
-        """获取记忆聚类 (相似度 > threshold 的记忆组)。
-
-        简化聚类: 用链接关系做连通分量 (union-find)。
-        """
+        """获取记忆聚类。"""
         all_memories = self.store.get_all(user_id=user_id)
         if not all_memories:
             return []

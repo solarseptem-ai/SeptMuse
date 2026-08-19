@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import warnings
 
 import pytest
 
@@ -17,13 +16,6 @@ def memory(tmp_path):
 
     cfg = MemoryConfig(db_path=str(tmp_path / "test.db"))
     return Memory(config=cfg)
-
-
-@pytest.fixture
-def v2_memory_deprecated(memory):
-    from septmuse.memory.memory_v2 import V2Memory
-
-    return V2Memory(memory=memory)
 
 
 def test_remember_delegates_add(memory):
@@ -81,27 +73,3 @@ def test_improve_runs(memory):
     result = memory.improve(user_id="alice", limit=5)
     assert "dream" in result
     assert "coverage" in result
-
-
-def test_v2memory_deprecated_warning(v2_memory_deprecated):
-    """V2Memory 薄层发 DeprecationWarning."""
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        # V2Memory(memory=...) 构造时应发警告
-        from septmuse.memory.memory_v2 import V2Memory
-
-        V2Memory(memory=v2_memory_deprecated.mem)
-        assert any(issubclass(wi.category, DeprecationWarning) for wi in w)
-
-
-def test_v2memory_delegates_remember(v2_memory_deprecated):
-    """V2.remember 委托 Memory.remember."""
-    result = v2_memory_deprecated.remember("test message 42", user_id="bob")
-    assert result["captured"] is True
-
-
-def test_v2memory_delegates_recall(v2_memory_deprecated):
-    """V2.recall 委托 Memory.recall."""
-    v2_memory_deprecated.remember("test message", user_id="bob")
-    result = v2_memory_deprecated.recall("test", user_id="bob")
-    assert "memories" in result

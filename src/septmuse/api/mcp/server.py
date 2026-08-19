@@ -11,16 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""MCP server 实例 + lazy Memory + setup + run_stdio。
-
-- mcp = FastMCP("...")  实例化
-- get_memory_client_safe()  lazy + 失败不崩
-- setup_mcp_server(app: FastAPI)  挂载 router
-
-SeptMuse 增量 (架构文档 §13.3):
-- run_stdio()  stdio transport
-  使 `septmuse mcp` 可在 Claude Code 本地零服务运行
-"""
+"""MCP server 实例 + lazy Memory + setup + run_stdio。"""
 
 from __future__ import annotations
 
@@ -41,20 +32,16 @@ _mem_instance = None
 
 
 def get_memory_safe():
-    """获取 Memory 实例, 失败返回 None (不崩 server)。
-
-    默认用 HashEmbedder (零模型加载, 离线可用), 与 CLI _make_memory 一致。
-    若 SEPTMUSE_EMBEDDER 环境变量非 "hash", 则用 Memory() 默认 (onnx/hash)。
-    """
+    """获取 Memory 实例, 失败返回 None。"""
     global _mem_instance
     if _mem_instance is not None:
         return _mem_instance
     try:
         from septmuse.embedders.hash import HashEmbedder
-        from septmuse.experimental import ExperimentalMemory
+        from septmuse.memory.main import Memory
 
         embedder_env = os.getenv("SEPTMUSE_EMBEDDER", "hash").lower()
-        _mem_instance = ExperimentalMemory(embedder=HashEmbedder()) if embedder_env == "hash" else ExperimentalMemory()
+        _mem_instance = Memory(embedder=HashEmbedder()) if embedder_env == "hash" else Memory()
         logger.info("mcp_memory_ready", embedder=embedder_env)
     except Exception as e:
         logger.warning("mcp_memory_unavailable", error=str(e))
@@ -63,11 +50,7 @@ def get_memory_safe():
 
 
 def setup_mcp_server(app: FastAPI) -> None:
-    """挂载 MCP server 到 FastAPI (http/sse transport)。
-
-    注意: 必须先 import tools 模块触发 @mcp.tool 装饰器注册, 否则 SSE/HTTP 模式下
-    tools/list 返回空 (stdio 模式在 run_stdio 里 import, 此处补上 http/sse 路径)。
-    """
+    """挂载 MCP server 到 FastAPI。"""
     from septmuse.api.auth import setup_auth
     from septmuse.api.mcp import tools  # noqa: F401  注册 @mcp.tool 工具
     from septmuse.api.mcp.transports import mount_http, mount_sse
@@ -78,13 +61,27 @@ def setup_mcp_server(app: FastAPI) -> None:
     mount_sse(app, mcp)
     logger.info("mcp_server_mounted", transport="http+sse")
 
+    @app.on_event("startup")
+    def _start_evolution_scheduler() -> None:
+        mem = get_memory_safe()
+        if mem is not None:
+            from septmuse.evolution.scheduler import EvolutionScheduler
+
+            scheduler = EvolutionScheduler(mem)
+            scheduler.start()
+            app.state.evolution_scheduler = scheduler
+            logger.info("evolution_scheduler_started_via_mcp_setup")
+
+    @app.on_event("shutdown")
+    def _stop_evolution_scheduler() -> None:
+        scheduler = getattr(app.state, "evolution_scheduler", None)
+        if scheduler is not None:
+            scheduler.stop()
+            logger.info("evolution_scheduler_stopped_via_mcp_setup")
+
 
 def run_stdio() -> None:
-    """启动 stdio MCP server (Claude Code / Cursor 等本地编辑器用)。
-
-    FastMCP.run() 默认 transport='stdio'。
-    启动前从环境变量初始化默认 user_id (stdio 无 URL 路径)。
-    """
+    """启动 stdio MCP server。"""
     from septmuse.api.mcp import tools  # noqa: F401  注册 @mcp.tool 工具
     from septmuse.api.mcp.context import user_id_var
 
@@ -114,11 +111,7 @@ def run_stdio() -> None:
 
 
 if __name__ == "__main__":
-    # python -m septmuse.api.mcp.server 启动时, server.py 作为 __main__ 执行。
-    # 后续 run_stdio → import tools → from septmuse.api.mcp.server import mcp 会触发
-    # server.py 第二次执行 (作为 septmuse.api.mcp.server 模块), 导致 mcp 实例分裂
-    # (装饰器注册到第二个实例, run() 用第一个实例, tools/list 返回空)。
-    # 修复: 把 __main__ 注册到 sys.modules, 后续 import 复用同一模块同一 mcp 实例。
+    # 防止 __main__ 与模块导入产生两份 mcp 实例
     import sys
 
     sys.modules.setdefault("septmuse.api.mcp.server", sys.modules[__name__])

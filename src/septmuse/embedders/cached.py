@@ -11,14 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""LRU 嵌入缓存 — 避免相同文本重复计算嵌入向量。
-
-透明包装 Embedder, 对调用方无感知。query 重复搜索时命中缓存, 跳过模型推理。
-对 OnnxEmbedder (~50ms/query) 效果显著; HashEmbedder (<1ms) 开销可忽略。
-
-线程安全: 内部加 threading.Lock, 支持 async (to_thread) + sync 并发访问。
-缓存隔离: 返回 list 浅拷贝, 防止调用方修改污染缓存。
-"""
+"""LRU 嵌入缓存。"""
 
 from __future__ import annotations
 

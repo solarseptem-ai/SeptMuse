@@ -11,11 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""存储服务基类 (借鉴 Langflow services/base.py Service ABC)。
-
-所有存储服务继承此 ABC, 对外暴露统一接口, 内部委托给 SeptMuse storage/
-下的具体后端实现 (CAMEL 风格的正交 ABC 矩阵)。
-"""
+"""存储服务基类。"""
 
 from __future__ import annotations
 
@@ -23,10 +19,7 @@ from abc import ABC
 
 
 class Service(ABC):
-    """存储服务抽象基类 (借鉴 Langflow Service ABC)。
-
-    子类需设置 ``name`` 属性, 在 __init__ 末尾调用 set_ready()。
-    """
+    """存储服务抽象基类。"""
 
     name: str
     ready: bool = False

@@ -10,11 +10,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""rank-bm25 关键词索引 — extras=[bm25] 可选实现。
-
-用 rank-bm25 库的 BM25Okapi, SQLite docs 表持久化文档。
-对比 SQLiteBM25Index (纯 Python): rank-bm25 更成熟, 支持中文分词器注入。
-"""
+"""rank-bm25 关键词索引 — extras=[bm25] 可选实现。"""
 
 from __future__ import annotations
 
@@ -30,13 +26,7 @@ logger = get_logger(__name__)
 
 
 class RankBM25Index(KeywordIndexBase):
-    """rank-bm25 索引 (extras=[bm25])。
-
-    用法:
-        pip install septmuse[bm25]
-        idx = RankBM25Index()
-        idx.add_docs({"m1": "hello world"})
-    """
+    """rank-bm25 索引 (extras=[bm25])。"""
 
     def __init__(self, db_path: str | Path | None = None) -> None:
         from rank_bm25 import BM25Okapi

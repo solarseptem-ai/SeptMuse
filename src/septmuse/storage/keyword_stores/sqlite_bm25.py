@@ -10,16 +10,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""SQLite BM25 关键词索引 — 默认零配置实现 (纯 Python BM25)。
-
-借鉴 ReMe keyword_index/bm25_index.py 的纯 Python BM25 实现,
-用 SQLite docs 表持久化文档, 内存倒排索引加速检索。
-
-参考模式 (实证):
-- BM25 公式: ReMe BM25Index (k1=1.5, b=0.75 标准参数)
-- 中文分词: jieba 可用时按词切分, 否则正则按字 (core.tokenizer)
-- 归一化: sigmoid 自适应 (对齐 mem0 normalize_bm25), score/max_score 已弃用
-"""
+"""SQLite BM25 关键词索引 — 默认零配置实现 (纯 Python BM25)。"""
 
 from __future__ import annotations
 
@@ -41,13 +32,7 @@ _BM25_B = 0.75
 
 
 class SQLiteBM25Index(KeywordIndexBase):
-    """SQLite BM25 索引 (纯 Python, 零配置默认)。
-
-    用法:
-        idx = SQLiteBM25Index()
-        idx.add_docs({"m1": "hello world"})
-        results = idx.retrieve("hello", limit=5)
-    """
+    """SQLite BM25 索引 (纯 Python，零配置默认)。"""
 
     def __init__(self, db_path: str | Path | None = None) -> None:
         if db_path is None:

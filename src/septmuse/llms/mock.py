@@ -11,15 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""确定性 Mock LLM — 测试用 (零 API key, 零网络)。
-
-基于规则模拟 mem0 FACT_RETRIEVAL_PROMPT 的输出 ({"facts": [...]}):
-- name 模式: "my name is X" / "i am X" → "Name is X"
-- likes 模式: "i like/love X" → "Likes X"
-- is a 模式: "i am a/an X" → "Is a X"
-
-非生产 LLM, 仅验证抽取流水线逻辑。生产用 OpenAI/Anthropic。
-"""
+"""确定性 Mock LLM — 测试用。"""
 
 from __future__ import annotations
 
@@ -30,7 +22,7 @@ from septmuse.llms.base import LLM
 
 
 class MockLLM(LLM):
-    """测试用确定性 LLM (模拟 mem0 fact 抽取输出)。"""
+    """测试用确定性 LLM。"""
 
     provider_name = "mock"
 

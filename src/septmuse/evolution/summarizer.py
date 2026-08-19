@@ -11,22 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""消息压缩 Summarizer。
-
-两种模式:
-1. STATIC_BUFFER: 固定缓冲区, 超限驱逐旧消息 + LLM 递归摘要
-2. PARTIAL_EVICT: 驱逐 30% 旧消息 + LLM 生成摘要插入
-
-压缩后的摘要存入 TypedMemoryStore (EpisodicEvent, event_type="summary")。
-无 LLM 时用拼接摘要 (零配置降级)。
-
-SeptMuse 流程:
-1. store.get_all(user_id) → 全部 verbatim 记忆
-2. 超 buffer_size → 分割 evicted + kept
-3. LLM 摘要 evicted → summary text
-4. 摘要存为 EpisodicEvent (event_type="summary")
-5. 软删除 evicted 消息
-"""
+"""消息压缩 Summarizer。"""
 
 from __future__ import annotations
 
@@ -43,12 +28,7 @@ SUMMARY_PROMPT = "Summarize the following memories concisely, preserving key fac
 
 
 class Summarizer:
-    """消息压缩 Summarizer。
-
-    用法:
-        summarizer = Summarizer(store, typed_store, llm)
-        result = summarizer.compress(user_id="u1", mode="static", buffer_size=20)
-    """
+    """消息压缩 Summarizer。"""
 
     def __init__(self, store: MemoryStore, typed_store: TypedMemoryStore, llm: LLM | None = None) -> None:
         self.store = store
@@ -62,16 +42,7 @@ class Summarizer:
         mode: str = "static",
         buffer_size: int = 20,
     ) -> dict[str, Any]:
-        """压缩消息 (验收: 50 条消息压缩到 20 条 + 1 条摘要)。
-
-        Args:
-            user_id: 用户 ID
-            mode: "static" (固定缓冲区) / "partial" (驱逐 30%)
-            buffer_size: 保留的消息数 (static 模式)
-
-        Returns:
-            {"compressed": bool, "evicted": int, "kept": int, "summary_id": str | None}
-        """
+        """压缩消息。"""
         all_mems = self.store.get_all(user_id=user_id)
         if not isinstance(all_mems, list):
             all_mems = all_mems.get("results", []) if isinstance(all_mems, dict) else []

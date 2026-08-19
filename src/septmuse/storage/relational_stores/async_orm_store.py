@@ -23,7 +23,6 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import create_engine, or_
@@ -32,14 +31,11 @@ from sqlmodel import SQLModel, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from septmuse.core.logging import get_logger
+from septmuse.core.utils import utcnow_iso
 from septmuse.services.database.models import AccessLogTable, HistoryTable, MemoryTable
 from septmuse.storage.async_base import AsyncMemoryStore
 
 logger = get_logger(__name__)
-
-
-def _utcnow_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 class AsyncORMMemoryStore(AsyncMemoryStore):
@@ -57,24 +53,29 @@ class AsyncORMMemoryStore(AsyncMemoryStore):
         engine: AsyncEngine,
         vector_store: Any | None = None,
         keyword_index: Any | None = None,
+        owns_engine: bool = True,
     ) -> None:
         self._engine = engine
         self._session_maker = async_sessionmaker(engine, expire_on_commit=False)
+        self._owns_engine = owns_engine
         self._keyword_index = keyword_index
-        # 建表: 从 async URL 派生 sync engine 建表 (避免 event loop 嵌套问题)
-        # in-memory SQLite 因连接隔离不适用此方式, 测试请用文件 DB
-        sync_url = (
-            str(engine.url)
-            .replace("+aiosqlite", "")
-            .replace("+aiomysql", "+pymysql")
-            .replace("+asyncpg", "+psycopg2")
-        )
-        sync_engine = create_engine(sync_url)
-        try:
-            SQLModel.metadata.create_all(sync_engine)
-        except Exception:
-            sync_engine.dispose()
-            raise
+        if self._owns_engine:
+            # 建表: 从 async URL 派生 sync engine 建表 (避免 event loop 嵌套问题)
+            # in-memory SQLite 因连接隔离不适用此方式, 测试请用文件 DB
+            sync_url = (
+                str(engine.url)
+                .replace("+aiosqlite", "")
+                .replace("+aiomysql", "+pymysql")
+                .replace("+asyncpg", "+psycopg2")
+            )
+            sync_engine = create_engine(sync_url)
+            try:
+                SQLModel.metadata.create_all(sync_engine)
+            except Exception:
+                sync_engine.dispose()
+                raise
+        else:
+            sync_engine = create_engine(str(engine.url).replace("+aiosqlite", "").replace("+aiomysql", "+pymysql").replace("+asyncpg", "+psycopg2"))
         if vector_store is None:
             from septmuse.storage.vector_stores.sqlalchemy_vec import SQLAlchemyVectorStore
 
@@ -82,7 +83,7 @@ class AsyncORMMemoryStore(AsyncMemoryStore):
         else:
             sync_engine.dispose()
         self._vector_store = vector_store
-        logger.info("async_orm_store_ready", dialect=engine.dialect.name)
+        logger.info("async_orm_store_ready", dialect=engine.dialect.name, owns_engine=owns_engine)
 
     @property
     def async_engine(self) -> AsyncEngine:
@@ -90,8 +91,9 @@ class AsyncORMMemoryStore(AsyncMemoryStore):
         return self._engine
 
     async def close(self) -> None:
-        """释放引擎资源。"""
-        await self._engine.dispose()
+        """释放引擎资源 (仅当 owns_engine=True 时 dispose)。"""
+        if self._owns_engine:
+            await self._engine.dispose()
 
     async def add(
         self,
@@ -106,7 +108,7 @@ class AsyncORMMemoryStore(AsyncMemoryStore):
     ) -> str:
         """添加记忆, 返回 memory_id。"""
         mid = f"mem-{uuid.uuid4()}"
-        now = _utcnow_iso()
+        now = utcnow_iso()
         async with AsyncSession(self._engine) as session:
             mem = MemoryTable(
                 id=mid,
@@ -269,7 +271,7 @@ class AsyncORMMemoryStore(AsyncMemoryStore):
         metadata: dict[str, Any] | None = None,
     ) -> bool:
         """更新记忆 content + embedding + metadata, 记录 history。"""
-        now = _utcnow_iso()
+        now = utcnow_iso()
         async with AsyncSession(self._engine) as session:
             stmt = select(MemoryTable).where(
                 MemoryTable.id == memory_id,
@@ -312,7 +314,7 @@ class AsyncORMMemoryStore(AsyncMemoryStore):
 
     async def delete(self, memory_id: str) -> None:
         """软删除 (标记 is_deleted + state='deleted' + history 记录)。"""
-        now = _utcnow_iso()
+        now = utcnow_iso()
         async with AsyncSession(self._engine) as session:
             stmt = select(MemoryTable).where(MemoryTable.id == memory_id)
             result = await session.exec(stmt)
@@ -371,7 +373,7 @@ class AsyncORMMemoryStore(AsyncMemoryStore):
     ) -> str | None:
         """记录记忆访问日志（审计用）。"""
         log_id = str(uuid.uuid4())
-        now = _utcnow_iso()
+        now = utcnow_iso()
         async with AsyncSession(self._engine) as session:
             session.add(AccessLogTable(
                 id=log_id,
@@ -413,9 +415,9 @@ class AsyncORMMemoryStore(AsyncMemoryStore):
         existing = await self.get(memory_id)
         if existing is None:
             return {"id": memory_id, "event": "NOT_FOUND"}
-        inv = invalid_at or _utcnow_iso()
-        exp = _utcnow_iso()
-        now = _utcnow_iso()
+        inv = invalid_at or utcnow_iso()
+        exp = utcnow_iso()
+        now = utcnow_iso()
         async with AsyncSession(self._engine) as session:
             stmt = select(MemoryTable).where(MemoryTable.id == memory_id)
             result = await session.exec(stmt)

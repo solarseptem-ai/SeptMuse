@@ -11,14 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""遗忘曲线检索 — 强度加权排序 + 测试效应 + 主动复述 (架构文档 §6.2 自研)。
-
-14 家开源均无强度衰减 + 主动复述。SeptMuse 新增:
-- apply_strength: final_score = 0.7*relevance + 0.3*strength, 检索后刷新 last_accessed (测试效应)
-- find_rehearse_candidates: 扫描 decayed_strength < 0.3 且 base_value > 0.5 的记忆
-- rehearse: 主动复述 (strength 回升 + access_count+1)
-- archive: decayed_strength < 0.1 → 归档冷存储
-"""
+"""遗忘曲线检索 — 强度加权排序 + 测试效应 + 主动复述。"""
 
 from __future__ import annotations
 
@@ -46,14 +39,7 @@ class StrengthWeightedResult:
 
 
 class ForgettingRetriever:
-    """遗忘曲线检索器 (架构文档 §6.2 自研)。
-
-    用法:
-        retriever = ForgettingRetriever(typed_store)
-        weighted = retriever.apply_strength(results, user_id="alice")
-        candidates = retriever.find_rehearse_candidates(user_id="alice")
-        retriever.rehearse_batch([m.memory_id for m in candidates], user_id="alice")
-    """
+    """遗忘曲线检索器。"""
 
     def __init__(self, typed_store: TypedMemoryStore, *, half_life_days: float = 7.0) -> None:
         self.store = typed_store
@@ -66,17 +52,7 @@ class ForgettingRetriever:
         user_id: str,
         now: datetime | None = None,
     ) -> list[StrengthWeightedResult]:
-        """对检索结果应用强度加权 (final_score = 0.7*relevance + 0.3*strength) + 测试效应。
-
-        对每条结果:
-        1. 查 MemoryStrength (不存在则创建, 默认 base_value=0.5)
-        2. 计算 decayed_strength
-        3. final_score = 0.7 * relevance + 0.3 * decayed_strength (加权平均, 相关度优先)
-        4. 按 final_score 降序排序
-        5. 测试效应: 刷新 last_accessed + access_count+1 (检索到的记忆不再继续衰减)
-
-        归档记忆 (archived=True) 不参与, 被过滤掉。
-        """
+        """对检索结果应用强度加权并刷新访问时间。"""
         if now is None:
             now = datetime.now(timezone.utc)
 
@@ -126,10 +102,7 @@ class ForgettingRetriever:
         user_id: str,
         now: datetime | None = None,
     ) -> list[MemoryStrength]:
-        """找需要复述的记忆 (strength < 0.3 且 base_value > 0.7, 架构文档 §6.2)。
-
-        agent idle / Dream 阶段调用, 主动复述高价值低强度记忆。
-        """
+        """找需要复述的记忆。"""
         if now is None:
             now = datetime.now(timezone.utc)
 
@@ -172,10 +145,7 @@ class ForgettingRetriever:
         user_id: str,
         now: datetime | None = None,
     ) -> list[str]:
-        """归档陈旧记忆 (strength < 0.1, 架构文档 §6.2 退化)。
-
-        归档后的记忆不参与默认检索 (冷存储), 但仍可手动召回。
-        """
+        """归档陈旧记忆。"""
         if now is None:
             now = datetime.now(timezone.utc)
 

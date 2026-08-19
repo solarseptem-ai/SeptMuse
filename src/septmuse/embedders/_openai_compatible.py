@@ -11,11 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""OpenAI 兼容嵌入基类 — 共享 embed/embed_batch 逻辑。
-
-Together/LM Studio/Azure OpenAI 等 provider 的 API 与 OpenAI Embeddings 兼容,
-继承此基类只需覆盖 __init__ (创建不同 client + 设置默认 model/dims)。
-"""
+"""OpenAI 兼容嵌入基类。"""
 
 from __future__ import annotations
 
@@ -27,14 +23,7 @@ MAX_BATCH = 100
 
 
 class _OpenAICompatibleEmbedder(Embedder):
-    """OpenAI 兼容嵌入基类 — 子类传入 client, 共享 embed/embed_batch。
-
-    Args:
-        client: OpenAI 兼容 client (openai.OpenAI / AzureOpenAI 等)
-        model: 模型名
-        dim: 嵌入维度
-        pass_dimensions_to_api: 是否向 API 传 dimensions 参数 (matryoshka 模型)
-    """
+    """OpenAI 兼容嵌入基类。"""
 
     def __init__(
         self,

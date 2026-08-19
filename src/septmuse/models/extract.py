@@ -11,15 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""cognify 抽取流水线 — LLM 抽取事实 + 三元组存储 (架构文档 §3.2.2)。
-
-流程:
-1. parse_messages → 文本
-2. LLM complete(FACT_EXTRACTION_PROMPT) → {"facts": [...]}
-3. normalize_facts (处理 str/dict 变体)
-4. fact → 三元组 (简单规则解析, 避免二次 LLM)
-5. 存为 SemanticFact (subject/predicate/object) + verbatim memory (向量检索)
-"""
+"""cognify 抽取流水线。"""
 
 from __future__ import annotations
 
@@ -55,10 +47,7 @@ def parse_messages(messages: Any) -> str:
 
 
 def normalize_facts(raw_facts: list[Any]) -> list[str]:
-    """归一化 facts。
-
-    处理 str / {"fact": ...} / {"text": ...} 变体。
-    """
+    """归一化 facts。"""
     if not raw_facts:
         return []
     normalized: list[str] = []
@@ -77,15 +66,7 @@ def normalize_facts(raw_facts: list[Any]) -> list[str]:
 
 
 def fact_to_triple(fact: str, user_id: str) -> tuple[str, str, str]:
-    """简单规则解析 fact → (subject, predicate, object)。
-
-    避免二次 LLM 调用。模式:
-    - "Name is X" → (user_id, "name", X)
-    - "Likes X" → (user_id, "likes", X)
-    - "Is a X" → (user_id, "occupation", X)
-    - "Dislikes X" → (user_id, "dislikes", X)
-    - 默认 → (user_id, "fact", fact)
-    """
+    """简单规则解析 fact → (subject, predicate, object)。"""
     f = fact.strip()
     low = f.lower()
 
@@ -117,10 +98,7 @@ class Decision:
 
 
 class FactExtractor:
-    """cognify 抽取流水线 (架构文档 §3.2.2)。
-
-    依赖注入 LLM + Embedder + stores, 便于测试 (注入 MockLLM)。
-    """
+    """cognify 抽取流水线。"""
 
     def __init__(
         self,
@@ -143,12 +121,7 @@ class FactExtractor:
     def extract_facts(
         self, messages: Any, existing_memories: list[dict[str, Any]] | None = None
     ) -> list[str]:
-        """LLM 抽取 fact 字符串列表。
-
-        Args:
-            messages: 消息文本或列表
-            existing_memories: 已有记忆列表 (注入 prompt 避免重复抽取, None=纯抽取模式)
-        """
+        """LLM 抽取 fact 字符串列表。"""
         text = parse_messages(messages)
         if not text.strip():
             return []
@@ -167,10 +140,7 @@ class FactExtractor:
         existing_memories: list[dict[str, Any]] | None = None,
         last_k_messages: list[dict] | None = None,
     ) -> list[Decision]:
-        """LLM 决策抽取, 返回带 event 的决策列表 (对齐 mem0 ADDITIVE).
-
-        解析失败降级为空列表 (不阻塞业务).
-        """
+        """LLM 决策抽取, 返回带 event 的决策列表。"""
         text = parse_messages(messages)
         if not text.strip():
             return []
@@ -184,10 +154,7 @@ class FactExtractor:
 
     @staticmethod
     def _parse_decisions_response(raw: str) -> list[Decision]:
-        """解析 LLM 决策输出为 Decision 列表, 容错降级.
-
-        向后兼容: 纯字符串 fact (无 event 字段, 如 MockLLM/旧 prompt 输出) 视为 ADD 决策.
-        """
+        """解析 LLM 决策输出为 Decision 列表。"""
         cleaned = re.sub(r"^```[a-zA-Z0-9]*\n|\n```$", "", raw.strip())
         try:
             data = json.loads(cleaned)
@@ -226,10 +193,7 @@ class FactExtractor:
     def _retrieve_existing(
         self, text: str, user_id: str, top_k: int = 10
     ) -> list[dict[str, Any]]:
-        """检索已有记忆 (Phase 1, 避免重复抽取, 对齐 mem0 V3)。
-
-        无 verbatim_store 时返回空列表 (降级为纯抽取模式)。
-        """
+        """检索已有记忆。"""
         if self.verbatim_store is None:
             return []
         try:
@@ -243,7 +207,7 @@ class FactExtractor:
             return []
 
     def _get_last_k_messages(self, user_id: str, limit: int = 5) -> list[dict]:
-        """取近期 episodic 事件作为对话上下文 (降级: 无 episodic_store 返回空)."""
+        """取近期 episodic 事件作为对话上下文。"""
         if self.episodic_store is None:
             return []
         try:
@@ -260,13 +224,7 @@ class FactExtractor:
         provenance: str = "inferred",
         extra_metadata: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        """完整 cognify 流水线: 检索已有 → 抽取 → 路由.
-
-        use_decision=True 且有 LLM: 走决策路由 (ADD/UPDATE/DELETE/NOOP).
-        否则: 旧纯 ADD 路径 (extract_facts → add_fact).
-
-        extra_metadata: 透传给 verbatim store 的额外 metadata (expiration_date/attributed_to 等).
-        """
+        """完整 cognify 流水线。"""
         text = parse_messages(messages)
 
         # 无决策模式降级: 旧纯 ADD 路径
@@ -333,7 +291,7 @@ class FactExtractor:
     def _legacy_extract_and_store(
         self, text: str, user_id: str, provenance: str, *, extra_metadata: dict[str, Any] | None = None
     ) -> list[dict[str, Any]]:
-        """旧纯 ADD 路径 (无决策模式降级用)."""
+        """旧纯 ADD 路径。"""
         existing = self._retrieve_existing(text, user_id)
         facts = self.extract_facts(text, existing_memories=existing)
         results: list[dict[str, Any]] = []

@@ -11,11 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""MySQLFulltextIndex — MySQL 全文检索 (FULLTEXT INDEX + MATCH AGAINST)。
-
-有 MySQL 方言时: 用 FULLTEXT INDEX + MATCH...AGAINST, 性能远超 Python TF。
-无 MySQL 时: 降级为 SQLAlchemyKeywordIndex (Python 侧 TF), 日志警告。
-"""
+"""MySQL 全文检索索引 (FULLTEXT + MATCH AGAINST)。"""
 
 from __future__ import annotations
 
@@ -31,15 +27,7 @@ logger = get_logger(__name__)
 
 
 class MySQLFulltextIndex(KeywordIndexBase):
-    """MySQL 全文检索索引 (有 MySQL 方言用 FULLTEXT, 无则降级)。
-
-    用法:
-        from sqlalchemy import create_engine
-        engine = create_engine("mysql+pymysql://user:pass@host/db")
-        idx = MySQLFulltextIndex(engine)
-        idx.add_docs({"m1": "hello world"})
-        results = idx.retrieve("hello", limit=5)
-    """
+    """MySQL 全文检索索引。"""
 
     def __init__(self, engine: Engine) -> None:
         self._engine = engine

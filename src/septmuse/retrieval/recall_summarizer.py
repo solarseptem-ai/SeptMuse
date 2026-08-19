@@ -23,39 +23,33 @@ _SUMMARY_USER_TEMPLATE = "记忆条目：\n{items}\n\n请压缩为一段摘要�
 
 
 class RecallSummarizer:
-    """压缩记忆列表为摘要。
+    """压缩记忆列表为摘要。memories 在 summarize() 时传入，支持依赖注入。"""
 
-    Args:
-        memories: recall 返回的记忆列表，每个 dict 有 memory/score 字段
-        llm: LLM 实例（可选，None 时降级为拼接）
-    """
-
-    def __init__(self, memories: list[dict[str, Any]], llm: LLM | None = None) -> None:
-        self._memories = memories
+    def __init__(self, llm: LLM | None = None) -> None:
         self._llm = llm
 
-    def summarize(self) -> str:
+    def summarize(self, memories: list[dict[str, Any]]) -> str:
         """返回摘要字符串。空记忆返回空字符串。"""
-        if not self._memories:
+        if not memories:
             return ""
 
         if self._llm is not None:
-            return self._summarize_with_llm()
-        return self._summarize_fallback()
+            return self._summarize_with_llm(memories)
+        return self._summarize_fallback(memories)
 
-    def _summarize_with_llm(self) -> str:
-        items = "\n".join(f"- {m.get('memory', '')}" for m in self._memories)
+    def _summarize_with_llm(self, memories: list[dict[str, Any]]) -> str:
+        items = "\n".join(f"- {m.get('memory', '')}" for m in memories)
         user_prompt = _SUMMARY_USER_TEMPLATE.format(items=items)
         try:
             result = self._llm.complete(_SUMMARY_SYSTEM_PROMPT, user_prompt)
-            logger.debug("recall_summary_llm_done", memories=len(self._memories), length=len(result))
+            logger.debug("recall_summary_llm_done", memories=len(memories), length=len(result))
             return result
         except Exception as e:
             logger.warning("recall_summary_llm_failed", error=str(e), fallback="concat")
-            return self._summarize_fallback()
+            return self._summarize_fallback(memories)
 
-    def _summarize_fallback(self) -> str:
-        sorted_memories = sorted(self._memories, key=lambda m: m.get("score", 0.0), reverse=True)
+    def _summarize_fallback(self, memories: list[dict[str, Any]]) -> str:
+        sorted_memories = sorted(memories, key=lambda m: m.get("score", 0.0), reverse=True)
         top = sorted_memories[:_TOP_N_FALLBACK]
         texts = [m.get("memory", "") for m in top]
         joined = " ".join(texts)

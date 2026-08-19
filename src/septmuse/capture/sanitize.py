@@ -11,21 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-r"""隐私脱敏 — 内容级 PII/secrets 脱敏 (架构文档 §5.3, 借鉴 Agent Memory 隐私过滤)。
-
-mem0 仅有 config 级敏感字段保护 (main.py:_is_sensitive_field), 不做内容脱敏。
-SeptMuse 增量: 在 hook 捕获流水线中对记忆文本做 regex 脱敏。
-
-支持模式:
-- API keys: sk-..., AKIA..., ghp_..., gho_..., xoxb-..., ...
-- Bearer tokens: Bearer eyJ...
-- 密码赋值: password=..., pwd=..., passwd=...
-- 密钥赋值: secret=..., api_key=..., access_key=..., token=...
-- 信用卡号: \d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}
-- SSN: \d{3}-\d{2}-\d{4}
-
-详见 docs/specs/agent-memory-architecture.md §5.3 治理。
-"""
+"""隐私脱敏 — 内容级 PII/secrets 脱敏。"""
 
 from __future__ import annotations
 
@@ -60,15 +46,7 @@ DEFAULT_PATTERNS: dict[str, tuple[str, str]] = {
 
 
 class PrivacyFilter:
-    """隐私脱敏器 (架构文档 §5.3, 借鉴 Agent Memory 隐私过滤)。
-
-    用法:
-        pf = PrivacyFilter()
-        cleaned = pf.redact("my api key is sk-abc123...")
-
-    自定义模式:
-        pf = PrivacyFilter(patterns={"my_pattern": (r"MY-[0-9]+", "[REDACTED]")})
-    """
+    """隐私脱敏器。"""
 
     def __init__(
         self,
@@ -80,11 +58,7 @@ class PrivacyFilter:
             self._compiled.append((re.compile(pat), repl, name))
 
     def redact(self, text: str) -> str:
-        """对文本做脱敏, 返回替换后的文本。
-
-        逐模式扫描, 命中即替换为占位符。多模式叠加 (一个 secret 可能被多模式匹配,
-        但占位符不再匹配后续模式)。
-        """
+        """对文本做脱敏，返回替换后的文本。"""
         if not text:
             return text
         result = text

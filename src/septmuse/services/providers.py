@@ -1,13 +1,10 @@
-"""ServiceProvider — 能力后端容器, 按需 import + 实例化。
-
-resolve() 延迟 import 后端模块, 仅在首次调用时加载。
-is_available() 用 importlib.util.find_spec 检查依赖, 不 import 后端模块本身。
-"""
+"""ServiceProvider — 能力后端容器，按需 import + 实例化。"""
 
 from __future__ import annotations
 
 import importlib
 import importlib.util
+import inspect
 from typing import Any, Generic, TypeVar
 
 from septmuse.services.registry import _DEFAULTS, BACKEND_MANIFEST, BackendEntry
@@ -16,11 +13,7 @@ T = TypeVar("T")
 
 
 class ServiceProvider(Generic[T]):
-    """能力后端容器。绑定一个能力, 持有该能力的 manifest 子集和代码默认值。
-
-    所有实例化延迟到 resolve() 调用时: 先按 backend 查 manifest, 再 import 模块,
-    最后用 config/kwargs 实例化。类对象缓存到 _class_cache 避免重复 import。
-    """
+    """能力后端容器。"""
 
     def __init__(self, capability: str, manifest: dict[str, BackendEntry], default: str) -> None:
         self._capability = capability
@@ -29,11 +22,7 @@ class ServiceProvider(Generic[T]):
         self._class_cache: dict[str, type] = {}
 
     def resolve(self, backend: str | None = None, *, config: Any | None = None, **kwargs) -> T | None:
-        """解析后端 -> 按需 import -> 实例化。
-
-        backend=None 用代码默认; 空串返回 None (llm 默认不创建);
-        none 后端 (cls 为空) 也返回 None; 未知 backend 抛 ValueError。
-        """
+        """解析后端 -> 按需 import -> 实例化。"""
         # 1. 确定后端名: None 用代码默认
         if backend is None:
             backend = self._default
@@ -51,10 +40,10 @@ class ServiceProvider(Generic[T]):
         cls = self._import_class(entry.module, entry.cls)
         # 6. 处理 config -> kwargs
         if config is not None:
-            cfg_kwargs = self._config_to_kwargs(config, entry)
+            cfg_kwargs = self._config_to_kwargs(config, entry, cls)
             cfg_kwargs.update(kwargs)
             kwargs = cfg_kwargs
-        elif entry.config_cls is None and not kwargs:
+        elif entry.config_cls is None and not kwargs and self._capability == "search_recipe":
             # search_recipe: get_recipe(name=...) 等无 config 类的函数式后端
             kwargs = {"name": backend}
         # 7. 实例化
@@ -92,22 +81,26 @@ class ServiceProvider(Generic[T]):
         return cls
 
     @staticmethod
-    def _config_to_kwargs(config: Any, entry: BackendEntry) -> dict:
-        """从 config 对象提取实例化参数，剥离 backend 元数据字段。"""
-        if entry.config_cls is None:
-            # 无 config 类: pydantic 对象走 model_dump, 否则当 name 传
-            if hasattr(config, "model_dump"):
-                result = config.model_dump()
-            else:
-                return {"name": config}
-        elif hasattr(config, "model_dump"):
+    def _config_to_kwargs(config: Any, entry: BackendEntry, cls: type | None = None) -> dict:
+        """从 config 对象提取实例化参数，剥离 backend 元数据字段，并过滤掉目标类不接受的参数。"""
+        if hasattr(config, "model_dump"):
             result = config.model_dump(exclude_none=True)
         elif isinstance(config, dict):
             result = dict(config)
+        elif isinstance(config, str):
+            return {"name": config}
         else:
             return {}
         # backend 是配置元数据（标识用哪个后端），不是构造器参数，剥离
         result.pop("backend", None)
+        # 过滤掉目标类 __init__ 不接受的参数（避免 config 泛化字段误传）
+        if cls is not None:
+            try:
+                sig = inspect.signature(cls.__init__)
+                valid = set(sig.parameters.keys()) - {"self"}
+                result = {k: v for k, v in result.items() if k in valid}
+            except (ValueError, TypeError):
+                pass
         return result
 
 
@@ -115,15 +108,9 @@ class ServiceProvider(Generic[T]):
 vector_store_provider: ServiceProvider = ServiceProvider(
     "vector_store", BACKEND_MANIFEST["vector_store"], _DEFAULTS["vector_store"]
 )
-embedder_provider: ServiceProvider = ServiceProvider(
-    "embedder", BACKEND_MANIFEST["embedder"], _DEFAULTS["embedder"]
-)
-llm_provider: ServiceProvider = ServiceProvider(
-    "llm", BACKEND_MANIFEST["llm"], _DEFAULTS["llm"]
-)
-reranker_provider: ServiceProvider = ServiceProvider(
-    "reranker", BACKEND_MANIFEST["reranker"], _DEFAULTS["reranker"]
-)
+embedder_provider: ServiceProvider = ServiceProvider("embedder", BACKEND_MANIFEST["embedder"], _DEFAULTS["embedder"])
+llm_provider: ServiceProvider = ServiceProvider("llm", BACKEND_MANIFEST["llm"], _DEFAULTS["llm"])
+reranker_provider: ServiceProvider = ServiceProvider("reranker", BACKEND_MANIFEST["reranker"], _DEFAULTS["reranker"])
 entity_extractor_provider: ServiceProvider = ServiceProvider(
     "entity_extractor", BACKEND_MANIFEST["entity_extractor"], _DEFAULTS["entity_extractor"]
 )

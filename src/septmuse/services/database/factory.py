@@ -11,13 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""DatabaseServiceFactory — 数据库服务工厂。
-
-用法:
-    factory = DatabaseServiceFactory()
-    svc = factory.create(config)
-    engine = svc.get_engine()
-"""
+"""DatabaseServiceFactory — 数据库服务工厂。"""
 
 from __future__ import annotations
 

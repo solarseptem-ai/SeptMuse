@@ -18,7 +18,7 @@ from sqlmodel import Session, SQLModel, select
 from septmuse.core.logging import get_logger
 from septmuse.embedders.base import Embedder
 from septmuse.extraction.entity import Entity, _normalize_entity_text
-from septmuse.services.database.models.entity import EntityTable
+from septmuse.services.database.models.entity import EntityRelationTable, EntityTable
 
 logger = get_logger(__name__)
 
@@ -35,6 +35,7 @@ class EntityStore:
         """从 SQLAlchemy Engine 构造 (ORMMemoryStore 路径, SQLModel ORM)。
 
         用 Session(engine) + EntityTable ORM 操作。
+        create_all 幂等: ORMMemoryStore 已建表时为 no-op, 独立使用时建表。
         """
         store = cls.__new__(cls)
         store._engine = engine
@@ -387,6 +388,65 @@ class EntityStore:
             return None
         n = len(blob) // 4
         return list(struct.unpack(f"{n}f", blob))
+
+    def store_relation(
+        self,
+        source: str,
+        relation: str,
+        target: str,
+        *,
+        user_id: str,
+        memory_id: str | None = None,
+    ) -> str:
+        """存储实体间关系边 (幂等, UNIQUE 约束防重)。"""
+        with Session(self._engine) as session:
+            existing = session.exec(
+                select(EntityRelationTable).where(
+                    EntityRelationTable.source_entity == source,
+                    EntityRelationTable.relation == relation,
+                    EntityRelationTable.target_entity == target,
+                    EntityRelationTable.user_id == user_id,
+                )
+            ).first()
+            if existing is not None:
+                return existing.id
+            rel_id = str(uuid.uuid4())
+            now = datetime.now(timezone.utc).isoformat()
+            row = EntityRelationTable(
+                id=rel_id,
+                source_entity=source,
+                relation=relation,
+                target_entity=target,
+                user_id=user_id,
+                memory_id=memory_id,
+                created_at=now,
+            )
+            session.add(row)
+            session.commit()
+            return rel_id
+
+    def get_neighbors(self, entity: str, *, user_id: str) -> list[dict[str, Any]]:
+        """获取实体的邻居 (双向: outgoing + incoming)。"""
+        neighbors: list[dict[str, Any]] = []
+        with Session(self._engine) as session:
+            outgoing = session.exec(
+                select(EntityRelationTable).where(
+                    EntityRelationTable.source_entity == entity,
+                    EntityRelationTable.user_id == user_id,
+                )
+            ).all()
+            for r in outgoing:
+                neighbors.append({"entity": r.target_entity, "relation": r.relation, "direction": "outgoing"})
+
+            incoming = session.exec(
+                select(EntityRelationTable).where(
+                    EntityRelationTable.target_entity == entity,
+                    EntityRelationTable.user_id == user_id,
+                )
+            ).all()
+            for r in incoming:
+                neighbors.append({"entity": r.source_entity, "relation": r.relation, "direction": "incoming"})
+        return neighbors
 
     def search(self, query: str, *, user_id: str, top_k: int = 5) -> list[dict[str, Any]]:
         """搜索实体: 精确匹配 + 向量相似度 (embedder 有时)。

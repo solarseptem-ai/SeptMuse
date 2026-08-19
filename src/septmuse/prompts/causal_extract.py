@@ -11,11 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""因果抽取提示 — LLM 从事件序列识别因果关系 (架构文档 §6.1 自研)。
-
-在 cognify 流水线增加 extract_causal_edges 阶段,
-LLM 从事件序列中识别因果, 输出结构化因果边。
-"""
+"""因果抽取提示 — LLM 从事件序列识别因果关系。"""
 
 from __future__ import annotations
 
@@ -34,11 +30,7 @@ Return a JSON array of causal edges. If no causal relationships exist, return an
 
 
 def build_causal_extraction_message(events: list[dict]) -> str:
-    """构建因果抽取的 user message (事件序列)。
-
-    Args:
-        events: 事件列表, 每个含 id, content, observation, action, result
-    """
+    """构建因果抽取的 user message。"""
     lines = ["Analyze these events for causal relationships:\n"]
     for i, e in enumerate(events, 1):
         lines.append(f"Event {i} (id={e.get('id', '?')}):")

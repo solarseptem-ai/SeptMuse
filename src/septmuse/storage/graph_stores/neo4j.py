@@ -11,11 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Neo4j 图存储后端 — extras=[neo4j] 可选实现。
-
-借鉴 graphiti graphiti_core/driver/driver.py 的 GraphDriver 模式,
-简化为 SeptMuse GraphStore 6 方法 (add_edge/get_edges/get_neighbors/has_edge/delete_edge/close)。
-"""
+"""Neo4j 图存储后端 — extras=[neo4j] 可选实现。"""
 
 from __future__ import annotations
 

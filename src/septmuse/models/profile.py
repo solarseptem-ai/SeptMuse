@@ -11,11 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""用户画像数据模型 — 从 SemanticFact 聚合的结构化画像.
-
-时态适配: SemanticFact 无 valid_at/invalid_at 双时态列 (只有 is_deleted + touch() 更新 updated_at).
-画像的"当前有效"= is_deleted=False, "最新"= updated_at 最新.
-"""
+"""用户画像数据模型。"""
 
 from __future__ import annotations
 
@@ -24,7 +20,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class UserProfileValue:
-    """画像单值 (一个 predicate 的当前/历史值)."""
+    """画像单值。"""
 
     value: str
     confidence: float = 1.0
@@ -35,12 +31,7 @@ class UserProfileValue:
 
 @dataclass
 class UserProfile:
-    """用户结构化画像 (从 SemanticFact 聚合).
-
-    attributes/preferences/relationships: dict[predicate -> UserProfileValue] (同 predicate 只留一个, current 优先).
-    plans: list[UserProfileValue] (可多值).
-    raw_facts: 未分类 predicate 的兜底列表.
-    """
+    """用户结构化画像。"""
 
     user_id: str
     attributes: dict[str, UserProfileValue] = field(default_factory=dict)

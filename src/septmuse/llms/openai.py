@@ -11,17 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""OpenAI LLM provider。
-
-对齐 septmuse.llms.base.LLM ABC,
-调用 OpenAI Chat Completions API。
-
-用法:
-    llm = OpenAILLM(api_key="sk-...", model="gpt-4o")
-    response = llm.complete(system_prompt, user_prompt)
-
-零配置: 从环境变量 OPENAI_API_KEY 读取 key。
-"""
+"""OpenAI LLM provider。"""
 
 from __future__ import annotations
 
@@ -35,11 +25,7 @@ logger = get_logger(__name__)
 
 
 class OpenAILLM(LLM):
-    """OpenAI Chat Completions provider。
-
-    零配置: 从 OPENAI_API_KEY 环境变量读取。
-    自定义: OpenAILLM(api_key="sk-...", model="gpt-4o")。
-    """
+    """OpenAI Chat Completions provider。"""
 
     provider_name = "openai"
 
@@ -71,10 +57,7 @@ class OpenAILLM(LLM):
         logger.info("openai_llm_ready", model=model, base_url=resolved_base_url or "default")
 
     def _complete(self, system_prompt: str, user_prompt: str) -> str:
-        """调用 OpenAI Chat Completions (对齐 LLM ABC)。
-
-        优先非流式调用，失败时自动降级到流式（兼容 Dify 等平台要求 enable_thinking=false 的 bug）。
-        """
+        """调用 OpenAI Chat Completions。"""
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},

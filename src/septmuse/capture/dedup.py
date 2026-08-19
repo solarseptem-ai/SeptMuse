@@ -1,10 +1,4 @@
-"""SemanticDeduplicator — 写入前查语义相似。
-
-用 query embedding 检索 top-5 已有记忆。
-cosine > 0.92 → 判定重复 → UPDATE 不新增。
-LLM 可用：0.85-0.92 灰色地带 LLM 判定。
-LLM 不可用：只走 0.92 硬阈值。
-"""
+"""语义去重。"""
 
 from __future__ import annotations
 
@@ -38,13 +32,7 @@ class DedupResult:
 
 
 class SemanticDeduplicator:
-    """语义去重。
-
-    Args:
-        embedder: Embedder 实例
-        store: MemoryStore 实例
-        llm: LLM 实例（可选，灰色地带判定）
-    """
+    """语义去重。"""
 
     def __init__(self, embedder: Embedder, store: MemoryStore, llm: LLM | None = None) -> None:
         self._embedder = embedder

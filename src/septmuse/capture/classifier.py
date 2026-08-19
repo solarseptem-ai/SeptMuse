@@ -1,8 +1,4 @@
-"""MemoryClassifier — 自动判定记忆类型。
-
-LLM 可用：prompt 分类（事实陈述/情节事件/操作步骤/用户偏好）。
-LLM 不可用：关键词决策树。一条记忆可同时属于多个类型（双存）。
-"""
+"""自动判定记忆类型。"""
 
 from __future__ import annotations
 
@@ -26,11 +22,7 @@ _PREF_PATTERN = re.compile(r"喜欢|偏好|总是|习惯|讨厌|爱吃|爱喝|�
 
 
 class MemoryClassifier:
-    """自动判定记忆类型。
-
-    Args:
-        llm: LLM 实例（可选，None 时用规则）
-    """
+    """自动判定记忆类型。"""
 
     def __init__(self, llm: LLM | None = None) -> None:
         self._llm = llm

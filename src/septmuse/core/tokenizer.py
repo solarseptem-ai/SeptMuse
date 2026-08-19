@@ -11,19 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""统一分词模块 — jieba 中文分词 + 正则降级。
-
-jieba 可用时 (pip install jieba): 中文按词切分
-  "我喜欢编程" → ["我", "喜欢", "编程"]          ← 语义完整
-  "Alice的工作经历" → ["alice", "的", "工作", "经历"]
-
-jieba 不可用时: 降级到正则按字切分 (行为不变, 中文按单字)
-  "我喜欢编程" → ["我", "喜", "欢", "编", "程"]  ← 语义碎片化
-
-SEPTMUSE_TOKENIZER=space 强制正则分词 (禁用 jieba)。
-SEPTMUSE_TOKENIZER=jieba 强制 jieba (不可用时降级)。
-默认: 自动检测, jieba 可用就用 jieba。
-"""
+"""统一分词模块 — jieba 中文分词 + 正则降级。"""
 
 from __future__ import annotations
 
